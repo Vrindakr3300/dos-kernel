@@ -444,12 +444,134 @@ def active_plan_source_names(*, _stderr=None) -> list[str]:
     return [name for name, _src in active_plan_sources(_stderr=_stderr)]
 
 
-def default_rows(config: object, *, _stderr=None) -> list[PlanRow]:
-    """The plan view's default row set: the built-in markdown source, run fail-safe.
+# ---------------------------------------------------------------------------
+# The `[plan]` data attachment (docs/293) — WHICH source a workspace reads by
+# default, declared in dos.toml. The seam owns its table (the `stamp.py`
+# precedent: `[stamp]` is read by stamp.load_from_toml, not scattered through
+# consumers); the read happens at the plan_board.snapshot BOUNDARY, the same
+# place the projection's other reads live — deliberately NOT a SubstrateConfig
+# field (config.py is in the kernel's own T1 runtime set; see docs/293's
+# status-note revision).
+# ---------------------------------------------------------------------------
 
-    The one call `plan_board.snapshot` makes when no explicit source/phase list was
-    given. Kept here (not in `plan_board`) so the "which source is the default" decision
-    lives with the seam, and so a future change to compose MULTIPLE active sources is a
-    one-line edit here rather than in the projection.
+
+def load_plan_source_name_from_toml(
+    path: "Path | str", *, base_name: str = MarkdownPlanSource.name,
+) -> str:
+    """Read a `dos.toml`'s `[plan]` table → the declared plan-source name.
+
+    One key, mirroring `[overlap] policy`:
+
+        [plan]
+        source = "design-docs"   # "markdown" (built-in) or a dos.plan_sources name
+
+    Returns ``base_name`` when the file is absent, has no `[plan]` table, names
+    no ``source``, or `tomllib` is unavailable — the declarative path is purely
+    additive, a workspace that declares nothing is byte-identical to today. A
+    *present but malformed* table RAISES ``ValueError`` (an unknown key, a
+    non-string / empty ``source``) — a host that declared its dialect wrong wants
+    that surfaced, not a silent fall-through to a different harvester. Whether
+    the NAME resolves is deliberately not checked here: resolution is entry-point
+    I/O, done at the call boundary (`default_source`), where an unresolvable
+    declared name fails to EMPTY.
     """
-    return run_plan_source(MarkdownPlanSource(), config)
+    p = Path(path)
+    if not p.exists():
+        return base_name
+    try:
+        import tomllib  # py3.11+
+    except ModuleNotFoundError:  # pragma: no cover - py<3.11 fallback
+        try:
+            import tomli as tomllib  # type: ignore
+        except ModuleNotFoundError:
+            return base_name
+    # `utf-8-sig` strips a UTF-8 BOM (PowerShell's default `utf8` writes one) —
+    # the same tolerance `stamp.load_from_toml` / `config._load_toml_table` carry.
+    data = tomllib.loads(p.read_text(encoding="utf-8-sig"))
+    table = data.get("plan")
+    if table is None:
+        return base_name
+    if not isinstance(table, dict):
+        raise ValueError(f"[plan] must be a table, got {type(table).__name__}")
+    allowed = {"source"}
+    unknown = set(table) - allowed
+    if unknown:
+        raise ValueError(
+            f"unknown [plan] key(s): {', '.join(sorted(unknown))} "
+            f"(allowed: {', '.join(sorted(allowed))})"
+        )
+    if "source" not in table:
+        return base_name
+    raw = table["source"]
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"[plan] source must be a non-empty string, got {raw!r}")
+    return raw.strip()
+
+
+def declared_source_name(config: object, *, _stderr=None) -> str:
+    """The plan-source name THIS workspace declares, warn-and-fall-back on a fault.
+
+    Boundary I/O (reads ``<root>/dos.toml``), so it is called from `default_source`
+    / a CLI surface, never inside a harvest. A malformed `[plan]` table (including
+    an unparseable dos.toml — `TOMLDecodeError` is a `ValueError`) gets the
+    config-layer posture: one stderr line, then the built-in default — a broken
+    declaration must not crash a read-only board. An unreadable file degrades
+    silently (the absent-file shape).
+    """
+    root = getattr(config, "root", None)
+    if root is None:
+        root = getattr(getattr(config, "paths", None), "root", None)
+    if root is None:
+        return MarkdownPlanSource.name
+    try:
+        return load_plan_source_name_from_toml(Path(root) / "dos.toml")
+    except ValueError as e:
+        stderr = _stderr if _stderr is not None else sys.stderr
+        print(f"warning: ignoring malformed [plan] in dos.toml: {e}", file=stderr)
+        return MarkdownPlanSource.name
+    except OSError:
+        return MarkdownPlanSource.name
+
+
+def default_source(config: object, *, _stderr=None) -> "tuple[str, PlanSource | None]":
+    """The ``(name, source)`` a plan view reads when nothing was asked explicitly.
+
+    The "which source is the default" decision, kept with the seam: the declared
+    `[plan] source` when the workspace names one, else the built-in `markdown`.
+    A declared name that does not RESOLVE (plugin not installed, a typo) returns
+    ``(name, None)`` with a one-line stderr note — the caller renders no rows
+    (**fail-to-empty**), never a silently substituted harvester: the workspace
+    asked for a specific dialect, and showing another source's rows under that
+    label is exactly the unannounced substitution `resolve_plan_source` refuses.
+    """
+    name = declared_source_name(config, _stderr=_stderr)
+    if name == MarkdownPlanSource.name:
+        return name, MarkdownPlanSource()
+    try:
+        return name, resolve_plan_source(name, _stderr=_stderr)
+    except ValueError as e:
+        stderr = _stderr if _stderr is not None else sys.stderr
+        print(
+            f"warning: declared plan source {name!r} did not resolve ({e}); "
+            f"the plan view shows no rows (fail-to-empty)",
+            file=stderr,
+        )
+        return name, None
+
+
+def default_rows(config: object, *, _stderr=None) -> list[PlanRow]:
+    """The plan view's default row set: the DECLARED source (else the built-in
+    markdown), run fail-safe.
+
+    The one call `plan_board.snapshot`'s default branch makes when no explicit
+    source/phase list was given — `default_source` picks, `run_plan_source`
+    enforces fail-to-empty, and an unresolvable declared name contributes
+    nothing. Kept here (not in `plan_board`) so the "which source is the
+    default" decision lives with the seam, and so a future change to compose
+    MULTIPLE active sources is a one-line edit here rather than in the
+    projection.
+    """
+    _name, src = default_source(config, _stderr=_stderr)
+    if src is None:
+        return []
+    return run_plan_source(src, config)

@@ -92,3 +92,12 @@ audits_keep_last = 30          # keep the newest 30 trajectory-audit reports (th
                                     # built-ins. [] means only an explicit `--loop` arms it.
 # respect_stop_hook_active = true   # honor Claude Code's own infinite-loop backstop —
                                     # never re-block a stop it is ALREADY continuing.
+
+# Which plan-dialect source `dos plan` reads by default (docs/293). This repo's
+# plans are prose design docs — `## Phase N — …` / `### GHF1 — …` headings, status
+# in a `> **Status:**` sentence — which the strict built-in `markdown` harvester
+# deliberately under-harvests (the Run-A empty case). The declared dialect is the
+# dos.plan_sources driver shipped for exactly this convention; an explicit
+# `dos plan --source NAME` still overrides it at the call boundary.
+[plan]
+source = "design-docs"

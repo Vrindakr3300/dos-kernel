@@ -22,8 +22,10 @@ it stores nothing, mutates nothing, acquires no lease, launches no agent. Every 
 a pure function over an in-memory payload; the only I/O is `snapshot()` at the boundary,
 which reads three already-persisted sources and freezes them:
 
-    rows      <- plan_source.default_rows(cfg)   (the declared markdown source, or a
-                                                  plugin, or an explicit phase list)
+    rows      <- plan_source.default_source(cfg) (the dos.toml-declared source —
+                                                  `[plan] source`, docs/293 — else the
+                                                  built-in markdown; or an explicit
+                                                  phase list / --source override)
     oracle    <- oracle.is_shipped(plan, phase)  (the verdict — the WHOLE point)
     leases    <- lane_journal.replay(...)        (which phase's lane a live lease holds)
     decisions <- decisions.collect_decisions(..) (which phase's lane a gate blocks)
@@ -323,7 +325,9 @@ def snapshot(
       * an explicit ``rows`` list (the CLI's phase-list escape hatch / a test) wins;
       * else a named source (``source_name``, resolved through `plan_source`), run
         fail-safe;
-      * else the default markdown source (`plan_source.default_rows`).
+      * else the workspace's DECLARED source (`dos.toml [plan] source`, docs/293),
+        else the built-in markdown — both via `plan_source.default_source`; a
+        declared name that does not resolve renders no rows (fail-to-empty).
 
     ``verify`` defaults to the live `oracle.is_shipped` bound to this workspace; tests
     inject a fake. Every reader degrades to empty on a missing/torn source, so this
@@ -350,7 +354,12 @@ def snapshot(
         except ValueError:
             plan_rows = []
     else:
-        plan_rows = _plan_source.default_rows(cfg)
+        # The declared-or-builtin default (docs/293). The label carries the
+        # DECLARED name even when it failed to resolve (rows then stay empty) —
+        # the header/JSON must say which source the workspace asked for, not
+        # silently relabel the floor as `markdown`.
+        src_label, src = _plan_source.default_source(cfg)
+        plan_rows = _plan_source.run_plan_source(src, cfg) if src is not None else []
 
     # --- the oracle verdict per row (the whole point) -------------------------
     if verify is None:

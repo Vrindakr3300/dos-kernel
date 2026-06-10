@@ -19,7 +19,10 @@ exercise the installed package metadata — the load-bearing wiring itself.
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
+
+import pytest
 
 from dos import plan_source as PS
 from dos.config import default_config
@@ -258,3 +261,121 @@ class TestResolution:
 
     def test_does_not_shadow_the_builtin(self):
         assert isinstance(PS.resolve_plan_source("markdown"), PS.MarkdownPlanSource)
+
+
+# ---------------------------------------------------------------------------
+# The `[plan]` data seam (docs/293 Phase 2) — the declared default source.
+# The grammar lives with the seam (plan_source.py, the stamp.py precedent);
+# the read happens at the snapshot boundary, NOT as a SubstrateConfig field.
+# ---------------------------------------------------------------------------
+
+
+def _ws(tmp_path: Path, toml: str | None, plan_doc: str | None = None):
+    """A tmp workspace: optional dos.toml + optional prose plan doc, cfg built over it."""
+    if toml is not None:
+        (tmp_path / "dos.toml").write_text(toml, encoding="utf-8")
+    if plan_doc is not None:
+        docs = tmp_path / "docs"
+        docs.mkdir(parents=True, exist_ok=True)
+        (docs / "7_seam-plan.md").write_text(plan_doc, encoding="utf-8")
+    return default_config(tmp_path)
+
+
+class TestPlanTableLoader:
+    def test_absent_file_inherits_base(self, tmp_path: Path):
+        assert PS.load_plan_source_name_from_toml(tmp_path / "dos.toml") == "markdown"
+
+    def test_absent_table_inherits_base(self, tmp_path: Path):
+        (tmp_path / "dos.toml").write_text('workspace = "."\n', encoding="utf-8")
+        assert PS.load_plan_source_name_from_toml(tmp_path / "dos.toml") == "markdown"
+
+    def test_declared_source_is_read(self, tmp_path: Path):
+        (tmp_path / "dos.toml").write_text(
+            '[plan]\nsource = "design-docs"\n', encoding="utf-8")
+        assert PS.load_plan_source_name_from_toml(tmp_path / "dos.toml") == "design-docs"
+
+    def test_unknown_key_fails_loud(self, tmp_path: Path):
+        (tmp_path / "dos.toml").write_text(
+            '[plan]\nsources = "typo"\n', encoding="utf-8")
+        with pytest.raises(ValueError, match=r"unknown \[plan\] key"):
+            PS.load_plan_source_name_from_toml(tmp_path / "dos.toml")
+
+    def test_non_string_or_empty_source_fails_loud(self, tmp_path: Path):
+        for bad in ("source = 3", 'source = ""'):
+            (tmp_path / "dos.toml").write_text(f"[plan]\n{bad}\n", encoding="utf-8")
+            with pytest.raises(ValueError, match=r"\[plan\] source"):
+                PS.load_plan_source_name_from_toml(tmp_path / "dos.toml")
+
+
+class TestDeclaredSourceName:
+    def test_reads_the_workspace_declaration(self, tmp_path: Path):
+        cfg = _ws(tmp_path, '[plan]\nsource = "design-docs"\n')
+        assert PS.declared_source_name(cfg) == "design-docs"
+
+    def test_no_declaration_is_the_builtin(self, tmp_path: Path):
+        cfg = _ws(tmp_path, None)
+        assert PS.declared_source_name(cfg) == "markdown"
+
+    def test_malformed_table_warns_and_falls_back(self, tmp_path: Path):
+        cfg = _ws(tmp_path, "[plan]\nbogus = 1\n")
+        err = io.StringIO()
+        assert PS.declared_source_name(cfg, _stderr=err) == "markdown"
+        assert "malformed [plan]" in err.getvalue()
+
+
+class TestDefaultSourceResolution:
+    def test_declared_dialect_resolves(self, tmp_path: Path):
+        cfg = _ws(tmp_path, '[plan]\nsource = "design-docs"\n')
+        name, src = PS.default_source(cfg)
+        assert name == "design-docs"
+        assert isinstance(src, DDP.DesignDocPlanSource)
+
+    def test_unresolvable_declared_name_fails_to_empty(self, tmp_path: Path):
+        """The declared-but-not-installed case: the board renders NO rows under the
+        declared label — never a silently substituted markdown harvest."""
+        cfg = _ws(tmp_path, '[plan]\nsource = "no-such-dialect"\n')
+        err = io.StringIO()
+        name, src = PS.default_source(cfg, _stderr=err)
+        assert (name, src) == ("no-such-dialect", None)
+        assert "did not resolve" in err.getvalue()
+        assert PS.default_rows(cfg, _stderr=io.StringIO()) == []
+
+    def test_default_rows_reads_the_declared_dialect(self, tmp_path: Path):
+        cfg = _ws(tmp_path, '[plan]\nsource = "design-docs"\n',
+                  plan_doc="## Phase 1 — the seam\n")
+        assert [(r.plan, r.phase) for r in PS.default_rows(cfg)] == [
+            ("docs/7_seam-plan", "Phase 1")]
+
+
+class TestSnapshotIntegration:
+    def test_bare_snapshot_reads_the_declared_source(self, tmp_path: Path):
+        """The goal's headline, in miniature: a workspace declaring [plan] source
+        gets real rows from a bare snapshot (no --source, no explicit phases), the
+        frame labelled with the DECLARED source."""
+        from dos import plan_board as PB
+        cfg = _ws(tmp_path, '[plan]\nsource = "design-docs"\n',
+                  plan_doc="## Phase 1 — the seam — ✅ SHIPPED\n## Phase 2 — the rail\n")
+        frame = PB.snapshot(cfg, verify=lambda p, ph: False)
+        assert frame.plan_source == "design-docs"
+        assert [(p.plan, p.phase) for p in frame.phases] == [
+            ("docs/7_seam-plan", "Phase 1"), ("docs/7_seam-plan", "Phase 2")]
+        # The claim-vs-oracle cell: claimed-shipped + oracle-no = the over-claim
+        # headline; claimed-open + oracle-no = pending.
+        assert frame.phases[0].divergence == PB.DIV_OVERCLAIM
+        assert frame.phases[1].divergence == PB.DIV_PENDING
+
+    def test_explicit_source_flag_overrides_the_declaration(self, tmp_path: Path):
+        from dos import plan_board as PB
+        cfg = _ws(tmp_path, '[plan]\nsource = "design-docs"\n',
+                  plan_doc="## Phase 1 — prose the builtin under-harvests\n")
+        frame = PB.snapshot(cfg, verify=lambda p, ph: False, source_name="markdown")
+        assert frame.plan_source == "markdown"
+        assert frame.phases == ()  # the strict builtin reads no prose row
+
+    def test_unresolvable_declaration_degrades_to_the_no_plan_floor(self, tmp_path: Path):
+        from dos import plan_board as PB
+        cfg = _ws(tmp_path, '[plan]\nsource = "no-such-dialect"\n',
+                  plan_doc="## Phase 1 — rows that must NOT appear\n")
+        frame = PB.snapshot(cfg, verify=lambda p, ph: False)
+        assert frame.plan_source == "no-such-dialect"  # the header says what was asked
+        assert frame.phases == ()
