@@ -28,6 +28,7 @@ The kernel is internally cohesive. The enforced line is **no host, no I/O policy
 - `judge_eval` → `judges`
 - `intent_ledger` → `durable_schema` / `run_id`
 - `resume` → `intent_ledger`
+- `reward` → `effect_witness` → `evidence` → `log_source`
 
 ## The temporal-verdict family (`liveness` and its siblings)
 
@@ -90,6 +91,38 @@ I/O *at all* (it bans the clock `liveness` still reads): the strongest
 no-plan/no-telemetry floor of any verdict. Advisory: the natural consumer is a
 `loop_decide` DIMINISHING_RETURNS rung (stop-when-unproductive, not stop-after-N) or
 a WARN-before-BLOCK nudge; the verdict reports the *rate*, never the *quality*.
+
+### `efficiency`
+`productivity`'s **lateral sibling** (docs/263): the same pure-verdict shape
+re-aimed from a *trend* onto a **ratio** — `classify(EfficiencyEvidence,
+EfficiencyPolicy) -> EfficiencyVerdict` (EFFICIENT/COSTLY/WASTEFUL) over
+`work / tokens`. It answers the loop-economics question the other two can't:
+`liveness` says whether state moved, `productivity` whether the per-step rate is
+fading; neither relates the work to its **price**, and a run can pass both while
+burning ten times the tokens its work was worth. Byte-clean by construction
+(docs/138): both counts are env-authored — the work is what git or the test
+runner witnessed, the tokens are what the provider billed — so a run cannot
+narrate its way to EFFICIENT. WASTEFUL (zero work, meaningful spend) is
+unit-independent and always armed; COSTLY sits behind a host-armed `floor`
+(default 0.0 = disabled), so a unit mismatch never manufactures a false COSTLY.
+Timeless like `productivity` — `classify` makes no I/O at all. Advisory.
+
+### `noop_streak`
+The **wait-marker budget, generalized** (docs/259 §Follow-up 1).
+`loop_decide.wait_marker_budget` counts ONE flavor of no-op turn (the `claude -p`
+keep-alive marker); this verdict counts the general case — *turns in a row that
+paid a full context replay and moved zero ground truth* — so a wakeup-poll loop
+that re-reads an output file in a tight tick is the SAME pathology under the same
+count-vs-cap verdict. Sits in the temporal family: pure, count-in/verdict-out,
+no I/O.
+
+### `marker_sensor`
+The wait-marker axis's **boundary I/O** (the temporal family's `posttool_sensor`
+analogue): the pure budget verdict needs a count, but the Stop event a host hands
+us carries none — so this leaf keeps the per-session tally
+(`.dos/markers/<sid>.jsonl`) across the many short-lived hook invocations of one
+session and feeds the number to the pure core. I/O at the boundary, data to the
+verdict — never inside it.
 
 ## The recovery / durability family
 
@@ -221,6 +254,98 @@ raise into a non-delivered `NotifyResult` (a notification is advisory telemetry)
 while a *resolve* of an unknown name still raises (config-time operator error).
 Advisory floor (docs/99): it READS a projection → push; takes no lease, stops no run
 — a LIVENESS-halt field CARRIES the paste-to-stop command but never enacts it.
+
+### `hook_dialect`
+The pure-protocol + by-name-resolver pattern on the **OUTPUT side** (docs/217):
+DOS computes ONE dialect-neutral hook decision and renders it into the exact JSON
+the host runtime parses. The seam holds only the neutral pieces — `HookVerdict` +
+`parse_cc` + the `HookDialect` Protocol + `resolve_dialect` + the ONE unshadowable
+built-in `ClaudeCodeDialect` (byte-for-byte what the sensors already emit, the
+`AbstainJudge` analogue). Every OTHER renderer names its vendor as code, so it
+lives in `dos.drivers.hook_dialects` and registers through the
+`dos.hook_dialects` entry-point group. The load-bearing direction: a dialect is
+OUTPUT chosen by `--dialect`, strictly downstream of an already-decided verdict —
+no kernel adjudication can branch on which vendor is acting. Pinned by
+`tests/test_vendor_agnostic_kernel.py` (AST-level: no non-driver kernel module
+names a vendor) + `tests/test_hook_dialect.py`.
+
+## The witness family (docs/121 → 181 → 230/234)
+
+One thesis at three scales: **a belief bit may only be set by bytes the claimant
+did not author.** `evidence` is the seam, `effect_witness` the runtime join,
+`reward` the training-set gate — and two kin aim the same split elsewhere:
+`commit_audit` at any git repo's history, `improve` at a self-improving loop's
+keep decision.
+
+### `evidence`
+**Axis 8 of hackability** (docs/121 §5): the pluggable witness-population seam.
+`verify()` ships the witness for exactly one class of effect — a commit, read
+from git — and is blind to every other (an email sent, a payment made, a deploy
+shipped). For those the accountable witness is the **counterparty that received
+the effect**: the registry's JSON, the provider's sent-log, the OS exit code.
+This leaf is the pure seam such a witness plugs into — the proven apparatus
+(Protocol + frozen value types + unshadowable built-in + by-name resolver over an
+entry-point group + fail-safe runner) with the `overlap_policy` floor discipline;
+every witnessing source with real I/O surface is a driver. Imports
+`log_source.Accountability` — who authored the bytes is part of the verdict.
+
+### `effect_witness`
+The **result-state witness** (docs/181) — *did the world actually change the way
+the agent claimed?* Every in-trajectory detector reads a distress shape the
+agent's own bytes co-author, and a competent model fails them silently (docs/177:
+83.3% of frontier fails leave no in-trace signal). This leaf reads the other
+thing: an **out-of-trajectory read-back of world state**, authored by a witness
+the agent did not control, JOINed against the extracted claim. The verdict is a
+join of two independently-authored facts — never a re-read of the claim against
+itself (the mirror-verifier trap: consistency is not grounding). The field
+shipped three shapes of this in early 2026 (Agent-Diff, VAGEN, Tool Receipts,
+docs/180); this is the domain-free, deterministic, floor-disciplined version,
+built on `evidence`'s apparatus.
+
+### `reward`
+`effect_witness`'s **lab-facing consumer** (docs/230/234): `admit(claim_present,
+readbacks) -> ACCEPT / REJECT_POISON / ABSTAIN / NO_CLAIM` — may a fine-tune
+TRAIN on this trajectory? A self-judged rejection sampler banks every "resolved"
+claim as a positive label, which trains the policy to over-claim MORE; this
+filter purges that poison (the REFUTED "resolved" is the dispreferred DPO
+member). The property a lab pays for is the **non-distillable label**: the
+accept bit is a pure function of witness bytes the agent authored zero of, so no
+answer text can move it reject→accept — a forgeable read-back is structurally
+ignored (`believe_under_floor`). PURE, no I/O; the claim extractor and the
+witness are the host's.
+
+### `commit_audit`
+The byte-author≠claimant split aimed at a **single commit**: the subject is
+authored by whoever wrote the message (forgeable); the files the commit touched
+are authored by the commit machinery (not). So the verdict is **author-neutral**
+— a human's `fix:` touching only a README fails it exactly as an agent's
+`--allow-empty "phase shipped"` does. PURE
+(`classify(CommitClaim, DiffFacts, policy) -> ClaimVerdict`; the git read happens
+at the CLI boundary), and unlike `oracle.is_shipped` it needs **no plan, no
+phase, no DOS vocabulary** — the universal zero-config form of the floor, a
+`git log` audit any repo can run. It grades the relationship between the claim's
+KIND and the diff's SHAPE, never correctness (the Wall-3 line): it fires
+CLAIM_UNWITNESSED only where a concrete code/test claim and a contradicting diff
+coexist, and ABSTAINs on the uncheckable (`wip`, `merge`, doc claims on doc
+diffs). Advisory; `--sweep` reports a range's DRIFT RATE. This repo's own ritual
+runs it as the out-of-loop honesty witness (CLAUDE.md step 6).
+
+### `improve`
+The **self-improving-loop keep-gate** (docs/280): `reward.admit` re-aimed from a
+training-set admission to a commit-KEEP admission — the kernel leaf of the
+propose→verify→measure→keep-or-revert cycle, closing its one fatal hole (the
+loop grading its own homework). `classify(CandidateEvidence, policy) ->
+KEEP / REVERT / ESCALATE` over four env-authored facts (suite exit on the
+candidate-only tree, truth-syscall cleanliness, metric before/after) plus the
+carried breaker count. KEEP iff suite green AND truth clean AND a STRICT
+env-measured metric gain AND not WASTEFUL; a regression is the non-negotiable
+conjunctive floor → REVERT; a safe no-op → REVERT; N non-keeps in a row →
+ESCALATE to a human (the RSI human-judgment bottleneck as a kernel rule). The
+`narrated` string is carried for the operator and parsed for NOTHING — the only
+path to KEEP is to actually move the metric. A true leaf: it imports neither
+`efficiency` nor `breaker` — their verdicts arrive as DATA in the evidence, and
+the worktree-isolated propose→gather→classify→actuate engine is a driver
+(`dos.drivers.self_improve`).
 
 ## The Claude-Code-audit family (docs/189 lifts)
 
