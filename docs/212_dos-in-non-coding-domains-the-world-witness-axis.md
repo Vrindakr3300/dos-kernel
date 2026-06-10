@@ -408,8 +408,8 @@ of the git rungs, is where "world verification in non-coding domains" actually p
 ---
 
 *Companion strategy framing (who buys this, how it positions against the
-"domain-verifiability" and tool-receipt vendors) belongs in `dos-strategy`, not here
+"domain-verifiability" and tool-receipt vendors) belongs in `dos-private`, not here
 — this is the mechanism note. See [[project-dos-two-product-fleet-and-kernel]] for
 the product split.*
 
-> **Part of the four-doc "beyond code" arc — index + synthesis in [docs/222](https://github.com/anthony-chaudhary/dos-strategy/blob/master/222_beyond-code-the-domain-and-grounding-exploration-index.md). Forward in the arc: [docs/213](https://github.com/anthony-chaudhary/dos-strategy/blob/master/213_dos-in-regulated-domains-legal-healthcare-life-science.md) (regulated domains), [docs/215](https://github.com/anthony-chaudhary/dos-strategy/blob/master/215_dos-is-not-rag-grounding-the-generation-vs-grounding-the-verdict.md) (RAG vs DOS grounding), [docs/220](https://github.com/anthony-chaudhary/dos-strategy/blob/master/220_why-the-grounding-insight-was-hard-to-see.md) (why it was hard to see). _(This arc relocated to the `dos-strategy` repo; docs/212 stays here as the engineering anchor.)_**
+> **Part of the four-doc "beyond code" arc — index + synthesis in [docs/222](https://github.com/anthony-chaudhary/dos-private/blob/master/222_beyond-code-the-domain-and-grounding-exploration-index.md). Forward in the arc: [docs/213](https://github.com/anthony-chaudhary/dos-private/blob/master/213_dos-in-regulated-domains-legal-healthcare-life-science.md) (regulated domains), [docs/215](https://github.com/anthony-chaudhary/dos-private/blob/master/215_dos-is-not-rag-grounding-the-generation-vs-grounding-the-verdict.md) (RAG vs DOS grounding), [docs/220](https://github.com/anthony-chaudhary/dos-private/blob/master/220_why-the-grounding-insight-was-hard-to-see.md) (why it was hard to see). _(This arc relocated to the `dos-private` repo; docs/212 stays here as the engineering anchor.)_**

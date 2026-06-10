@@ -34,9 +34,9 @@ reconnection adjudication). §8 steelmans the objection that a device should car
 no kernel at all. Nothing here is built; the litmus tests in §9 are the gates.
 
 The positioning half — *why edge/unattended is a market a trust kernel should
-own, and who buys it* — is a [`dos-strategy`](../../dos-strategy) concern and is
+own, and who buys it* — is a [`dos-private`](../../dos-private) concern and is
 deliberately not argued here (CLAUDE.md: how-a-module-behaves → `dos/docs`;
-why-it-matters → `dos-strategy`). This is the mechanism half.
+why-it-matters → `dos-private`). This is the mechanism half.
 
 ---
 
@@ -626,4 +626,4 @@ where the kernel's single job, not believing the agents, is worth the most.**
 - [`75_state-home-plan.md`](75_state-home-plan.md) — `PathLayout` + projection-not-sync (the §6 `DurableLog` precedent).
 
 *External validation (June 2026):*
-- `dos-strategy/dispatch-os-aaa-agent-trust-landscape-2026-06` — an adversarially-verified sweep of recent AAA-team work mapped onto these laws. Corroborates the distrust axiom with field numbers (AnalysisBench self-validated 98% vs verified 6%; Factor(U,T) plan-monitor AUROC 0.52 vs implementation 0.96; AgentLeak output-only audits miss 41.7%); confirms on-device edge attestation as a real rung (AgenTEE, Arm-RMM-signed tokens). Two honest exposures it surfaces: (a) the **effect-witness half this note proposes is unclaimed *and unproven*** — every external verifier witnesses code execution / a consensus proof / the runtime, never a non-code counterparty receipt; (b) **DOS is behind on in-band prevention** — Microsoft's Agent Governance Toolkit (a shipped fail-closed PDP+PEP with a kill switch) and the DTF paper both *prevent* the act at admission, where this note's machinery only witnesses afterward.
+- `dos-private/dispatch-os-aaa-agent-trust-landscape-2026-06` — an adversarially-verified sweep of recent AAA-team work mapped onto these laws. Corroborates the distrust axiom with field numbers (AnalysisBench self-validated 98% vs verified 6%; Factor(U,T) plan-monitor AUROC 0.52 vs implementation 0.96; AgentLeak output-only audits miss 41.7%); confirms on-device edge attestation as a real rung (AgenTEE, Arm-RMM-signed tokens). Two honest exposures it surfaces: (a) the **effect-witness half this note proposes is unclaimed *and unproven*** — every external verifier witnesses code execution / a consensus proof / the runtime, never a non-code counterparty receipt; (b) **DOS is behind on in-band prevention** — Microsoft's Agent Governance Toolkit (a shipped fail-closed PDP+PEP with a kill switch) and the DTF paper both *prevent* the act at admission, where this note's machinery only witnesses afterward.

@@ -14,7 +14,7 @@
 > when the verdict refuses. Same verdicts; now binding.
 >
 > **Lineage.** The enforcement half of the security program in
-> `dos-strategy/dispatch-os-security-10x-100x.md` (§2 names the gap five ways, §5 is
+> `dos-private/dispatch-os-security-10x-100x.md` (§2 names the gap five ways, §5 is
 > this build). docs/125 (trifecta color) ships a *detector* verdict that this gate
 > makes *bind* (its Phase 4). docs/119 (the claim) already wants a `dos`-mediated
 > apply for a *different* reason (region-without-a-name); this doc is the

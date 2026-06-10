@@ -45,10 +45,10 @@
 > kernel's existing notary engine.
 >
 > **Lineage.** The **WHY** is strategy, and this plan does not restate it — it points
-> to it. `../dos-strategy/dispatch-os-the-notary-for-agent-work.md` §6 names
+> to it. `../dos-private/dispatch-os-the-notary-for-agent-work.md` §6 names
 > `dos_attest` as *the one concrete build the notary frame demands* (and §1 / §7.1 is
 > the honest-scope ceiling, §7.2 the evidentiary-not-legal limit);
-> `../dos-strategy/dispatch-os-national-security.md` §3 is the provenance/custody rung
+> `../dos-private/dispatch-os-national-security.md` §3 is the provenance/custody rung
 > — *"chain of custody is the byte-author ≠ agent doctrine, renamed,"* and *"the buyer
 > of attestation is never the actor — it is the future skeptic"* — and its §6 step 1
 > sequences this as the **first** accreditation move, the place FIPS-validated crypto
@@ -60,8 +60,8 @@
 > clearance lattice), docs/248 (instruction provenance) — each a `docs/NN` plan
 > delivering the HOW for a build a strategy doc named. The accreditation/control-
 > mapping plan that this receipt is the cryptographic on-ramp for (FIPS path, NIST SP
-> 800-53 AU-/SI- mapping, an ATO sequence) is its sibling **[docs/249](https://github.com/anthony-chaudhary/dos-strategy/blob/master/249_the-accreditation-surface-mapping-the-verdicts-to-controls.md)** (national-
-> security §6 steps 2–4; now in the `dos-strategy` repo — later `docs/249` mentions
+> 800-53 AU-/SI- mapping, an ATO sequence) is its sibling **[docs/249](https://github.com/anthony-chaudhary/dos-private/blob/master/249_the-accreditation-surface-mapping-the-verdicts-to-controls.md)** (national-
+> security §6 steps 2–4; now in the `dos-private` repo — later `docs/249` mentions
 > here refer to it there); §3.3 below references it.
 
 ---

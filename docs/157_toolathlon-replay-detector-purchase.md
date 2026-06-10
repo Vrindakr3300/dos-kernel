@@ -32,7 +32,7 @@ produces a LIFT number — the move that makes this publishable) has a ready-to-
 `benchmark/toolathlon/HANDOFF.md`.** See that file.
 
 **Lineage / cross-index.** This doc is the engineering companion to the strategy-side
-[`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md)
+[`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md)
 (Toolathlon is the concrete external benchmark its abstract syscall→RL map targets). It
 inherits the detector doctrine from `docs/143` (arg_provenance, the −9pp WARN-only lesson),
 `docs/144` (the intervention ladder), `docs/145` (`tool_stream`, the mint-independent loop

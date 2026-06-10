@@ -29,7 +29,7 @@ repo's claim), [`104`](104_externalizing-the-house-style-verdict.md) (the
 external-evidence discipline: a verdict computed with the same pen that wrote the
 claim proves nothing), and [`108`](108_the-cheap-lie-and-the-narration-taxonomy.md)
 (the cheap "all work completed" line a binary always-accusing badge would mirror).
-Its non-engineering twin lives one repo out: `dos-strategy/dispatch-os-iconicity.md`
+Its non-engineering twin lives one repo out: `dos-private/dispatch-os-iconicity.md`
 move #7 ("`dos-verify` GitHub Action — constitutionally three-state … Gated AFTER
 PyPI") and the §4 **kill-list** that bars a binary, always-accusing Action. This note
 is the *mechanism*; that doc is the *positioning*.
@@ -350,7 +350,7 @@ and never paints a colour for a state it did not adjudicate. The badge asserts
   badge value.
 - [`108_the-cheap-lie-and-the-narration-taxonomy.md`](108_the-cheap-lie-and-the-narration-taxonomy.md) —
   the "all work completed" line a binary always-accusing badge would mirror.
-- `dos-strategy/dispatch-os-iconicity.md` — move #7 (the three-state GitHub Action,
+- `dos-private/dispatch-os-iconicity.md` — move #7 (the three-state GitHub Action,
   gated after PyPI) + the §4 kill-list ("a binary, always-accusing GitHub Action … only
   the three-state version survives").
 - [`examples/playbooks/cookbook-ci-integration.md`](../examples/playbooks/cookbook-ci-integration.md)

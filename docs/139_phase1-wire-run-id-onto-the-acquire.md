@@ -6,7 +6,7 @@
 > `dos lease-lane acquire --run-id` / `heartbeat` verbs exist). All Phase-1 work is
 > **host-side producer wiring** in `job` + one regression test here. This doc is the
 > *buildable* companion to docs/118 (the attribution-join it makes fire) and the
-> Phase-1 anchor of the strategy arc `dos-strategy/dispatch-os-self-healing-observability.md`.
+> Phase-1 anchor of the strategy arc `dos-private/dispatch-os-self-healing-observability.md`.
 > Cross-refs: docs/118 (the postmortem/attribution join), docs/137 (the trace
 > spine + cross-surface join — the `run_id` source), docs/82/99 (liveness — the
 > verdict that becomes attributable once the hold carries an id).

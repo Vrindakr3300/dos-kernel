@@ -4,8 +4,8 @@
 > collided with `231_maintaining-not-improving-the-decay-prevention-charter` (the decay
 > charter, which landed first as the 221→231 rename) and was renumbered to **250** (a brief
 > intermediate 238 also collided — the doc-number space was being grabbed in real time). This
-> is the RLVR Payoff-2 thread (the lab fork: docs/216 §5 → docs/230 → 234 → this); [docs/231](https://github.com/anthony-chaudhary/dos-strategy/blob/master/231_maintaining-not-improving-the-decay-prevention-charter.md) is
-> the decay-prevention charter, a different thread (relocated to the `dos-strategy` repo).
+> is the RLVR Payoff-2 thread (the lab fork: docs/216 §5 → docs/230 → 234 → this); [docs/231](https://github.com/anthony-chaudhary/dos-private/blob/master/231_maintaining-not-improving-the-decay-prevention-charter.md) is
+> the decay-prevention charter, a different thread (relocated to the `dos-private` repo).
 
 > **One sentence.** docs/230 showed an env-grounded reward label *purges* the over-claims a
 > naive RLVR loop would bank (label quality, ΔP +40 pp); this doc builds the arm docs/230 §5

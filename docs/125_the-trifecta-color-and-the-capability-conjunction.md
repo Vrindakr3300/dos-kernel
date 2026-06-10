@@ -16,7 +16,7 @@
 > kernel already wrote, replay-tests, and trusts. No model call.
 >
 > **Lineage.** This is the cheapest Phase-1 payload of the security-PEP program in
-> `dos-strategy/dispatch-os-security-10x-100x.md` (§4.1, §5). It is the *detection*
+> `dos-private/dispatch-os-security-10x-100x.md` (§4.1, §5). It is the *detection*
 > half (a typed refuse over a capability conjunction); the *enforcement* half — making
 > that refuse **bind** by gating the capability grant at a mediated write moment — is
 > docs/126 (the apply-gate / mediated-write PEP) and is explicitly out of scope here.

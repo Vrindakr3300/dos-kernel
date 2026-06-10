@@ -1,7 +1,7 @@
 # 105 — The reason-class recognizer is a rung ladder, not an exact-match table
 
 > Found by running Arm A of the supervision-ratio proof
-> (`dos-strategy/dispatch-os-proving-the-supervision-ratio.md` §3.1) against
+> (`dos-private/dispatch-os-proving-the-supervision-ratio.md` §3.1) against
 > `job`'s real dispatch corpus, 2026-06-02. The plumbing half of the oracle's
 > blind spot is fixed (commit `5de7e28`); **this is the design for the deeper
 > half** — and the reason not to fix it the obvious two ways.

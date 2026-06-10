@@ -6,7 +6,7 @@ bug it surfaced (§4) is now **fixed + regression-tested** in the same session
 (`TestRedirectReasonHonesty`, `arbiter.py` `_redirect_why`).
 **Origin:** Operator — *"think about how to get more information to make this more
 general not just house style."* The "this" is the audit verdict in
-`dos-strategy/dispatch-os-symbolic-adjudication-tier.md` (§1): that ~70% of the DOS
+`dos-private/dispatch-os-symbolic-adjudication-tier.md` (§1): that ~70% of the DOS
 strategy corpus is *house style* (OS-metaphor inflation, ritual steelmanning,
 coinage density, a self-citation lattice) and ~30% is the durable invariant (the
 "symbolic adjudication tier"). This note is the answer to *how to generalize that
@@ -261,7 +261,7 @@ repo, and keeping only what they let you keep.*
 
 ## See also
 
-- `dos-strategy/dispatch-os-symbolic-adjudication-tier.md` — the verdict this note
+- `dos-private/dispatch-os-symbolic-adjudication-tier.md` — the verdict this note
   externalizes (its §1 audit, §2.2–2.3 novelty legs, §6.3 vendor-neutral defense are
   the claims tested above).
 - `docs/103_memory-is-an-unverified-agent.md` — the same move (re-verify frozen

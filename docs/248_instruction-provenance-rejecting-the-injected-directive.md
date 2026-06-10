@@ -24,12 +24,12 @@
 > directive**, not a color on a capability (the docs/125 line, §2 below).
 >
 > **Lineage.** The *why* is strategy, pointed-to not restated:
-> [`../dos-strategy/dispatch-os-national-security.md`](../dos-strategy/dispatch-os-national-security.md)
+> [`../dos-private/dispatch-os-national-security.md`](../dos-private/dispatch-os-national-security.md)
 > §3.2 (the agent supply-chain: *injected instructions* as the agent-era version of
 > SLSA/signed-provenance — "provenance of the instructions an agent acted on, not just
 > the code it ran") and §4 (the adversarial threat model: ASI01 goal-hijack / prompt
 > injection / instruction hijack, the row whose remedy is named as *this* plane), and
-> [`../dos-strategy/dispatch-os-security-10x-100x.md`](../dos-strategy/dispatch-os-security-10x-100x.md)
+> [`../dos-private/dispatch-os-security-10x-100x.md`](../dos-private/dispatch-os-security-10x-100x.md)
 > §4.2 (which names *"`verify()` grows a provenance sibling"* and identifies
 > `log_source`'s accountability tag as **the prototype already in the tree**, with the
 > inversion law carrying over *verbatim*). The *how* is shipped kernel code:

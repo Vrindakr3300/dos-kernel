@@ -81,4 +81,4 @@ The `dos_status` MCP tool in `src/dos_mcp/` — the zero-Python-coupling adoptio
 - `docs/116_the-durable-commons-and-the-constrained-a2a-problem.md` §5 — where the surface was specced (fold four reads into one A2A fact).
 - `src/dos/status.py` + `tests/test_status_digest.py` — the shipped Phase 1.
 - `src/dos/cli.py:872` (`cmd_liveness`) — the boundary-gather pattern to copy.
-- Strategy (in `dos-strategy`): `dispatch-os-big-tech-adoption.md` §4 (threshold-crossing surface), `dispatch-os-the-durable-commons-for-a-fleet.md` §5 (the not-yet-legible commons this closes).
+- Strategy (in `dos-private`): `dispatch-os-big-tech-adoption.md` §4 (threshold-crossing surface), `dispatch-os-the-durable-commons-for-a-fleet.md` §5 (the not-yet-legible commons this closes).

@@ -31,7 +31,7 @@ detail. §5 is the determinism rulebook the Go side must follow. §6 is the buil
 ship/test mechanics. §7 is the risk register, corrected. Nothing here is built.
 
 This is the mechanism half; *why* an edge trust kernel is a market stays in
-[`dos-strategy`](../../dos-strategy) (CLAUDE.md split).
+[`dos-private`](../../dos-private) (CLAUDE.md split).
 
 ---
 

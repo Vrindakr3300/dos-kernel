@@ -57,7 +57,7 @@ DOS realities:
    Google AQ access token; the OpenAI-compat shim rejects it ("Missing or invalid Authorization
    header" — it wants a Bearer key). The native endpoint with `x-goog-api-key` works. Thinking
    budget is model-aware: flash bounds it; `-pro`/`gemini-3` OMIT it (a 0 budget is fatal —
-   "Budget 0 is invalid. This model only works in thinking mode," the [docs/231](https://github.com/anthony-chaudhary/dos-strategy/blob/master/231_maintaining-not-improving-the-decay-prevention-charter.md) lesson, now in `dos-strategy`).
+   "Budget 0 is invalid. This model only works in thinking mode," the [docs/231](https://github.com/anthony-chaudhary/dos-private/blob/master/231_maintaining-not-improving-the-decay-prevention-charter.md) lesson, now in `dos-private`).
 
 Per task: `init_env(templateService, templateName=seed_template, impersonateUserId)` →
 `start_run(envId)` → ReAct loop (`<action>python</action>` | `<done>summary</done>`) →

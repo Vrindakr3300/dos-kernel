@@ -412,5 +412,5 @@ bounds "faster"), [`149`](149_the-real-failure-distribution-sorts-the-priorities
 [`151`](151_intervention-ladder-live-study.md) /
 [`152`](152_the-first-natural-lift-experiment-dangling-intent-conversion.md) (the
 measured nulls — the falsifier). The positioning angle (faster as the gen-2→gen-3
-trajectory) is mechanism-grounded here but argued for adoption in **dos-strategy** →
+trajectory) is mechanism-grounded here but argued for adoption in **dos-private** →
 the "faster closed loop" essay; nothing under `src/dos/` depends on it.

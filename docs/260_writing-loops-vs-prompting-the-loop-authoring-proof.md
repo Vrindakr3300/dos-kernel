@@ -251,7 +251,7 @@ working (the `project-dos-valueadd-single-agent-deltaB-negative` discipline):
 It is **not** a new syscall — `loop_decide` already exists and is the reference. It
 is **not** strategy — it argues *how a kernel module beats the prompting
 alternative and how to measure that*, which is an engineering design plan (→
-`dos/docs/`, per CLAUDE.md's litmus), not a why-DOS-matters essay (→ `dos-strategy`).
+`dos/docs/`, per CLAUDE.md's litmus), not a why-DOS-matters essay (→ `dos-private`).
 It is the **missing head-to-head**: the docstring asserts "mechanical contract over
 prose," 101 tests prove the function is *correct in isolation*, and nothing yet
 shows it *beats prompting the same logic* — which is precisely the "write loops vs.

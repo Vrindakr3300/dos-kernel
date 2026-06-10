@@ -1,4 +1,4 @@
-"""N-axis probe v2 — the $0 horizon-keeper measurement (dos-strategy/dispatch-os-the-horizon-keeper-at-k-equals-one.md §8).
+"""N-axis probe v2 — the $0 horizon-keeper measurement (dos-private/dispatch-os-the-horizon-keeper-at-k-equals-one.md §8).
 
 Folds the REAL Claude Code session corpus (single-agent long-horizon traces, k=1
 by construction) through the SHIPPED `dos.productivity.classify`.

@@ -60,7 +60,7 @@ falsifier** and pins it as a test (`test_fleet_horizon.py:121-128`,
 **So:** DOS is a *fleet* technology. A single serial agent on a short horizon does not
 need a non-believing kernel arbitrating its lane — that is pure overhead. The value is a
 *plurality* phenomenon, which is why the protected seam is the cross-vendor conductor of
-many agents, not single-agent supervision (the two-product split, `dos-strategy`).
+many agents, not single-agent supervision (the two-product split, `dos-private`).
 **Citations:** `benchmark/fleet_horizon/{RESULTS.txt,harness.py,closed_loop.py,test_fleet_horizon.py}`.
 
 ---

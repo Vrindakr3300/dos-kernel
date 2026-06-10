@@ -72,7 +72,7 @@ on the hook seam, and the concrete first-ground mechanics (the Go module, the fl
 the fallback, the plugin wiring).
 
 The positioning half — *why a fast native trust kernel is a market* — stays in
-`dos-strategy` (CLAUDE.md split). This is the mechanism half.
+`dos-private` (CLAUDE.md split). This is the mechanism half.
 
 ---
 

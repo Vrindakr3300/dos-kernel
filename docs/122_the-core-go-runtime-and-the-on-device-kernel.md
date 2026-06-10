@@ -31,8 +31,8 @@ the litmus set. Nothing here is built; it composes two unbuilt plans into one
 buildable ordering.
 
 The positioning half — *why edge agents are a market a trust kernel should own* —
-stays in [`dos-strategy`](../../dos-strategy) (CLAUDE.md: how-a-module-behaves →
-`dos/docs`; why-it-matters → `dos-strategy`). This is the mechanism half.
+stays in [`dos-private`](../../dos-private) (CLAUDE.md: how-a-module-behaves →
+`dos/docs`; why-it-matters → `dos-private`). This is the mechanism half.
 
 ---
 

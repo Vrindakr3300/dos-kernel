@@ -280,7 +280,7 @@ line of kernel code is written.
   `fanout_state.py` 14× in single sessions, the heaviest session 178M
   cache-read tokens / 630 turns — and the host independently measured Step-0
   `acquire` re-parsing `execution-state.yaml` 4–5× under one lock (36–61s
-  lock-wait). That is a **host telemetry/caching** problem ([docs/128](https://github.com/anthony-chaudhary/dos-strategy/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md), in `dos-strategy`, names the
+  lock-wait). That is a **host telemetry/caching** problem ([docs/128](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md), in `dos-private`, names the
   context-re-payment lever; there is no kernel re-read sensor and this doc does
   not propose one — it would need a finer telemetry seam than the kernel owns).
   Noted here only so it is not conflated with the picker substrate above.

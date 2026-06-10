@@ -155,7 +155,7 @@ control docs/205 wished it had.
 a real (HEALTHY) deliverable under arm B within the retry budget? Secondary:
 end-to-end **synthesis completeness** (did the final synthesis see a full-quorum input
 vs. a silently-subbed one — `coverage` FULL vs. STARVED), and **cost** (the re-dispatch
-token spend vs. the value of the recovered work — the [docs/128](https://github.com/anthony-chaudhary/dos-strategy/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) spend frame, now in `dos-strategy`). The
+token spend vs. the value of the recovered work — the [docs/128](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) spend frame, now in `dos-private`). The
 metric is presence-of-deliverable, NOT correctness of it (§6).
 
 **The safe-consumer spec** (what arm B may and may not do):

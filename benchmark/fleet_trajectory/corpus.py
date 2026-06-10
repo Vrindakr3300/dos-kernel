@@ -40,7 +40,7 @@ DEFAULT_CORPUS = os.environ.get("DOS_TRAJECTORY_CORPUS") or _cc_project_dir(
 
 # The basename of the repo tree we judge — the single path COMPONENT that marks
 # "inside this repo". A session may also edit sibling repos whose directory name
-# merely STARTS WITH this token (../dos-concept-video, ../dos-strategy, ../dos-mcp
+# merely STARTS WITH this token (../dos-concept-video, ../dos-private, ../dos-mcp
 # as a SEPARATE checkout); those are NOT in the tree and must be excluded from
 # Track A's region intersection. Configurable so the benchmark is portable to any
 # clone location (it does not assume the author's `…/work/dos` layout): override
@@ -74,7 +74,7 @@ def in_dos_tree(norm_path: str, tree_root: str | None = None) -> bool:
     the neutral "dos") appears as a full path COMPONENT — i.e. `/<root>` followed
     by a `/` or the end of string. The component boundary is what rejects sibling
     repos whose directory name merely STARTS WITH the root: `…/dos/…` is in-tree,
-    but `…/dos-concept-video/…` / `…/dos-strategy/…` are NOT (the next char is a
+    but `…/dos-concept-video/…` / `…/dos-private/…` are NOT (the next char is a
     `-`, not a `/`). A nested `…/dos/src/dos_mcp/…` IS in-tree (the first `/dos`
     component matches before the `dos_mcp` leaf). `norm_path` is already
     forward-slash + lowercased by `_norm`."""
@@ -84,7 +84,7 @@ def in_dos_tree(norm_path: str, tree_root: str | None = None) -> bool:
     # Anchor on a path-component boundary on the LEFT (`/<root>`) and require a
     # boundary on the RIGHT (`/` or end). Scan every occurrence so a real
     # `/<root>/` later in the path still counts even if an earlier component is a
-    # sibling-prefix (`/dos-strategy/dos/…`). This is the byte-faithful
+    # sibling-prefix (`/dos-private/dos/…`). This is the byte-faithful
     # generalization of the old `work/dos` needle + boundary check, just sourced
     # from a configurable basename instead of the author's machine layout.
     needle = "/" + root
@@ -96,7 +96,7 @@ def in_dos_tree(norm_path: str, tree_root: str | None = None) -> bool:
         after = norm_path[idx + len(needle):]
         if after[:1] in ("", "/"):  # `/<root>` is a full component
             return True
-        start = idx + 1  # this was a longer dir name (e.g. `/dos-strategy`); keep scanning
+        start = idx + 1  # this was a longer dir name (e.g. `/dos-private`); keep scanning
 
 
 @dataclass

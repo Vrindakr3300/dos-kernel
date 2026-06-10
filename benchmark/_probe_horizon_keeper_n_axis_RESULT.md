@@ -1,7 +1,7 @@
 # N-axis probe — RESULT (2026-06-07)
 
 The $0 horizon-keeper measurement from
-`dos-strategy/dispatch-os-the-horizon-keeper-at-k-equals-one.md` §8, **run**.
+`dos-private/dispatch-os-the-horizon-keeper-at-k-equals-one.md` §8, **run**.
 Probe: `_probe_horizon_keeper_n_axis.py`. Imports the **shipped** `dos.productivity`
 (dogfood, not reimplemented). Read-only over the real Claude Code session corpus.
 

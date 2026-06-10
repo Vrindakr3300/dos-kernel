@@ -7,7 +7,7 @@
 > positioning docs. Every claim below carries a `file:line` anchor.
 
 This is an **engineering analysis** (mechanism-vs-mechanism + what to build), so
-it lives in `dos/docs/`, not `dos-strategy`. The one-way arrow holds: nothing in
+it lives in `dos/docs/`, not `dos-private`. The one-way arrow holds: nothing in
 `src/dos/` depends on AGT; this doc references AGT to sharpen DOS's design.
 
 It also **corrects a memory**: the docs/121 external sweep recorded "Microsoft

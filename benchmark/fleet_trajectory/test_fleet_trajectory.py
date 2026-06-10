@@ -35,7 +35,7 @@ def _ts(minute: int) -> dt.datetime:
 # default DOS_TREE_ROOT basename ("dos") under a generic parent. The benchmark no
 # longer assumes the author's local `…/work/dos` checkout; `/repo/dos` exercises the
 # SAME in-tree-vs-sibling discrimination (component `…/dos/…` is in-tree, a
-# sibling-prefix `…/dos-strategy/…` is not) without naming any real machine path.
+# sibling-prefix `…/dos-private/…` is not) without naming any real machine path.
 REPO = "/repo/dos"
 
 
@@ -94,7 +94,7 @@ def test_sibling_repo_paths_excluded_from_tree():
     # author's `…/work/dos…` paths used to, without naming a real machine.
     assert in_dos_tree(_norm("/repo/dos/src/dos/cli.py")) is True
     assert in_dos_tree(_norm("/repo/dos-concept-video/render.py")) is False
-    assert in_dos_tree(_norm("/repo/dos-strategy/readme.md")) is False
+    assert in_dos_tree(_norm("/repo/dos-private/readme.md")) is False
     # dos_mcp lives INSIDE the repo, stays in
     assert in_dos_tree(_norm("/repo/dos/src/dos_mcp/server.py")) is True
     # explicit tree_root override is honored (portability: any clone basename)

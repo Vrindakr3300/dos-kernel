@@ -16,9 +16,9 @@ named follow-up tier. **No new mechanism is invented here** — the contribution
 *fold* and its fail-closed *construction*, not a new thing to trust. The theory this
 plan executes is [`116`](116_the-durable-commons-and-the-constrained-a2a-problem.md)
 (the durable commons / constrained-A2A note, §5 "status as a folded fact"); the
-positioning sibling — *why a buyer wants this* — is `dos-strategy/dispatch-os-big-tech-adoption.md`
+positioning sibling — *why a buyer wants this* — is `dos-private/dispatch-os-big-tech-adoption.md`
 §4 (the surface that crosses the threshold "a CLI an engineer runs by hand" → "infra
-a platform team builds a panel on") and `dos-strategy/dispatch-os-the-durable-commons-for-a-fleet.md`
+a platform team builds a panel on") and `dos-private/dispatch-os-the-durable-commons-for-a-fleet.md`
 §5. One-way arrow: those docs reference this code; nothing here depends on them.
 
 ---
@@ -43,7 +43,7 @@ re-open the trust hole.
 > *unreachable*: the only fields it exposes are adjudicated, so a consumer cannot
 > pick a self-report even if it tries.
 
-This is the [`big-tech-adoption §4`](https://github.com/anthony-chaudhary/dos)
+This is the [`big-tech-adoption §4`](https://github.com/anthony-chaudhary/dos-private)
 threshold in mechanism terms. A platform/SRE team's recurring ask is *"give me one
 fact about this run I can trust and put on a dashboard."* Today the answer is "call
 these four functions and be careful which field you read," which is not a thing a team
@@ -193,7 +193,7 @@ fact on this repo (dogfood — the kernel reads its own commons).
 **Goal.** Expose the digest as an MCP tool so an MCP-speaking host (Claude Desktop,
 Cursor, Cline, an Agent-SDK app, an internal platform tool) can poll one run's
 adjudicated status with **zero Python coupling** — the
-[`big-tech-adoption §4`](https://github.com/anthony-chaudhary/dos) surface that enters
+[`big-tech-adoption §4`](https://github.com/anthony-chaudhary/dos-private) surface that enters
 a company that would never `pip install` the kernel. This is the same kernel/consumer
 split as the existing MCP tools ([`80`](80_mcp-server-surface.md)): the server
 `import dos`, nothing under `src/dos/` imports `dos_mcp`.
@@ -295,7 +295,7 @@ shipped — let the oracle, not the narration, close it.
 - [`115_the-under-what-axis-environment-and-version-provenance.md`](115_the-under-what-axis-environment-and-version-provenance.md)
   — the env-print the §7 follow-up folds in, and the `SCHEMA_UNREADABLE` structured-MCP-
   refusal precedent the Phase-3 fail-closed wire error follows.
-- `dos-strategy/dispatch-os-big-tech-adoption.md` §4 / `dispatch-os-the-durable-commons-for-a-fleet.md`
+- `dos-private/dispatch-os-big-tech-adoption.md` §4 / `dispatch-os-the-durable-commons-for-a-fleet.md`
   §5 — the positioning siblings (why a platform/SRE team wants this surface; the
   threshold from hand-run CLI to standardized infra). One-way arrow: those reference
   this code.

@@ -4,7 +4,7 @@ learned judge, under reward-hack pressure.
 E1 (`real_trajectory.py`) settled that the kernel's git verdict is a
 *non-distillable label* on real behavior: a flake is shape-identical to a landing,
 so only the git ancestry check separates them. E3 asks the next question — the one
-the whole RL-substrate thesis rests on (`dos-strategy/...agentic-rl.md` §2.1):
+the whole RL-substrate thesis rests on (`dos-private/...agentic-rl.md` §2.1):
 
     When the producer is OPTIMIZING AGAINST the verifier — empty commits with
     truthful-looking subjects, keyword-stuffed subjects, deleted assertions,

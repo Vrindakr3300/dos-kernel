@@ -3,7 +3,7 @@
 > **Status:** exploration agenda (no phase shipped). The residue of the
 > 2026-06-10 agent-view A/B that `docs/290` (the durable harness plan) does
 > *not* carry. Record: `docs/reports/2026-06-10_agent-view-ab.md`. The
-> positioning telling of the same episode is `dos-strategy/291_*` — this doc is
+> positioning telling of the same episode is `dos-private/291_*` — this doc is
 > the engineering side: each item names why it matters, the first cheap step,
 > and what "done" looks like.
 

@@ -22,7 +22,7 @@ stated in full, because it is the exact seam a lab reviewer finds first.
 
 This is a **mechanism + experiment-design** plan (a `docs/NN_*.md`), not strategy
 prose. The *why-DOS-matters-to-a-lab* positioning already lives in
-`dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md`; this doc
+`dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md`; this doc
 is the part that essay is missing — **the measurement that could come out the
 other way.**
 
@@ -744,7 +744,7 @@ Links: [[project-dos-conversion-gap-value-capture]],
 [[project-dos-the-four-walls-witness-runs-out]],
 [[project-dos-frontier-lift-axis]],
 [[project-dos-what-is-truth-throughline]], docs/84, docs/170 (F5/F6),
-`dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md`.
+`dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md`.
 
 ---
 

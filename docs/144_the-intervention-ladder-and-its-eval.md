@@ -310,7 +310,7 @@ verdict but has no disciplined enforcement story. This plan is that story, and i
 *differentiated*: not "we can block" (everyone can block) but "**we know, per deployment and
 from data, the cheapest intervention that makes a true verdict bind without costing more than
 the harm it prevents.**" That is a measured, evaluable claim — the same shape as every other
-DOS axis — and it is the half of the security program (`dos-strategy/…security-10x-100x.md`)
+DOS axis — and it is the half of the security program (`dos-private/…security-10x-100x.md`)
 that the verdict work alone could never reach.
 
 **Cross-refs:** the motivating measurement = docs/143 §0/§13 + `benchmark/enterpriseops/RESULTS.md`;

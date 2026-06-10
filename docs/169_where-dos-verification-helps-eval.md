@@ -19,8 +19,8 @@ the eval, and where they honestly cannot.*
 
 It does **not** re-argue the eval-vs-verifier *philosophy* — the strategy repo
 owns that
-([`dispatch-os-evals-vs-verification.md`](../../dos-strategy/dispatch-os-evals-vs-verification.md),
-[`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md)).
+([`dispatch-os-evals-vs-verification.md`](../../dos-private/dispatch-os-evals-vs-verification.md),
+[`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md)).
 This is the empirical layer beneath it.
 
 **Four claims govern the whole doc; read them before any benchmark row, because
@@ -412,9 +412,9 @@ A box, not prose, because the doc means these literally:
 - **[`138_what-is-truth-the-throughline.md`](138_what-is-truth-the-throughline.md)** —
   the byte-author-≠-judged-agent invariant the whole survey rests on.
 - **Strategy (philosophy, not mechanism):**
-  [`dispatch-os-evals-vs-verification.md`](../../dos-strategy/dispatch-os-evals-vs-verification.md)
+  [`dispatch-os-evals-vs-verification.md`](../../dos-private/dispatch-os-evals-vs-verification.md)
   and
-  [`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md)
+  [`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md)
   — read for *why eval ≠ verification*; this doc is the benchmark-grounded *where*.
 
 > **Sourcing note.** Every load-bearing statistic above was adversarially re-verified

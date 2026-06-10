@@ -22,7 +22,7 @@
 > already wrote, replay-tests, and trusts. No model call.
 >
 > **Lineage.** The WHY is the data-handling / cross-domain frame of the
-> national-security strategy: `../dos-strategy/dispatch-os-national-security.md`
+> national-security strategy: `../dos-private/dispatch-os-national-security.md`
 > (**§3.3** — the boundary DOS does *not* cross, the container/VM/cross-domain
 > guard's job; **§4** — the threat-model table, where data-segregation across a
 > sensitivity boundary sits next to the lethal-trifecta row; the §5 sovereignty
@@ -40,8 +40,8 @@
 > boundary (making the refuse *bind* at a mediated write) is docs/126
 > (`126_the-mediated-write-and-the-apply-gate-pep.md`) and is explicitly out of
 > scope (Phase 4). The "this is not an accreditation control" companion is
-> [docs/249](https://github.com/anthony-chaudhary/dos-strategy/blob/master/249_the-accreditation-surface-mapping-the-verdicts-to-controls.md) (the real-classification-system / accreditation-vs-mechanism
-> companion, now in the `dos-strategy` repo; named here to mark the boundary, the same way docs/125 forward-named
+> [docs/249](https://github.com/anthony-chaudhary/dos-private/blob/master/249_the-accreditation-surface-mapping-the-verdicts-to-controls.md) (the real-classification-system / accreditation-vs-mechanism
+> companion, now in the `dos-private` repo; named here to mark the boundary, the same way docs/125 forward-named
 > docs/126 before it was written).
 
 ---

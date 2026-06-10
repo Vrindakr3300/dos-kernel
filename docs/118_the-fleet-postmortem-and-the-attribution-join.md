@@ -7,7 +7,7 @@
 > is a measured gap, not an assumed one.
 >
 > Sibling to the strategy essay it makes true —
-> `dos-strategy/dispatch-os-trajectory-audit-and-the-attribution-substrate.md` §6.4
+> `dos-private/dispatch-os-trajectory-audit-and-the-attribution-substrate.md` §6.4
 > ("a wedge dressed as a moat until the dispatch-path WAL writer lands"). That essay
 > argues *why* DOS is the attribution substrate the postmortem literature lacks; this
 > plan is the *one build* that converts the argument's flagship artifact from a shape
@@ -202,7 +202,7 @@ Run the real loop end-to-end and capture the artifact:
 
 ## See also
 
-- `dos-strategy/dispatch-os-trajectory-audit-and-the-attribution-substrate.md` — the
+- `dos-private/dispatch-os-trajectory-audit-and-the-attribution-substrate.md` — the
   positioning this plan makes true (§6.4 is the hedge it retires).
 - [`117`](185_native-log-adapters-and-the-actor-witness-split.md) — the evidence-source
   axis `dos postmortem` would *consume* (the actor-witness test for which columns count

@@ -6,7 +6,7 @@ zero-plugin, legible non-coder floor. This example is the next step: it shows a 
 team writing their OWN renderer (`--output friendly`) when they want their product's
 exact tone and their own feature titles, not the generic built-in phrasing. It is
 the worked example behind the strategy claim that "the non-coder verdict surface IS
-a `dos.renderers` plugin a dev team writes" (see the dos-strategy docs
+a `dos.renderers` plugin a dev team writes" (see the dos-private docs
 `dispatch-os-the-non-coder-authoring-floor.md` §5,
 `dispatch-os-the-framework-a-dev-team-bundles.md` §3, and the adopter cookbook). The
 kernel computes a *correct* verdict from ground truth; the host turns it into a

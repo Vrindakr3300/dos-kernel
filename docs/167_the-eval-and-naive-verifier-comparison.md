@@ -12,9 +12,9 @@ This is a **comparison** doc, not a plan — no code lands with it. It exists
 because the most common collapse of the DOS thesis is *"isn't your oracle just an
 eval / just a fancy exit-code check?"* The strategy repo already argues the
 **philosophy** of that distinction
-([`dispatch-os-evals-vs-verification.md`](../../dos-strategy/dispatch-os-evals-vs-verification.md):
+([`dispatch-os-evals-vs-verification.md`](../../dos-private/dispatch-os-evals-vs-verification.md):
 score-the-actor vs. adjudicate-the-act; and
-[`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md):
+[`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md):
 the RLVR/training register). This doc does the **mechanism** layer those essays
 deliberately skip: a concept-by-concept and verifier-by-verifier table, sorted on
 DOS's *own* code-level axis, that says *which computation differs* and *which rung
@@ -307,9 +307,9 @@ narrow and sound; that narrowness is the feature, not a bug to be papered over.
   **[`judges.py`](../src/dos/judges.py)** — the ORACLE → JUDGE → HUMAN ladder, the
   disciplined home for the mirror verifier (§2 row 7).
 - **Strategy (philosophy, not mechanism):**
-  [`dispatch-os-evals-vs-verification.md`](../../dos-strategy/dispatch-os-evals-vs-verification.md)
+  [`dispatch-os-evals-vs-verification.md`](../../dos-private/dispatch-os-evals-vs-verification.md)
   (score-the-actor vs. adjudicate-the-act) and
-  [`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-strategy/dispatch-os-the-verification-substrate-for-agentic-rl.md)
+  [`dispatch-os-the-verification-substrate-for-agentic-rl.md`](../../dos-private/dispatch-os-the-verification-substrate-for-agentic-rl.md)
   (the RLVR / training register). This doc is their mechanism-level table; read
   them for *why it matters*.
 

@@ -1,7 +1,7 @@
 # 130 — Benchmarking the savings thesis
 
-> **[docs/128](https://github.com/anthony-chaudhary/dos-strategy/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) claims the kernel lets a host *not spend*. This doc designs how to
-> measure that — honestly.** _(docs/128 relocated to the `dos-strategy` repo; the
+> **[docs/128](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) claims the kernel lets a host *not spend*. This doc designs how to
+> measure that — honestly.** _(docs/128 relocated to the `dos-private` repo; the
 > `docs/128 §N` shorthand throughout this doc refers to it there.)_ The hard part is not building a simulator; the repo
 > already has one (FleetHorizon) and a real token oracle (`trajectory_audit`).
 > The hard part is that FleetHorizon's cost model is *deliberately abstract*

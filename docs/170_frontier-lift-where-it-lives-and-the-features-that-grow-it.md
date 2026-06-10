@@ -500,5 +500,5 @@ buried.
 - **docs/165** (DOS into Claude Code) — F1 is the keystone fix this note promotes
   from "found bug" to "ranked roadmap pickup."
 
-*Strategy framing (why this matters / who buys it) belongs in `dos-strategy`, not
+*Strategy framing (why this matters / who buys it) belongs in `dos-private`, not
 here — see the companion note.*

@@ -172,7 +172,7 @@ already separated as *after* vs *before*.
 
 ### 3.1 No novelty claim — this is a crowded, standards-track field (external check, June 2026)
 
-A June-2026 landscape sweep (the `dos-strategy`
+A June-2026 landscape sweep (the `dos-private`
 `dispatch-os-aaa-agent-trust-landscape-2026-06` essay) makes one thing
 unambiguous: **the capability/authority plane is a crowded, well-funded,
 standards-track field, and this note must claim *zero* invention on it.** The

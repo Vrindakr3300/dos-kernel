@@ -24,7 +24,7 @@ MCP server — the zero-Python-coupling adoption surface this builds *on top of*
 *write-moment* enforcement point; this note is its *stop-moment* sibling), the
 [`74`](74_skill-pack-plan.md) skill pack (the shipped generic `SKILL.md` screenplays
 whose frontmatter this note newly exploits), and the DX argument in the sibling
-strategy repo (`dos-strategy/dispatch-os-the-fastapi-of-fleets.md`, the
+strategy repo (`dos-private/dispatch-os-the-fastapi-of-fleets.md`, the
 "hook-it-in-code-not-a-CLI-step" finding this note makes mechanical). It respects
 the [`99`](99_runtime-validation-and-the-actuation-boundary.md) advisory-only
 boundary with one deliberate, *user-owned* exception noted in §3.
@@ -231,7 +231,7 @@ into* by installing the hook.** DOS still only *computes* (`is_shipped` →
 stop. The kernel never reaches out and halts a process — it answers a question the
 host asked it at a boundary the user wired. The advisory floor holds: remove the
 hook and DOS goes back to pure verdicts. (This is exactly the PDP-with-a-user-owned-
-PEP shape the security spine argues for — `dos-strategy/dispatch-os-security-10x-100x.md`
+PEP shape the security spine argues for — `dos-private/dispatch-os-security-10x-100x.md`
 §10× — wearing an ergonomic hat instead of a security one.)
 
 ---
@@ -344,7 +344,7 @@ it is `cwd`-scoped to the repo (the workspace seam handles that).
 
 ## 7. The five points, ranked by buy-in (the adoption ladder)
 
-The same continuum the [`fastapi-of-fleets`](../../dos-strategy/dispatch-os-the-fastapi-of-fleets.md)
+The same continuum the [`fastapi-of-fleets`](../../dos-private/dispatch-os-the-fastapi-of-fleets.md)
 strategy doc argues for, made mechanical — pick the shallowest that fits:
 
 | # | Surface | Dev action | Buy-in | Enforcement point |

@@ -161,4 +161,4 @@ to referee, performed by hand.)
 replayable skill) is `docs/290`; the open explorations and audits the episode
 itself opened (the unleased-session gap, the narration-gap Δ metric, the
 commit-audit over-fire taxonomy, grader calibration, the static D8-class sweep)
-are `docs/291`; the positioning telling is `dos-strategy/291_*`.
+are `docs/291`; the positioning telling is `dos-private/291_*`.

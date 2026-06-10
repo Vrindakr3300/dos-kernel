@@ -13,7 +13,7 @@ even for 'human' authored commits."*
 
 This is a **mechanism** design note (a `docs/NN_*.md`). The *why-this-is-DOS's-
 universal-adoption-wedge* argument is the strategy genre and belongs in
-`dos-strategy`, not here.
+`dos-private`, not here.
 
 ---
 

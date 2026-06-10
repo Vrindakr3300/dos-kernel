@@ -6,11 +6,11 @@
 > check**, cited inline and dated; treat all of them as *as-of* facts that decay
 > (the [[feedback-date-observations-for-staleness]] habit). This is **reasoning over
 > public benchmarks, zero new DOS measurement** — the same honest ceiling the whole
-> "beyond code" arc carries ([../dos-strategy/222], docs/213). The map says *where to
+> "beyond code" arc carries ([../dos-private/222], docs/213). The map says *where to
 > look* and *what number to beat*; only a live loop says *whether DOS pays*
 > ([[project-dos-out-of-loop-live-payoff]], docs/179).
 >
-> **One line.** The "beyond-code" arc ([../dos-strategy/213], [../dos-strategy/222])
+> **One line.** The "beyond-code" arc ([../dos-private/213], [../dos-private/222])
 > argued *which* non-code domains fit DOS's witness-quality test, but flagged itself
 > "zero measurement" and never connected to the **specific benchmarks frontier labs
 > report for their latest models**. This doc closes that gap: it pins DOS's mechanism
@@ -27,10 +27,10 @@
 Companion to docs/213 (the regulated-domain tiering this grounds in numbers),
 docs/204 (the four walls — every limit below is one of them), docs/167/169 (the
 eval-vs-verification line this extends), and the strategy siblings
-[../dos-strategy/222] (the beyond-code index) and
-[../dos-strategy/dispatch-os-impact-spectrum.md] (the proven→speculation ladder
+[../dos-private/222] (the beyond-code index) and
+[../dos-private/dispatch-os-impact-spectrum.md] (the proven→speculation ladder
 every claim here is graded against). Market/buyer framing for any of this →
-`dos-strategy`, not here.
+`dos-private`, not here.
 
 ---
 
@@ -77,7 +77,7 @@ its thesis in their own words.
 
 ## 1. The witness-quality test, restated as a benchmark filter
 
-The docs/212/213 sort (the strategy-repo "beyond-code" arc — `../dos-strategy/`, bare
+The docs/212/213 sort (the strategy-repo "beyond-code" arc — `../dos-private/`, bare
 `NNN_` names) is one question — *who authors the evidence, who authors the spec, is
 each ≠ the agent?* Applied to a **benchmark**, it splits into two
 independent questions the rest of this doc asks of each eval:
@@ -196,7 +196,7 @@ The numbers (June-2026 fetch):
   unethical when forced to evaluate them separately, yet proceed anyway during
   goal-directed planning… a **motivational override**, not a capability gap."*
 
-This is the airtight form of the [referee-cannot-report-to-a-contestant law](../dos-strategy/dispatch-os-fleet-terms-2026.md):
+This is the airtight form of the [referee-cannot-report-to-a-contestant law](../dos-private/dispatch-os-fleet-terms-2026.md):
 you cannot place the gate *inside* the agent's own optimization loop, because the same
 loop that should refuse is the one applying the pressure to proceed. The gate must be
 a **disinterested party with no input channel to the goal** — which is the structural

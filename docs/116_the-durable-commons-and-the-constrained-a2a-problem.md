@@ -25,8 +25,8 @@ never been positioned as: **DOS is the durable shared-state plane for a fleet, a
 the thing that makes that plane sound is the same distrust that makes every syscall
 a refusal.** The positioning sibling — *why anyone outside this repo cares* — is the
 strategy essay
-[`dispatch-os-the-durable-commons-for-a-fleet.md`](https://github.com/anthony-chaudhary/dos)
-in `dos-strategy`; this note is the *how a fleet shares state* half, that note is
+[`dispatch-os-the-durable-commons-for-a-fleet.md`](https://github.com/anthony-chaudhary/dos-private)
+in `dos-private`; this note is the *how a fleet shares state* half, that note is
 the *why a buyer wants it* half.
 
 ---
@@ -409,11 +409,11 @@ is load-bearing.
   mechanism behind §6.5(1): every durable record is `schema:`-tagged and
   refuse-don't-guess, so the shared *vocabulary* fails-closed across kernel versions
   rather than two agents silently disagreeing on what a term means.
-- `dos-strategy/dispatch-os-the-durable-commons-for-a-fleet.md` — the positioning
+- `dos-private/dispatch-os-the-durable-commons-for-a-fleet.md` — the positioning
   sibling (why a buyer wants this; the bus-vs-blackboard-vs-adjudicated-commons
   landscape). One-way arrow: that doc references this code; nothing here depends on
   it.
-- `dos-strategy/dispatch-os-team-and-hosted-coordination.md` — the *inter-engineer*
+- `dos-private/dispatch-os-team-and-hosted-coordination.md` — the *inter-engineer*
   multiplicity plane (N humans, the PR-to-main merge as arbiter). This note is its
   *intra-fleet* dual: N agents under one operator, the kernel state as the shared
   substrate.

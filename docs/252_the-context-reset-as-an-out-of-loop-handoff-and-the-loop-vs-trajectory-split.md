@@ -14,8 +14,8 @@
 mechanism — it re-files an existing structure (context reset) into the existing taxonomy
 (in/out-of-loop, docs/209) and sharpens two words the corpus already uses divergently.
 In the family of [[docs/209]] (the in/out-of-loop split + the only positive half-plane),
-[[docs/229]]/[[docs/235]] (the peer-B handoff, executed; ΔB measured), [docs/231](https://github.com/anthony-chaudhary/dos-strategy/blob/master/231_maintaining-not-improving-the-decay-prevention-charter.md)
-(decay-prevention is the charter — a reset is a horizon event; now in `dos-strategy`), [[docs/176]] (the
+[[docs/229]]/[[docs/235]] (the peer-B handoff, executed; ΔB measured), [docs/231](https://github.com/anthony-chaudhary/dos-private/blob/master/231_maintaining-not-improving-the-decay-prevention-charter.md)
+(decay-prevention is the charter — a reset is a horizon event; now in `dos-private`), [[docs/176]] (the
 "re-orchestrate a fresh context window" comparand + `restart_arm.py`), [[docs/236]]
 (recovery is a confound — the lurking variable that returns here), and [[docs/243]]
 (the fleet-trajectory benchmark — where "trajectory" means the recorded artifact).
