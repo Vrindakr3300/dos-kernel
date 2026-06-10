@@ -19,7 +19,7 @@ Two kinds of consumer:
   tree and pins the two facts that must agree across genres:
 
     1. any concrete ship-stamp spelling of the shipped phase is exactly
-       ``COMMIT_SUBJECT`` (no "AUTH1: implement login" dialects), and
+       ``COMMIT_SUBJECT`` (no re-verbed dialects of the subject), and
     2. a feature name is never paired with the wrong phase token.
 
   A NEW file that quotes the example automatically falls under the same scan:
