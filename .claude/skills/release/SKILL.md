@@ -363,6 +363,33 @@ lease auto-defer **compose**: a path must be in-scope **and** not owned by a liv
 lease to be committed. A leased path's changes are mid-flight, not done — shipping
 them now would be the bug.
 
+## Step 1.7: Pipeline backlog sweep (keep the channels on track)
+
+A release is the natural checkpoint for the two slow-moving obligations the
+pipeline leaves behind — an unapproved publish and a stale stable channel. Two
+cheap reads now, two lines in the final summary:
+
+```bash
+gh run list --workflow publish.yml --limit 5 --json displayTitle,status,conclusion
+git tag -l 'stable/*' --sort=-creatordate | head -3
+```
+
+- **Outstanding publish approval(s).** A prior tag's publish run sitting at
+  `status: waiting` is a release that never reached PyPI — the approval click was
+  forgotten (v0.23.3 sat unapproved on its first day). Surface it by name:
+  `vX.Y.Z publish still awaiting approval — PyPI is N versions behind`. A
+  `failure` conclusion on a prior tag means that tag is dead (its changes ride
+  THIS release); note it so nobody wonders why PyPI skipped a number.
+- **Stable-channel lag.** Compare the newest `stable/*` tag's underlying version
+  to the version this release will cut. When the gap has grown to a meaningful
+  run (several minors / a few weeks), add the one-line nudge:
+  `stable lags by N releases — consider /stable-release once the latest tag
+  soaks`. This skill only nudges; `/stable-release` owns the decision and its
+  soak gate.
+
+Both reads are advisory — they never block the release. Their whole job is that
+no obligation survives un-surfaced past the next release.
+
 ## Step 2: Decide bump level + snapshot files
 
 From the JSON:
@@ -533,16 +560,58 @@ git commit -m "build(dos-hook): rebuild bundled native binaries for vX.Y.Z" -- c
   an unchanged `go/` rebuilds to byte-identical output, so `git status` shows nothing
   and there is nothing to commit — the common case.
 
-## Step 6: Tag + push
+## Step 5.9: Pre-tag witness — run the release-killers while nothing is immutable yet
+
+Cheap, deterministic, hot-tree-safe: the exact test families that killed
+v0.23.0/v0.23.1/v0.23.2 (issue #7) run in seconds and read only content this
+release itself just wrote. Run them after the Step 5 commit (the Step 4
+`pip install -e . --no-deps` must already have happened), BEFORE Step 6:
 
 ```bash
-git tag -a vX.Y.Z -m "vX.Y.Z"
-git push origin master
+python -m pytest -q tests/test_workflow_yaml_parses.py tests/test_docs_version_drift.py \
+       tests/test_readme_assembly.py tests/test_canonical_example_lockstep.py \
+       tests/test_plugin_manifest.py
+```
+
+- **Green** → proceed to Step 6.
+- **Red** → fix it now, as a follow-up commit before any tag exists — the version
+  number hasn't been spent yet, which is the whole point of running this here.
+- The subset deliberately excludes the hot-tree false-positive families
+  (`test_workspace_config` etc.) so it stays trustworthy on a tree a sibling loop
+  is editing. It complements — never replaces — the full-matrix CI verdict Step 6
+  waits for.
+
+## Step 6: Push → wait for the CI verdict → only then tag (tag-after-green)
+
+The tag is the one artifact you can never take back (`v*` and `stable/*` are
+ruleset-immutable, and PyPI will only ever accept each version once) — and the
+publish gate refuses any SHA without a green CI run. So a tag pushed before its
+CI verdict exists is a bet, and on 2026-06-10 that bet lost three version numbers
+in one day (v0.23.0/1/2 — issue #7). Push the commit, let CI rule, then tag:
+
+```bash
+git push origin master                                  # 1. the release commit goes up alone
+sha=$(git rev-parse HEAD)                               #    (your release commit — pin it now)
+ci=$(gh run list --workflow ci.yml --commit "$sha" --json databaseId --jq '.[0].databaseId')
+gh run watch "$ci" --interval 30                        # 2. wait for the verdict (~5–10 min)
+gh run view "$ci" --json conclusion                     #    confirm "success" EXPLICITLY — a pipe's
+                                                        #    exit code is the tail's, not gh's
+git tag -a vX.Y.Z "$sha" -m "vX.Y.Z"                    # 3. tag only the witnessed-green SHA
 git push origin vX.Y.Z
 ```
 
-If `git push` rejects because the remote has commits you don't have (another
-agent pushed), rebase your single commit on top — do NOT force-push master.
+- **CI green** → tag and push the tag. `publish.yml`'s own ci-green gate then
+  finds the verdict already recorded and proceeds straight to the approval hold —
+  the wait moved earlier; total wall-clock is unchanged.
+- **CI red** → **no tag.** Fix forward on master and re-run from Step 5.9; the
+  version number is saved. (Step 5.9 should have caught a deterministic killer
+  already — a red here is usually a matrix-leg or integration failure your box
+  doesn't reproduce.)
+- **A sibling pushed meanwhile** → your release commit may no longer be HEAD.
+  Fine: the `--commit "$sha"` filter watches the run on YOUR commit, and the tag
+  names `"$sha"` explicitly — never tag whatever HEAD drifted to.
+- If `git push` rejects because the remote has commits you don't have, rebase
+  your single commit on top — do NOT force-push master.
 
 > If you cut this release from a feature branch (the git status may show e.g.
 > `feat/<x>`), confirm with the operator before pushing the branch to `master`,
@@ -560,11 +629,11 @@ agent pushed), rebase your single commit on top — do NOT force-push master.
   test matrix — full 4-leg grid for code, 2-leg for prose; per-platform wheel
   build + binary-format guard on code changes) and the repo-self DOS gate
   (**`dos-gate.yml`**: commit-audit + verify via the bundled verify-action).
-- The tag push fires **`publish.yml`** (Step 7.4): it waits for a green `ci.yml`
-  run on this exact SHA, then holds at the `pypi` environment for the operator's
-  approval. If CI goes RED on the tagged SHA, the publish refuses — fix forward
-  with a follow-up commit and cut the next patch release; **never re-point or
-  delete the pushed tag.**
+- The tag push fires **`publish.yml`** (Step 7.4): with tag-after-green it finds
+  the CI verdict already recorded and proceeds straight to the `pypi`-environment
+  approval hold. (Its ci-green poll remains the backstop for an out-of-order or
+  manual tag: a RED SHA is refused — then fix forward and cut the next patch
+  release; **never re-point or delete a pushed tag.**)
 
 Read the verdicts rather than assuming them:
 
@@ -710,6 +779,9 @@ Print:
   polling ci-green / **holding for `pypi`-environment approval** (tell the
   operator the approval is theirs to click) / uploaded (confirmed via
   `pip index versions dos-kernel`) / refused (and why)
+- **Pipeline backlog** (Step 1.7): any PRIOR publish run still `waiting` for its
+  approval (name the version + how far PyPI lags), any dead prior tag, and the
+  stable-channel-lag nudge if it fired — repeat these every release until cleared
 - **Leak gate**: clean, or what the pre-push hook refused + what was scrubbed
   and amended
 - Verify: `pytest -q` result (passed / N failed) + `dos doctor` ok

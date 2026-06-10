@@ -331,8 +331,9 @@ token). Anatomy and failure modes:
   `success` exists; refuses on completed-without-success or no-run-ever. The
   witness rule: `ci.yml` cancels superseded master runs, so a tagged commit can
   carry no CI verdict — the gate goes and *reads* one rather than believing the
-  tag. The common `/release` flow pushes master + tag together, so the poll
-  usually just absorbs CI's runtime.
+  tag. With the Step 6 tag-after-green order the skill only ever tags a SHA whose
+  verdict is already recorded, so this gate normally passes instantly; the poll
+  remains the backstop for a manual or out-of-order tag.
   - *Refusal:* get a green run on the exact SHA (`gh run rerun <id>`, or fix
     forward + next patch release), then re-run the publish workflow.
 - **publish-pypi** — holds at the protected `pypi` environment for
@@ -346,6 +347,18 @@ Two distinct binary surfaces — don't conflate them: the **wheel's embedded**
 `dos-hook` is CI-built fresh per publish; the **committed** `claude-plugin/bin/`
 binaries serve marketplace (git-clone) installs and are rebuilt locally at
 Step 5.5 only when `go/` changed.
+
+**Why the skill tags AFTER the CI verdict (the 2026-06-10 case, issue #7).**
+Three tags in one day — v0.23.0, v0.23.1, v0.23.2 — were refused at the ci-green
+gate: a workflow YAML parse error, stale FTUE version literals, and a
+bundled-skill desync, each baked into the tagged tree itself, so no rerun could
+ever green those SHAs. Tags are ruleset-immutable; each refusal burned a version
+number forever and left PyPI lagging. Two layers now prevent the repeat, both in
+the skill: **Step 5.9** runs the deterministic release-killer test subset before
+anything is immutable, and **Step 6** pushes master first, reads the full-matrix
+CI verdict on the exact release SHA, and only then tags. Same failures today
+would mean "no tag yet," not "dead tag." The publish gate stays as the backstop —
+the claim "I tagged it green" is forgeable; the recorded CI run is not.
 
 ---
 
