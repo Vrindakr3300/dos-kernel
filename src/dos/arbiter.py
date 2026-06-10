@@ -332,16 +332,26 @@ def arbitrate(
                   "global")
     }
 
+    # Set when a kindless soft-hint request (the cluster branch below) was
+    # refused by the admission conjunction before falling through to the
+    # auto-pick walk: the redirect parenthetical then carries the REAL refusal
+    # instead of narrating a false "was busy" for a lane nothing held.
+    _hint_refusal: dict[str, str] = {}
+
     def _redirect_why(default_when_busy: str) -> str:
         """Honest parenthetical for an auto-pick redirect away from a NAMED request.
 
         ``requested 'X' was busy`` only when X is a real lane this workspace knows
         and the picker found it held; ``'X' is not a lane in this workspace`` when
-        the name is unknown — never the former masquerading as a diagnosis of the
-        latter.
+        the name is unknown; the conjunction's own refusal when a soft-hinted
+        cluster lane was refused on its merits (a colliding tree, a predicate) —
+        never one verdict masquerading as a diagnosis of another.
         """
         if requested_lane and requested_lane_key not in _known_lane_keys:
             return f"(requested {requested_lane!r} is not a lane in this workspace)"
+        if _hint_refusal.get("reason"):
+            return (f"(requested {requested_lane!r} was refused: "
+                    f"{_hint_refusal['reason']})")
         return default_when_busy
 
     live_lanes = {_lane_key(l.get("lane", "")) for l in live_leases}
@@ -560,21 +570,43 @@ def arbitrate(
     # fire regardless. Without this gate a `--kind cluster` request would bypass
     # both the collision check AND the SELF_MODIFY guard — the regression the
     # adversarial review caught. `--force` still skips this (handled above).
-    if requested_kind == "cluster" and requested_lane_key not in live_lanes:
+    # A KINDLESS request naming a lane the taxonomy knows as a CLUSTER rides the
+    # same branch — the "soft hint" rung (docs/104 §4). The exclusive branch above
+    # already honors a kindless EXCLUSIVE name; without the cluster analogue, a
+    # hinted FREE cluster lane fell into the auto-pick walk — which never tries
+    # the hinted name — and the redirect narrated a false "requested 'X' was
+    # busy" for a lane nothing held (the TestRedirectReasonHonesty disease,
+    # KNOWN-free-name edition). The hint differs from an explicit `--kind
+    # cluster` only on the REFUSE arm: a conjunction refusal (a colliding tree, a
+    # request-absolute predicate) falls through to the walk with the real reason
+    # recorded for `_redirect_why` — a soft hint never hard-refuses. A HELD
+    # hinted name keeps the same-lane refuse above; an UNKNOWN one keeps the
+    # honest "not a lane in this workspace" redirect.
+    _soft_cluster_hint = (
+        not requested_kind and bool(requested_lane)
+        and requested_lane_key in {_lane_key(c) for c in lanes.concurrent}
+    )
+    if (requested_kind == "cluster" or _soft_cluster_hint) \
+            and requested_lane_key not in live_lanes:
         tree = requested_tree or _cluster_tree(requested_lane)
         verdict = _admission_verdict(
             lane=requested_lane, kind="cluster", tree=tree,
             live_leases=live_leases, predicates=preds, config=cfg,
         )
-        if not verdict.admitted:
+        if verdict.admitted:
+            return LaneDecision(
+                "acquire", lane=requested_lane, lane_kind="cluster",
+                tree=tree, auto_picked=False,
+                reason=f"cluster lane {requested_lane!r} free — admitted.",
+            )
+        if requested_kind == "cluster":
             return LaneDecision(
                 "refuse", reason=verdict.reason, free_clusters=_free_clusters(),
             )
-        return LaneDecision(
-            "acquire", lane=requested_lane, lane_kind="cluster",
-            tree=tree, auto_picked=False,
-            reason=f"cluster lane {requested_lane!r} free — admitted.",
-        )
+        # The soft hint was refused by the conjunction — record the real reason
+        # for the redirect parenthetical and fall through to the auto-pick walk
+        # rather than hard-refusing a kind the caller never named.
+        _hint_refusal["reason"] = verdict.reason
 
     # Keyword request with a NON-EMPTY tree → run the admission conjunction
     # (disjointness + self-modify + any workspace predicate). First refusal wins;

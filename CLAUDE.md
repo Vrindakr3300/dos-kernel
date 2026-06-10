@@ -231,16 +231,24 @@ dos doctor --workspace .
 #   is git workspace   yes      (workspace_facts.is_kernel_repo: true)
 
 # 2. arbitrate — may I take this lane right now? (the admission kernel)
+dos arbitrate --workspace . --lane docs
+#   {"outcome": "acquire", "auto_picked": false, "lane": "docs",
+#    "reason": "cluster lane 'docs' free — admitted.", "tree": ["docs/**"]}
 dos arbitrate --workspace . --lane src
 #   {"outcome": "acquire", "auto_picked": true, "lane": "benchmark", ...,
-#    "reason": "auto-picked free cluster lane 'benchmark' (requested 'src' was busy)."}
-# Don't read past this: you asked for `src` and the arbiter handed back a
-# DIFFERENT free lane, because live leases in the WAL made `src` contended.
-# That redirect IS the admission kernel working — it never double-books a busy
-# region. The lane taxonomy in dos.toml mirrors this repo's top-level dirs, so a
-# docs-only edit is the disjoint `docs` lane and may run concurrently with a src
-# edit; editing `**/*` is the exclusive `global` lane — and the SELF_MODIFY
-# predicate guards the kernel's own path.
+#    "reason": "auto-picked free cluster lane 'benchmark' (requested 'src' was
+#               refused: lane 'src' would edit the orchestrator's own running
+#               code (src/dos/arbiter.py…) — … (SELF_MODIFY) …)."}
+# Two verdicts, one discipline. A free, admissible lane you NAME is granted
+# directly — a kindless `--lane` is a soft hint the arbiter honors. `src` is
+# different ON THIS REPO: its tree IS the kernel's own running code, so the
+# SELF_MODIFY predicate refuses the hint and the arbiter redirects to a free
+# disjoint lane, naming the REAL refusal in the parenthetical — never
+# double-booking, and never narrating a false "busy" for a lane nothing held.
+# A lane actually HELD by a live lease in the WAL refuses same-lane instead
+# ("already held"). The lane taxonomy in dos.toml mirrors this repo's
+# top-level dirs, so a docs-only edit may run concurrently with a tests edit;
+# editing `**/*` is the exclusive `global` lane.
 
 # 3. verify — did a phase ACTUALLY ship? (the truth syscall, never self-report)
 dos verify --workspace . docs/292_readme-audience-gradient-plan P1

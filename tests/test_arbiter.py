@@ -557,6 +557,53 @@ class TestRedirectReasonHonesty:
         assert "is not a lane in this workspace" in d.reason
 
 
+class TestKindlessSoftHintTakesTheNamedLane:
+    """A kindless request naming a KNOWN, FREE cluster lane must take THAT lane.
+
+    The CLI shape `dos arbitrate --lane docs` (no `--kind`) used to skip every
+    direct-grant branch (each is gated on `requested_kind`), fall into the
+    auto-pick walk — which never tries the hinted name — and acquire a DIFFERENT
+    free lane with the reason "requested 'docs' was busy", while nothing held
+    `docs` at all: the TestRedirectReasonHonesty disease, KNOWN-free-name
+    edition (found dogfooding on the kernel repo itself, where `dos top` showed
+    every lane FREE while the kindless arbitrate narrated busy). The exclusive
+    branch already honored a kindless exclusive NAME; this pins the cluster
+    analogue, plus the two arms that must NOT change: a held name still refuses
+    same-lane, and a hint refused on its merits falls through to the walk with
+    the conjunction's REAL reason in the redirect parenthetical — never a false
+    "was busy".
+    """
+
+    def test_kindless_free_known_cluster_lane_is_granted_directly(self):
+        d = _arb_clustered(requested_lane="tailor", requested_kind="")
+        assert d.outcome == "acquire"
+        assert d.lane == "tailor"
+        assert not d.auto_picked
+        assert "was busy" not in d.reason
+
+    def test_kindless_held_known_lane_still_refuses_same_lane(self):
+        live = [_lease("tailor", "cluster", _TAILOR_TREE)]
+        d = _arb_clustered(requested_lane="tailor", requested_kind="",
+                           live_leases=live)
+        assert d.outcome == "refuse"
+        assert "already held" in d.reason
+
+    def test_kindless_hint_refused_on_merits_redirects_with_the_real_reason(self):
+        # The hinted lane's NAME is free but its TREE is held under another
+        # lease → the conjunction refuses the hint. The soft hint must not
+        # hard-refuse (the caller never committed to a kind) NOR narrate a
+        # false "was busy" — it falls through to the walk and the redirect
+        # parenthetical carries the conjunction's own refusal.
+        live = [_lease("regionhog", "keyword", _TAILOR_TREE)]
+        d = _arb_clustered(requested_lane="tailor", requested_kind="",
+                           live_leases=live)
+        assert d.outcome == "acquire"
+        assert d.auto_picked
+        assert d.lane != "tailor"
+        assert "was refused:" in d.reason
+        assert "was busy" not in d.reason
+
+
 class TestUnknownKeywordRefusesNotDegrades:
     """An EXPLICIT `--kind keyword` naming a lane the taxonomy never heard of must
     REFUSE (UNKNOWN_LANE), not silently auto-pick a different free lane.
