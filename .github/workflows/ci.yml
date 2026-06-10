@@ -7,21 +7,99 @@ name: CI
 #
 # It runs the *installed* package, not a PYTHONPATH=src shim: an editable install
 # then `pytest` + a `dos` CLI smoke, so what CI validates is what a user gets.
+#
+# WHAT FIRES WHEN (the resource contract):
+#   every push/PR        → leak-scan (4s) + lint (~1 min) — always, unconditionally
+#   code change          → full test matrix (3 interpreters + windows) + wheel build
+#   docs-only change     → reduced matrix (ubuntu + windows, primary Python); no build
+#   dispatch / schedule  → full matrix (no diff to classify against)
+#   v* tag               → nothing here — publish.yml owns tags, and ITS ci-green
+#                          gate refuses to upload a SHA this workflow never greened.
 
 on:
   push:
     branches: [master]
   pull_request:
   workflow_dispatch:
+  # The weekly drift canary: with no push for a while, runner images, pip
+  # resolutions, and action defaults still move under us — one full-matrix run a
+  # week surfaces that drift while it is one week deep, not one release deep.
+  # (Odd minute by GitHub's own guidance — top-of-hour crons queue worst.)
+  schedule:
+    - cron: "23 5 * * 1"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Per-event groups: a master push burst supersedes itself (the newest commit
+  # is the one whose verdict matters), but the weekly schedule can never cancel
+  # a push run or vice versa. Cancelling intermediate master runs means SOME
+  # commits carry no CI verdict — that is safe to allow ONLY because publish.yml
+  # independently refuses to upload any SHA without a green CI run on it (the
+  # ci-green gate there); the two policies are a pair, change them together.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Classify the diff so the expensive jobs fire only when they can say something
+  # new. The classifier is CONSERVATIVE: any path it does not positively recognize
+  # as prose — and any event/diff it cannot resolve (dispatch, schedule, force
+  # push, unknown base) — gets the FULL matrix. Docs-only changes still run the
+  # suite (tests READ the docs: test_docs_version_drift, test_agent_surface pin
+  # doc/workflow content) but on a reduced 2-leg matrix: one ubuntu + one windows
+  # leg on the primary Python. The extra interpreters exist to catch
+  # version-sensitive CODE, and the wheel build consumes no prose — README.md is
+  # deliberately NOT prose here (it ships as the wheel's long_description).
+  # A malformed matrix output fails the test job loudly (config error), never
+  # silently green.
+  changes:
+    name: classify the change
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+      matrix: ${{ steps.classify.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the diff needs the base commit, not just HEAD
+      - id: classify
+        shell: bash
+        run: |
+          full='{"include":[{"os":"ubuntu-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"},{"os":"windows-latest","python-version":"3.13"}]}'
+          docs='{"include":[{"os":"ubuntu-latest","python-version":"3.13"},{"os":"windows-latest","python-version":"3.13"}]}'
+          emit() {
+            echo "docs_only=$1" >> "$GITHUB_OUTPUT"
+            [ "$1" = "true" ] && echo "matrix=$docs" >> "$GITHUB_OUTPUT" \
+                              || echo "matrix=$full" >> "$GITHUB_OUTPUT"
+            echo "classified docs_only=$1"
+          }
+          case "${{ github.event_name }}" in
+            pull_request) base="${{ github.event.pull_request.base.sha }}" ;;
+            push)         base="${{ github.event.before }}" ;;
+            *)            emit false; exit 0 ;;  # dispatch/schedule: always full
+          esac
+          # New branch / force push / rewritten history → no resolvable base → full.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            emit false; exit 0
+          fi
+          changed="$(git diff --name-only "$base" "${{ github.sha }}")"
+          if [ -z "$changed" ]; then emit false; exit 0; fi
+          echo "$changed"
+          docs_only=true
+          while IFS= read -r f; do
+            case "$f" in
+              README.md) docs_only=false; break ;;  # the wheel's long_description — build input
+              docs/*) ;;
+              .github/ISSUE_TEMPLATE/*|.github/pull_request_template.md) ;;
+              AGENTS.md|CLAUDE.md|CONTRIBUTING.md|SECURITY.md) ;;
+              *) docs_only=false; break ;;          # unknown → assume code (fail toward coverage)
+            esac
+          done <<< "$changed"
+          emit "$docs_only"
+
   # The pre-publish leak gate, run on EVERY push/PR — the durable fix for the
   # recurring failure where the seed-time leak scan went stale and new commits
   # reintroduced private dev paths / the dev hostname into public-bound files
@@ -37,6 +115,7 @@ jobs:
   leak-scan:
     name: pre-publish leak scan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,6 +132,7 @@ jobs:
   lint:
     name: lint & type
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,17 +158,20 @@ jobs:
 
   test:
     name: test (py${{ matrix.python-version }} · ${{ matrix.os }})
+    needs: changes
     runs-on: ${{ matrix.os }}
+    # The suite is ~3.5 min on ubuntu, ~7 on windows, installs included; 30 is a
+    # generous ceiling that still stops a hung network-dependent test (the uv
+    # install levels) from burning the 6-hour default on four legs at once.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.11", "3.12", "3.13"]
-        include:
-          # One Windows leg on the primary Python — the dev platform; cheap
-          # insurance against path/encoding regressions without a full matrix.
-          - os: windows-latest
-            python-version: "3.13"
+      # The leg set comes from the `changes` classifier above: the full
+      # 3-interpreter × ubuntu grid + one windows leg for a code change; one
+      # ubuntu + one windows leg on the primary Python for a docs-only change
+      # (the windows leg stays even for prose — the AV6 scar was a checkout
+      # smudge on non-code files tripping the suite on windows only).
+      matrix: ${{ fromJson(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -141,7 +224,13 @@ jobs:
 
   build:
     name: build & check wheel
+    needs: changes
+    # Prose feeds nothing in the wheel (README.md, the one prose file that does,
+    # is classified build-relevant above), so a docs-only push skips the Go
+    # cross-compile + binary-format guard entirely.
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -177,3 +266,7 @@ jobs:
           name: dist
           path: dist/*
           if-no-files-found: error
+          # A CI-built dist exists to be inspected this week, not archived: the
+          # bytes that actually publish are built fresh by publish.yml (which
+          # keeps ITS artifact on the default 90-day forensic window).
+          retention-days: 7

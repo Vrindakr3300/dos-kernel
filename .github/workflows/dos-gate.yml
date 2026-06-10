@@ -47,6 +47,9 @@ jobs:
   self-gate:
     name: the kernel adjudicates its own repo
     runs-on: ubuntu-latest
+    # Two kernel verdicts over an already-fetched history: minutes, not tens of
+    # them — bound it so a hung install can't sit on the 6-hour default.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:

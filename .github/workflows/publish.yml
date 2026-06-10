@@ -38,8 +38,9 @@ name: Publish to PyPI
 # ── HOW TO RELEASE ──────────────────────────────────────────────────────────────
 #   * Real publish:  push a `v*` tag (what `/release` already does), OR run this
 #     workflow manually (Actions → Publish to PyPI → Run workflow) with
-#     target=pypi. The `pypi` environment's required-reviewer gate pauses it for
-#     your approval before the upload.
+#     target=pypi. TWO gates stand before the upload: the `ci-green` job refuses
+#     any SHA without a green CI run on it (it polls while CI finishes), then the
+#     `pypi` environment's required-reviewer gate pauses for your approval.
 #   * Dry-run first (recommended before the FIRST real upload): run it manually
 #     with target=testpypi — uploads to TestPyPI, validating the entire OIDC path
 #     without touching real PyPI. TestPyPI rejects a version it already has, so
@@ -77,6 +78,7 @@ jobs:
   build:
     name: build & check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -137,6 +139,70 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # ── 1b. The CI witness gate ─────────────────────────────────────────────────────
+  # This workflow runs NO tests of its own — it trusts ci.yml. But ci.yml cancels
+  # superseded master runs (cancel-in-progress), so a tagged commit can exist whose
+  # CI run was cancelled, red, or never fired. Don't BELIEVE the tag implies a green
+  # suite — go read the verdict: poll for a CI run on this exact SHA and refuse to
+  # publish without a `success`. (The same move the kernel makes everywhere: the
+  # claim is forgeable, the witness — a completed run on these bytes — is not.)
+  # The common /release flow pushes master + tag together, so CI is usually still
+  # running when this fires; the poll absorbs that, bounded by the job timeout.
+  ci-green:
+    name: require a green CI run on the candidate
+    # Gate only what publishes: same guard as publish-pypi below, so a dry-run or
+    # a tag in the private archive never burns a runner polling.
+    if: >-
+      github.repository == 'anthony-chaudhary/dos-kernel' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read   # gh run list needs to read this repo's run history
+    steps:
+      # For an ANNOTATED tag push (what /release cuts), github.sha is the tag
+      # OBJECT's SHA, not the commit's (the actions/checkout#290 gotcha) — and CI
+      # runs are keyed by commit. Check the ref out and dereference to the commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Wait for the CI verdict on the candidate commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          echo "candidate: $sha (ref ${GITHUB_REF}, event sha ${GITHUB_SHA})"
+          start=$SECONDS
+          while :; do
+            runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+                      --commit "$sha" --json status,conclusion,databaseId)"
+            success="$(jq '[.[] | select(.conclusion == "success")] | length' <<<"$runs")"
+            pending="$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")"
+            total="$(jq 'length' <<<"$runs")"
+            if [ "$success" -gt 0 ]; then
+              echo "CI is green on $sha — publish may proceed."
+              exit 0
+            fi
+            if [ "$pending" -gt 0 ]; then
+              echo "CI still running on $sha ($pending in flight) — waiting…"
+            elif [ "$total" -eq 0 ] && [ $((SECONDS - start)) -lt 180 ]; then
+              # The tag and the branch push arrive together; give the push
+              # webhook a moment to register its run before calling it absent.
+              echo "no CI run registered yet for $sha — waiting for the push webhook…"
+            elif [ "$total" -eq 0 ]; then
+              echo "::error::no CI run exists for $sha — it was never pushed to master (or CI never fired). Get a green run on this exact commit first (push it, or Actions → CI → Run workflow), then re-run this publish."
+              exit 1
+            else
+              echo "::error::CI on $sha completed without a success — a cancelled or failed run is not a verdict. Re-run it to green (gh run rerun <id>), then re-run this publish."
+              gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$sha"
+              exit 1
+            fi
+            sleep 30
+          done
+
   # ── 2a. Dry-run leg → TestPyPI ────────────────────────────────────────────────
   # Runs only on a manual dispatch with target=testpypi. Validates the full OIDC
   # publish path without polluting real PyPI.
@@ -150,6 +216,7 @@ jobs:
       github.repository == 'anthony-chaudhary/dos-kernel' &&
       github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: testpypi
       url: https://test.pypi.org/project/dos-kernel/
@@ -177,7 +244,11 @@ jobs:
   # human approval — the deliberate hand on the one-way step.
   publish-pypi:
     name: publish → PyPI
-    needs: build
+    # ci-green is a hard prerequisite: the artifact may be perfect, but without a
+    # green CI run on this exact SHA there is no witnessed suite verdict for the
+    # bytes being published. (Both gates resolve BEFORE the environment's
+    # required-reviewer pause, so the approver sees them green when deciding.)
+    needs: [build, ci-green]
     # Same repo guard as the dry-run leg: a `v*` tag pushed in the private archive
     # must not even attempt a publish from there.
     if: >-
@@ -185,6 +256,7 @@ jobs:
       (github.event_name == 'push' ||
        (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi'))
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: pypi
       url: https://pypi.org/project/dos-kernel/
