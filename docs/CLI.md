@@ -263,6 +263,8 @@ the demo beat never breaks the verdict contract.
 ### § `_quickstart_fleet_act`
 
 The fleet act of the DEFAULT quickstart — the admission half of the pitch.
+(The caller's narration frames it wider than "fleet": two coding-agent tabs
+open on one repo are the same two-writers-one-tree hazard.)
 
 The verify contrast catches the LIE; this catches the COLLISION. Three calls
 through the real `arbiter.arbitrate` (the same pure kernel `dos arbitrate`
@@ -1779,17 +1781,31 @@ unknown VERB is a usage error (exit 2); a clean listing is 0.
 Run the DOS money-moment end to end in a throwaway repo (the 60-second on-ramp).
 
 The README's "Try it in 5 minutes" is a 12-line copy-paste; this is the one
-command that *runs* it — scaffold a fresh workspace, make a real commit that
-stamps `AUTH1`, then ask the truth syscall about `AUTH1` (the agent's claim is
-backed → SHIPPED) and `AUTH2` (a claim nothing landed for → NOT_SHIPPED). The
-contrast IS DOS: the verdict comes from git ancestry, never the agent's story.
+command that *runs* it — and it runs it as a STORY a newcomer who has never
+heard of a "phase" can follow: an agent claims it shipped two named things
+("the login endpoint (AUTH1) and the password reset (AUTH2)"), the demo
+scaffolds a fresh workspace and makes the one real commit that stamps `AUTH1`,
+then asks the truth syscall about both claims — the backed one → SHIPPED, the
+one nothing landed for → NOT_SHIPPED. The contrast IS DOS: the verdict comes
+from git ancestry, never the agent's story. The exit-code line ("0/1 IS the
+verdict") lands at the same beat, so the CI relevance is visible at the money
+moment, not buried in reference docs.
 
-Part two (default mode) is the FLEET act — the admission half a single-agent
-demo can't show: three `arbitrate` calls through the real kernel admit agent A
-onto `src`, redirect agent B off the busy region onto the disjoint `docs`
-(the collision that never reached the files), and refuse agent C when every
-lane is held. Lie-catching plus collision-refereeing is the whole pitch in
-one command.
+Part two (default mode) is the multi-writer act — the admission half a
+single-agent demo can't show, framed for the widest audience that actually
+hits it (a 20-agent fleet OR just two coding-agent tabs open on one repo):
+three `arbitrate` calls through the real kernel admit agent A onto `src`,
+redirect agent B off the busy region onto the disjoint `docs` (the collision
+that never reached the files), and refuse agent C when every lane is held.
+Lie-catching plus collision-refereeing is the whole pitch in one command.
+
+The default-mode closing is an adoption ROUTER, not a fleet-only on-ramp: one
+line each for the ways people actually run agents — a hook-capable runtime
+(`dos init --hooks <runtime>`), an MCP host (`dos-mcp` + `dos_verify`), a CI
+step (branch on the exit code), and a fleet on one repo (`dos init` +
+`arbitrate`) — so a newcomer who is not a fleet operator still leaves with the
+one move that applies to them. Pinned by
+`test_quickstart_default_routes_the_wider_audience`.
 
 Every verdict line is produced by the SAME `oracle.is_shipped` + renderer the
 real `dos verify` uses (not a canned string), so what the operator sees here is

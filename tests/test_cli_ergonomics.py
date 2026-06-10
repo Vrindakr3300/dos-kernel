@@ -370,6 +370,25 @@ def test_quickstart_default_shows_the_fleet_act():
     assert "dos arbitrate --lane" in out
 
 
+def test_quickstart_default_routes_the_wider_audience():
+    """The default quickstart is written for a newcomer who is NOT already a
+    fleet operator. Two affordances are pinned: (1) the demo opens as a STORY
+    with both claims NAMED (the password reset is the lie that gets caught),
+    not as bare AUTH1/AUTH2 tokens; (2) the closing is an adoption ROUTER —
+    one line each for a hook-capable agent runtime, an MCP host, a CI step,
+    and a fleet — so every audience leaves with the move that applies to them."""
+    cp = _cli("quickstart")
+    assert cp.returncode == 0, (cp.stdout, cp.stderr)
+    out = cp.stdout
+    # (1) the named-claim story frames the contrast.
+    assert "password reset" in out
+    # (2) the router: hooks (enforcement), MCP (advisory), CI (exit code), fleet.
+    assert "dos init --hooks" in out
+    assert "dos-mcp" in out
+    assert "exit code" in out
+    assert "dos arbitrate --lane" in out
+
+
 def test_quickstart_default_leaves_no_temp_dir():
     """The default run cleans up its temp dir — no demo repo is left behind."""
     import os

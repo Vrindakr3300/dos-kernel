@@ -79,9 +79,12 @@ dos quickstart              # → SHIPPED AUTH AUTH1 … then NOT_SHIPPED AUTH A
 
 That's it. One `SHIPPED`, one `NOT_SHIPPED` — the first is a claim git can back,
 the second is a claim nothing landed for. **That contrast is the whole product in
-one command.** (Add `--keep ./demo` to keep the repo and poke at it. No clone
-wanted? `uvx --from git+https://github.com/anthony-chaudhary/dos-kernel dos
-quickstart` runs the same demo ephemerally — nothing left behind.)
+one command.** The demo closes with a router to wherever you already run agents —
+a Claude Code / Cursor tab (`dos init --hooks`), an MCP host, a CI step, or a
+fleet — so your next move is one line, not a docs dig. (Add `--keep ./demo` to
+keep the repo and poke at it. No clone wanted? `uvx --from
+git+https://github.com/anthony-chaudhary/dos-kernel dos quickstart` runs the same
+demo ephemerally — nothing left behind.)
 
 <details>
 <summary><strong>Prefer to watch the gears turn?</strong> The same thing, by hand, in 5 lines — click to expand</summary>

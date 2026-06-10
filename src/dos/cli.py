@@ -1,6 +1,6 @@
 """The `dos` umbrella CLI — one entrypoint over the kernel syscalls.
 
-New here?  →  dos quickstart      the caught-lie + fleet-collision demo, throwaway repo (60s)
+New here?  →  dos quickstart      the caught-lie + collision demo, throwaway repo (60s)
             →  dos init [DIR]       scaffold the one dos.toml most repos need
             →  dos doctor          report the active workspace + lane taxonomy
 
@@ -5469,6 +5469,15 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
     try:
         from dos import oracle
 
+        # 0. The scene — the universal experience the demo exists to catch. Naming
+        #    the two claims up front (login endpoint / password reset) is what makes
+        #    the catch legible to someone who has never heard of a "phase".
+        _say("# The story: you asked a coding agent for a login feature. It replied:")
+        _say('#   "Done! Shipped the login endpoint (AUTH1) and the password reset (AUTH2)."')
+        _say("# One claim is true. One never landed. Catching the difference — from the")
+        _say("# artifacts, never the transcript — is the demo. Throwaway repo, four commands:")
+        _say()
+
         # 1. Scaffold the workspace. Two modes:
         #   (full prose: docs/CLI.md § "1. Scaffold the workspace. Two modes:")
         if driver_name:
@@ -5520,6 +5529,8 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
         _run_git("commit", "-q", "-m", "AUTH1: ship the login endpoint")
         head = subprocess.run(["git", "-C", str(work), "rev-parse", "--short", "HEAD"],
                               check=True, capture_output=True, text=True).stdout.strip()
+        _say("# The login endpoint really did land — one commit, stamped with its work-unit")
+        _say("# id (any letters+digit token at the front of a subject; AUTH1 here):")
         _say("$ git commit -m 'AUTH1: ship the login endpoint'")
         _say(f"  [committed {head}]")
         _say()
@@ -5532,7 +5543,7 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
         cfg = _config.load_workspace_config(workspace=work)
         renderer = render.resolve_renderer(_resolve_output_name(args))
 
-        _say("# An agent says AUTH1 shipped. True? Ask git, not the agent:")
+        _say('# Claim 1 — "the login endpoint (AUTH1) shipped." Ask git, not the agent:')
         _say("$ dos verify AUTH AUTH1")
         v1 = oracle.is_shipped("AUTH", "AUTH1", cfg=cfg)
         _say(f"  {renderer.render_verdict(v1)}")
@@ -5540,7 +5551,7 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
              "  (0 = the verdict is SHIPPED)")
         _say()
 
-        _say("# Now an agent claims AUTH2 is done too — but nothing ever landed:")
+        _say('# Claim 2 — "the password reset (AUTH2) shipped too." Did it?')
         _say("$ dos verify AUTH AUTH2")
         v2 = oracle.is_shipped("AUTH", "AUTH2", cfg=cfg)
         _say(f"  {renderer.render_verdict(v2)}")
@@ -5558,15 +5569,19 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
 
         _say("That contrast is DOS in two lines: a claim is only believed when the "
              "artifacts back it.")
+        _say("And the exit code IS the verdict (0/1) — a script or CI step branches "
+             "on it without parsing a word.")
 
         # 4. The fleet act (default mode) — the admission half of the pitch. The
         #   (full prose: docs/CLI.md § "4. The fleet act (default mode) — the admission half of the")
         if not driver_name:
             _say()
-            _say("# Part two — the FLEET. More agents start on this SAME repo at "
-                 "once. Before an")
-            _say("# agent touches files, it must ask the arbiter for a lease on a "
-                 "region (a lane):")
+            _say("# Part two — more than one agent on the SAME repo. A 20-agent "
+                 "fleet, or just two")
+            _say("# coding-agent tabs you opened side by side — same hazard: two "
+                 "writers, one file")
+            _say("# tree. Before touching files, each asks the arbiter for a lease "
+                 "on a region (a lane):")
             _say()
             try:
                 _quickstart_fleet_act(cfg, _say)
@@ -5597,7 +5612,21 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
                 _say(f"Adopt the {driver_name} lanes in your repo:  "
                      f"dos init --example {driver_name}")
             else:
-                _say("Referee your own fleet:    dos init .   then   "
+                # The adoption router — one line per way people actually run
+                # agents, so a newcomer who is NOT a fleet operator still sees
+                # the move that applies to them.
+                _say("\nThen plug the verdict in where you already run agents:")
+                _say("  an agent runtime   dos init --hooks <runtime> .   "
+                     "(claude-code, cursor, codex,")
+                _say("                     gemini, antigravity) — the host itself "
+                     'refuses a false "done"')
+                _say('  an MCP host        {"mcpServers": {"dos": {"command": '
+                     '"dos-mcp"}}} — then ask the')
+                _say("                     agent to dos_verify its own last claim "
+                     "(Claude Desktop, Cline, ...)")
+                _say("  a CI step          run dos verify and branch on the exit "
+                     "code: 0 shipped / 1 not")
+                _say("  a fleet, one repo  dos init .   then   "
                      "dos arbitrate --lane <dir>")
         return 0
     except subprocess.CalledProcessError as e:
@@ -6953,17 +6982,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     pqs = sub.add_parser(
         "quickstart",
-        help="run the caught-lie + fleet-collision demo in a throwaway repo "
+        help="run the caught-lie + collision demo in a throwaway repo "
              "(60-second taste)",
         description=(
-            "Run the DOS money-moment in one command: scaffold a fresh workspace, "
-            "make a real commit that stamps AUTH1, then ask the truth syscall about "
-            "AUTH1 (backed by git → SHIPPED) and AUTH2 (nothing landed → NOT_SHIPPED). "
-            "The contrast is DOS: a claim is believed only when the artifacts back it. "
-            "Part two is the FLEET act: three arbitrate calls through the real kernel "
-            "admit agent A onto src, redirect agent B off the busy region onto the "
-            "disjoint docs lane, and refuse agent C when every lane is held — the "
-            "collision that never reached your files. "
+            "Run the DOS money-moment in one command: an agent claims it shipped "
+            "two things; a fresh workspace gets the one real commit (AUTH1), then "
+            "the truth syscall rules on both claims — backed by git → SHIPPED, "
+            "nothing landed → NOT_SHIPPED. The contrast is DOS: a claim is believed "
+            "only when the artifacts back it. "
+            "Part two is the multi-writer act (a fleet, or just two agent tabs on "
+            "one repo): three arbitrate calls through the real kernel admit agent A "
+            "onto src, redirect agent B off the busy region onto the disjoint docs "
+            "lane, and refuse agent C when every lane is held — the collision that "
+            "never reached your files. It closes with the adoption router: hooks / "
+            "MCP / CI / fleet, one line each. "
             "By default it runs in a temp dir and cleans up; --keep DIR leaves it."),
         formatter_class=argparse.RawDescriptionHelpFormatter)
     pqs.add_argument("--keep", metavar="DIR", default=None,
