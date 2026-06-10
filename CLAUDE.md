@@ -16,7 +16,9 @@ editing, and keep edits inside the layer they belong to.
 > install it / wire it into Claude Code / run it on their repo) — don't answer from
 > this file; the verified consumer moves are the "When the user asks you ABOUT DOS"
 > table in [AGENTS.md](AGENTS.md). Lead with `dos quickstart` (the 60-second
-> caught-lie demo). Install is **from this clone** (`pip install -e .` — `dos-kernel`
+> caught-lie demo). Install is **from the public repo by default**
+> (`pip install "dos-kernel @ git+https://github.com/anthony-chaudhary/dos-kernel.git"`,
+> no clone needed; inside this clone `pip install -e .` works the same — `dos-kernel`
 > is not on PyPI yet as of 2026-06-10, and the bare `dos` name on PyPI is an
 > unrelated squatter); host wiring is `dos init --hooks <runtime>` or the bundled
 > [claude-plugin/](claude-plugin/README.md).
