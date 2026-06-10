@@ -8,9 +8,9 @@
 # is its own git"). The workflow `name:` below IS the badge text — GitHub
 # renders "<name>: passing|failing".
 #
-# Two legs, each a kernel verdict whose exit code is the check (docs/82's
-# verdict-IS-the-exit-code shape), both shelled through ./verify-action so the
-# bundled Action has a consumer from day one — this repo:
+# Three legs, each a kernel verdict whose exit code is the check (docs/82's
+# verdict-IS-the-exit-code shape), the first two shelled through ./verify-action
+# so the bundled Action has a consumer from day one — this repo:
 #
 #   1. commit-audit — each pushed/PR'd commit's SUBJECT claim vs its own DIFF.
 #      The honesty witness this repo actually has: its claims live in commit
@@ -25,9 +25,16 @@
 #      reddens if the [stamp] grammar in dos.toml stops parsing the repo's own
 #      stamps, or if a history rewrite drops the stamped commit from ancestry.
 #
-# Scope honesty (docs/112 §6): a green badge asserts verified-SHIPPED claims and
-# diff-backed subjects — never code correctness. The test suite is ci.yml's job;
-# this gate sits BESIDE it, not in place of it.
+#   3. lint — the config-integrity linter (docs/227) over the repo's OWN
+#      dos.toml: a treeless lane, a dangling autopick target, a shadowed lane
+#      region — dead policy reddens the badge the same way an over-claiming
+#      subject does. The kernel adjudicates its own policy file, not just its
+#      commits.
+#
+# Scope honesty (docs/112 §6): a green badge asserts verified-SHIPPED claims,
+# diff-backed subjects, and a dead-policy-free dos.toml — never code
+# correctness. The test suite is ci.yml's job; this gate sits BESIDE it, not in
+# place of it.
 name: verified by DOS
 
 on:
@@ -79,3 +86,10 @@ jobs:
           mode: verify
           plan: docs/112
           phase: Phase 0
+
+      # Leg 3 — dead policy in the workspace's own declarations (docs/227). The
+      # verify-action legs above already pip-installed the checked-out kernel
+      # into this job's interpreter, so the verb is on PATH; --strict makes a
+      # warning-class finding redden the badge too.
+      - name: dos lint — dead policy in the repo's own dos.toml?
+        run: dos lint --strict --workspace .

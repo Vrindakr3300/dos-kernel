@@ -15,12 +15,16 @@ workspace = "."
 # top-level directories; curate them as your real concurrency topics emerge.
 # `dos arbitrate` reads this; `dos doctor --check` flags a lane with no tree.
 [lanes]
-concurrent = ["benchmark", "claude-plugin", "docs", "examples", "go", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
+concurrent = ["benchmark", "ci", "claude-plugin", "docs", "examples", "go", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
 exclusive = ["global"]
-autopick = ["benchmark", "claude-plugin", "docs", "examples", "go", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
+autopick = ["benchmark", "ci", "claude-plugin", "docs", "examples", "go", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
 
 [lanes.trees]
 benchmark = ["benchmark/**"]
+# Curated (not dir-derived): workflow edits kept falling through to the exclusive
+# `global` lane, where the SELF_MODIFY guard rightly refuses a live loop — but a
+# CI edit is disjoint from every source lane and deserves concurrent admission.
+ci = [".github/**"]
 claude-plugin = ["claude-plugin/**"]
 docs = ["docs/**"]
 examples = ["examples/**"]
