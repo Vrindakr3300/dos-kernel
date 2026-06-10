@@ -43,6 +43,10 @@ LIVE_ONBOARDING_DOCS = (
     "docs/QUICKSTART.md",
     "docs/HACKING.md",
     "examples/playbooks/01_onboard-a-repo.md",
+    # The action README's pre-commit `rev: vX.Y.Z` is a copy-paste pin a consumer
+    # checks out verbatim — a stale tag there 404s their hook install (the @v1 /
+    # v0.13.0 forms shipped pointing at refs the fresh public history never had).
+    "verify-action/README.md",
 )
 
 # Matches any `DOS v0.13.0` / `kernel v0.18.0` / `**v0.16.0**` style literal.

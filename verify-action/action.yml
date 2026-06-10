@@ -23,7 +23,7 @@
 #       steps:
 #         - uses: actions/checkout@v4
 #           with: { fetch-depth: 0 }          # commit-audit needs git ancestry
-#         - uses: anthony-chaudhary/dos-kernel/verify-action@v1
+#         - uses: anthony-chaudhary/dos-kernel/verify-action@master   # pin a release tag for reproducible CI
 #           with:
 #             mode: commit-audit
 #             range: ${{ github.event.pull_request.base.sha }}..${{ github.sha }}
