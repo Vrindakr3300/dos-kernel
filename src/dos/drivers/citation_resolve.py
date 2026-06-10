@@ -77,7 +77,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 # Imports the kernel — never the other way round (the driver rule). The evidence

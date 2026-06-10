@@ -84,7 +84,6 @@ from dos.liveness import Liveness
 from dos.completion import (
     Completion,
     CompletionVerdict,
-    Convergence,
     ConvergenceVerdict,
 )
 from dos.pickable import Pickability

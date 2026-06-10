@@ -49,7 +49,6 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from dos.tool_stream import (
-    DEFAULT_POLICY,
     StreamPolicy,
     StreamState,
     ToolStream,

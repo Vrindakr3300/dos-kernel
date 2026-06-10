@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass
+from pathlib import Path
 
 
 class NoOpStreak(str, enum.Enum):
@@ -262,8 +263,6 @@ def load_from_toml(
     Reads with `utf-8-sig` to strip a PowerShell-written BOM (the
     `reasons`/`intervention`/`tool_stream` `load_from_toml` fix).
     """
-    from pathlib import Path
-
     p = Path(path)
     if not p.exists():
         return base

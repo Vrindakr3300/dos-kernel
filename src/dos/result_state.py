@@ -87,7 +87,7 @@ lease, carries no policy of its own. The transcript I/O is the caller's boundary
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 

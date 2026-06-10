@@ -62,7 +62,6 @@ import sys
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from dos.lane_overlap import overlap_verdict
 
 
 @dataclass(frozen=True)

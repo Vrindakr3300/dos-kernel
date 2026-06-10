@@ -60,7 +60,6 @@ from typing import Iterable
 from dos.evidence import EvidenceStance
 from dos.precursor_gate import (
     CallStream,
-    EMPTY_GRAMMAR,
     MutatingCall,
     PrecursorGrammar,
     PrecursorPolicy,

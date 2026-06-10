@@ -73,7 +73,7 @@ from __future__ import annotations
 
 import enum
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover - typing only; never imported at runtime

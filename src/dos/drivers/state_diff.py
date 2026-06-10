@@ -66,7 +66,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
-from typing import Callable, Mapping
+from typing import Mapping
 
 # Imports the kernel — never the other way round (the driver rule).
 from dos.evidence import Accountability, EvidenceFacts

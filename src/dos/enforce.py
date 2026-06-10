@@ -72,7 +72,7 @@ helpers. Entry-point discovery (the one bit of I/O) happens at the call boundary
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from dos.intervention import Intervention, InterventionDecision

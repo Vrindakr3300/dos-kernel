@@ -52,7 +52,6 @@ from typing import Iterable
 from dos.arg_provenance import ProvenanceVerdict
 from dos.intervention import (
     BASE_INTERVENTIONS,
-    DEFAULT_POLICY,
     Confidence,
     Intervention,
     InterventionDecision,

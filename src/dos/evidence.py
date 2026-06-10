@@ -72,7 +72,7 @@ from __future__ import annotations
 
 import enum
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 # The accountability spectrum has ONE home — docs/117's `log_source`. An evidence

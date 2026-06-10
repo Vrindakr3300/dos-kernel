@@ -28,8 +28,7 @@ TOML read is at the `load_from_toml` boundary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

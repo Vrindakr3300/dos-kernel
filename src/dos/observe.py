@@ -26,7 +26,6 @@ from __future__ import annotations
 import io
 import sys
 from dataclasses import dataclass
-from typing import Any
 
 if hasattr(sys.stdout, "reconfigure"):
     try:

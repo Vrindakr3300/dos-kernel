@@ -86,7 +86,6 @@ import os
 # moment it is emittable. (DOS makes this a clean package import; the origin
 # repo needed a `sys.path.insert` because scripts ran as bare files.)
 from dos import wedge_reason
-from dos import reason_morphology
 from dos import config as _config
 
 # Path coupling resolves against the ACTIVE WORKSPACE (separation refactor).

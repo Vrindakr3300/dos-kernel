@@ -79,7 +79,7 @@ imports `dos.drivers`) covers the real sources.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from dos.intent_ledger import LedgerState

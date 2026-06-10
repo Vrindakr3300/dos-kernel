@@ -87,7 +87,7 @@ policy" litmus, not "no sibling import" (CLAUDE.md).
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from dos.intent_ledger import LedgerState

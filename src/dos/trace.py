@@ -48,8 +48,6 @@ from __future__ import annotations
 import io
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
 
 if hasattr(sys.stdout, "reconfigure"):
     try:

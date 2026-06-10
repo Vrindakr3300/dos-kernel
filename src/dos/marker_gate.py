@@ -64,6 +64,7 @@ from `os.environ`. Passes `test_vendor_agnostic_kernel.py`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Mapping
 
 
@@ -236,8 +237,6 @@ def load_from_toml(
     (`MarkerPolicy.__post_init__`). Reads with `utf-8-sig` to strip a PowerShell-written
     BOM (the `reasons`/`tool_stream`/`noop_streak` `load_from_toml` fix).
     """
-    from pathlib import Path
-
     p = Path(path)
     if not p.exists():
         return base

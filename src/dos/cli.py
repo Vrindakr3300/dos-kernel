@@ -60,6 +60,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 # Windows defaults to cp1252, which crashes on the em-dash / middot the man-page
 # renderer emits. Match the spine modules' force-UTF-8 discipline.

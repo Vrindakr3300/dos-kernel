@@ -46,7 +46,7 @@ policy (the severity order is a module constant, the closed-enum-as-data seam).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from dos.status import StatusDigest

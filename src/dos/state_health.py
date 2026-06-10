@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Mapping, Sequence
 
 _MS_PER_DAY = 86_400_000
 

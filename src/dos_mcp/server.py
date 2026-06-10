@@ -162,7 +162,7 @@ def _with_deadline(fn: Any, budget_ms: int) -> Any:
                 ),
                 "fallback": (
                     "The kernel verdict is reachable on the CLI (which is healthy "
-                    f"even when this transport stalls): run the matching `dos` verb "
+                    "even when this transport stalls): run the matching `dos` verb "
                     "for this tool. This stall is the TRANSPORT, not the syscall."
                 ),
                 "advice": (

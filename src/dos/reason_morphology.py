@@ -37,7 +37,6 @@ so the morphological rung and the exact rung agree on category by construction.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 

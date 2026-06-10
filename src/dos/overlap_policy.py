@@ -67,7 +67,7 @@ from __future__ import annotations
 import sys
 from typing import Protocol, runtime_checkable
 
-from dos.lane_overlap import OVERLAP_RATIO_MAX, OverlapDecision, Verdict, overlap_verdict
+from dos.lane_overlap import OVERLAP_RATIO_MAX, OverlapDecision, overlap_verdict
 
 
 @runtime_checkable

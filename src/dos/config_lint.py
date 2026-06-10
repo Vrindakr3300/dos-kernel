@@ -262,7 +262,6 @@ def lint_lanes(taxonomy) -> tuple[Finding, ...]:
     concurrent = tuple(taxonomy.concurrent)
     exclusive = tuple(taxonomy.exclusive)
     autopick = tuple(taxonomy.autopick)
-    trees = dict(taxonomy.trees)
     aliases = dict(taxonomy.aliases)
 
     declared = set(concurrent) | set(exclusive)
