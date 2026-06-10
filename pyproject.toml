@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 # src/), and the console scripts stay `dos` / `dos-mcp` — only the pip-install /
 # dependency-pin name is `dos-kernel`. See SECURITY.md "Supply chain".
 name = "dos-kernel"
-version = "0.23.1"
+version = "0.23.2"
 description = "Dispatch Operating System — the domain-free trust substrate for fleets of autonomous agents (verdict spine, ship oracle, structured refusal, lane arbiter, correlation spine)."
 # The PyPI project page renders this. Point it at the README so the page isn't
 # blank below the metadata (twine warns when it's missing). PyPI resolves
@@ -190,6 +190,17 @@ antigravity = "dos.drivers.hook_dialects:AntigravityDialect"
 # (JSON/TOML) does not encode — wiring it is a separate kernel lift; the dialect
 # renderer (the high-value, kernel-clean half) ships now.
 hermes = "dos.drivers.hook_dialects:HermesDialect"
+
+# The plan-DIALECT sources (docs/293). The kernel seam (`dos.plan_source`) holds
+# the `PlanRow` + `PlanSource` Protocol + resolver + the ONE unshadowable `markdown`
+# built-in (the strict `### N. PLAN PHASE` grammar); a repo whose plans use another
+# shape ships a source here instead of loosening the built-in. This one is DOS's own
+# `docs/NN_<slug>-plan.md` prose dialect (`## Phase N — …` / `### GHF1 — …` headings,
+# the leading-✅ `> **Status:**` close-out) — the dialect `plan_source.py` names as
+# wanting "a `dos.plan_sources` plugin, not a guess", dogfooded. Selected by
+# `dos plan --source design-docs` or declared per-workspace via `[plan] source`.
+[project.entry-points."dos.plan_sources"]
+design-docs = "dos.drivers.design_doc_plan:DesignDocPlanSource"
 
 # The notification-spine transports (docs/225). The kernel seam (`dos.notify`)
 # holds the transport-neutral `Notification` + `Notifier` Protocol + resolver + the
