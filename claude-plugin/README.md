@@ -6,9 +6,10 @@
 > hand-editing `settings.json`, registering an MCP server, and copying skills out of
 > the wheel separately.
 
-The plugin ships **JSON + markdown only**. The brains — the `verify` / `arbitrate` /
-`refuse` syscalls the hooks and MCP server call — ship as the **`dos-kernel` Python
-package**. So the one prerequisite is:
+The plugin ships **JSON + markdown, plus the prebuilt native `dos-hook` binary**
+(`bin/`, per-platform) that serves the hooks fast. The brains — the `verify` /
+`arbitrate` / `refuse` syscalls the hooks and MCP server call — ship as the
+**`dos-kernel` Python package**. So the one prerequisite is:
 
 ```bash
 pip install "dos-kernel[mcp]"
