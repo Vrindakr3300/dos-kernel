@@ -21,11 +21,10 @@ python -c "import dos, dos_mcp; print('dos', dos.__version__)"
 - **Prints a version** → the package is installed and importable. Go to Step 2.
 - **`ModuleNotFoundError: dos`** → the plugin's hooks/MCP cannot work yet. Install
   the package (the `[mcp]` extra pulls the MCP server framework the bundled server
-  needs; the `git+` form installs straight from the public repo while `dos-kernel`
-  is pre-PyPI):
+  needs):
 
   ```bash
-  pip install "dos-kernel[mcp] @ git+https://github.com/anthony-chaudhary/dos-kernel.git"
+  pip install "dos-kernel[mcp]"
   ```
 
   Install it into the SAME interpreter Claude Code runs (the one `python` resolves
@@ -33,7 +32,7 @@ python -c "import dos, dos_mcp; print('dos', dos.__version__)"
   silently no-op (they fail safe, by design) and the MCP server will print an
   install hint in `/mcp`.
 - **`ModuleNotFoundError: dos_mcp`** → the core installed but not the MCP extra;
-  re-run the `pip install "dos-kernel[mcp] @ git+…"` line above.
+  re-run the `pip install "dos-kernel[mcp]"` line above.
 
 ## Step 2 — Does the kernel see this workspace? (confirm wiring)
 

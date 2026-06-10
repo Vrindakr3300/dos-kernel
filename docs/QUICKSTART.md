@@ -24,10 +24,6 @@ pip install dos-kernel    # the distribution name is dos-kernel
 # or, from a clone of this repo:  pip install -e .
 ```
 
-> **Pre-release:** `dos-kernel` isn't on PyPI yet — until then, install from a
-> clone of this repo with `pip install -e .` (the second line above). The rest of
-> this walkthrough works identically either way.
-
 > **The dist name is `dos-kernel`, not `dos`.** A bare `pip install dos` pulls an
 > unrelated package (a Flask/OpenAPI helper) that squats the `dos` name. The
 > *import* name is still `dos` (`import dos`, the `dos` command) — only the pip

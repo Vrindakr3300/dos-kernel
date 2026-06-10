@@ -8,9 +8,9 @@
 > pip surface gets the fast path. **Phase 3 (CI matrix) SHIPPED 2026-06-10** —
 > `publish.yml` + `ci.yml` build the 6-wheel matrix via `scripts/build_wheels.py`,
 > with the byte-format guard run on the clean CI checkout (§4). Only Phase 4
-> (measure the pip native win, decide the console-script shim) remains. Note:
-> nothing is on PyPI yet — the pipeline is built and gated; the first
-> owner-approved upload (PUBLISHING.md Stage 1) has not run.
+> (measure the pip native win, decide the console-script shim) remains. The first
+> owner-approved upload (PUBLISHING.md Stage 1) ran 2026-06-10: `dos-kernel`
+> 0.22.0 is live on PyPI — the sdist plus all six per-platform wheels.
 >
 > The PyPI publish *infrastructure* was already built and correct
 > (`PUBLISHING.md`, `.github/workflows/publish.yml`, `scripts/build_dist.py`,

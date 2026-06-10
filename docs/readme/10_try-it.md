@@ -4,8 +4,7 @@ Got a terminal? This runs the whole thing in a throwaway repo — one command
 scaffolds it, makes a real commit, verifies it, and cleans up after itself:
 
 ```bash
-git clone https://github.com/anthony-chaudhary/dos-kernel.git && cd dos-kernel
-pip install -e .            # from the clone — PyYAML is the only runtime dep
+pip install dos-kernel      # PyYAML is the only runtime dep
 dos quickstart              # → SHIPPED AUTH AUTH1 … then NOT_SHIPPED AUTH AUTH2
 ```
 
@@ -14,9 +13,8 @@ is a claim nothing landed for. That contrast is the product. The demo closes
 with a router to wherever you already run agents — a Claude Code / Cursor tab
 (`dos init --hooks`), an MCP host, a CI step, or a fleet — so your next move is
 one line, not a docs dig. (Add `--keep ./demo` to keep the repo and poke at it.
-No clone wanted? `uvx --from
-git+https://github.com/anthony-chaudhary/dos-kernel dos quickstart` runs the same
-demo ephemerally — nothing left behind.)
+Don't even want the install? `uvx --from dos-kernel dos quickstart` runs the
+same demo ephemerally — nothing left behind.)
 
 <details>
 <summary><strong>Prefer to watch the gears turn?</strong> The same thing, by hand, in 5 lines — click to expand</summary>

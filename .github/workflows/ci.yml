@@ -186,7 +186,8 @@ jobs:
       # with) actually RUN here instead of skipping on their `uv not installed`
       # guard. The tests isolate all uv state into tmp_path via
       # UV_CACHE_DIR/UV_TOOL_DIR/UV_TOOL_BIN_DIR and install from the local
-      # checkout (dos-kernel is not on PyPI), so no cache wiring is needed.
+      # checkout (testing the tree under test, never the registry copy), so no
+      # cache wiring is needed.
       # Pinned to the exact tag: astral-sh/setup-uv publishes no moving major
       # refs (there is no `v8` tag or branch — a bare @v8 does not resolve).
       - uses: astral-sh/setup-uv@v8.2.0

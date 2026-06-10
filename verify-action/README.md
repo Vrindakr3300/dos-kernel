@@ -48,15 +48,16 @@ declared phase instead:
 | `fail-on` | `unwitnessed` | `unwitnessed` blocks a `CLAIM_UNWITNESSED` / `NOT_SHIPPED`; `none` is observe-only (reports to the step summary, never blocks). |
 | `workspace` | `.` | Repo root to verify against. |
 | `dos-version` | latest | Pin the install, e.g. `==0.13.0`. |
-| `install-from` | — (PyPI) | Override the install source: a local path (`.` = the checked-out repo) or a VCS URL (`git+https://github.com/anthony-chaudhary/dos-kernel`). **Until `dos-kernel` is on PyPI, set this** — the default PyPI install does not resolve yet. |
+| `install-from` | — (PyPI) | Override the install source: a local path (`.` = the checked-out repo) or a VCS URL (`git+https://github.com/anthony-chaudhary/dos-kernel`). Optional — the default resolves from PyPI; set it to gate with an unreleased tree. |
 
-> **Pre-PyPI note + the live example.** The kernel's own repo is this Action's
-> first consumer: [`.github/workflows/dos-gate.yml`](../.github/workflows/dos-gate.yml)
-> runs both modes on every push with `install-from: "."`, and the resulting check
-> is the README's live **verified by DOS** badge — the repo gates itself with the
-> gate it ships (docs/112 §4, trust posture 2). A consumer repo uses
-> `install-from: git+https://github.com/anthony-chaudhary/dos-kernel` until the
-> PyPI release, then drops the input.
+> **The live example.** The kernel's own repo is this Action's first consumer:
+> [`.github/workflows/dos-gate.yml`](../.github/workflows/dos-gate.yml)
+> runs both modes on every push with `install-from: "."` — gating with the tree
+> being pushed, not a registry copy — and the resulting check is the README's
+> live **verified by DOS** badge: the repo gates itself with the gate it ships
+> (docs/112 §4, trust posture 2). A consumer repo needs no `install-from` at all
+> (the default installs from PyPI); set it only to pin a fork or an unreleased
+> tree.
 
 The per-commit verdict table is written to the job's **step summary**. The Action's
 exit code is the gate; make it a **required check** in branch protection to enforce.

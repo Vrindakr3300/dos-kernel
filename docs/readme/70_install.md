@@ -5,15 +5,16 @@ channel, upgrade/uninstall, WSL, troubleshooting) is in
 **[docs/INSTALL.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/INSTALL.md)**:
 
 ```bash
-# uv — the modern, fast, isolated CLI install (recommended), straight from GitHub:
-uv tool install git+https://github.com/anthony-chaudhary/dos-kernel       # `dos` + `dos-mcp` on PATH
-uvx --from git+https://github.com/anthony-chaudhary/dos-kernel dos doctor # or run it once, ephemerally
+# uv — the modern, fast, isolated CLI install (recommended):
+uv tool install dos-kernel        # `dos` + `dos-mcp` on PATH
+uvx --from dos-kernel dos doctor  # or run it once, ephemerally
 
 # pip — the library-consumer path (a host pins dos-kernel in its own venv):
-pip install "dos-kernel @ git+https://github.com/anthony-chaudhary/dos-kernel"      # core kernel (PyYAML only)
-pip install "dos-kernel[mcp] @ git+https://github.com/anthony-chaudhary/dos-kernel" # + the MCP server (dos-mcp)
+pip install dos-kernel            # core kernel (PyYAML only)
+pip install "dos-kernel[mcp]"     # + the MCP server (dos-mcp)
 
-# from a clone — editable, the contributor path:
+# from a clone — editable, the contributor path (tracking unreleased master:
+# pip install "dos-kernel @ git+https://github.com/anthony-chaudhary/dos-kernel", no clone needed):
 git clone https://github.com/anthony-chaudhary/dos-kernel.git && cd dos-kernel
 pip install -e .                  # editable: your edits are live in the install
 ./install.sh                      # or .\install.ps1 on Windows — venv + install + PATH, one line
@@ -26,10 +27,9 @@ pip install -e .                  # editable: your edits are live in the install
 > See [SECURITY.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/SECURITY.md), "Supply chain."
 
 Prefer a package manager? **uv** is the 2026 default — faster than `pipx`,
-isolates the tool, and manages Python versions; `pipx install
-git+https://github.com/anthony-chaudhary/dos-kernel` works the same way if your
-team already uses it. PyPI / Homebrew / WinGet / Scoop one-liners are next on the
-release runway (see [docs/INSTALL.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/INSTALL.md)).
+isolates the tool, and manages Python versions; `pipx install dos-kernel` works
+the same way if your team already uses it. Homebrew / WinGet / Scoop one-liners
+are next on the release runway (see [docs/INSTALL.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/INSTALL.md)).
 
 A host repo adds DOS as a pinned dependency and points it at its own tree — never
 by vendoring the code in. DOS is stateless about which repo it serves: it
@@ -66,7 +66,7 @@ once:
 # 1. The plugin ships JSON + markdown; the brains ship as the pip package, so
 #    install it FIRST into the interpreter Claude Code runs (the [mcp] extra is
 #    what the bundled MCP server needs):
-pip install "dos-kernel[mcp] @ git+https://github.com/anthony-chaudhary/dos-kernel"
+pip install "dos-kernel[mcp]"
 
 # 2. Then, inside Claude Code:
 /plugin marketplace add anthony-chaudhary/dos-kernel
