@@ -494,8 +494,8 @@ match its diff?", `dos_status` one folded fact about a run), then
 `dos_arbitrate` (may two workers run without colliding?), the structured-refusal
 pair (`dos_refuse_reasons` / `dos_check_reason`), `dos_recall` (is this recalled
 memory still true?), and `dos_doctor` (the workspace report) — so any
-MCP-speaking host — Claude Desktop, Cursor, Cline, an Agent-SDK app — can call
-the referee over JSON-on-stdio with zero Python coupling. Each verdict comes
+MCP-speaking host — Claude Desktop, Cursor, Cline, Trae, an Agent-SDK app — can
+call the referee over JSON-on-stdio with zero Python coupling. Each verdict comes
 back with a one-line interpretation of what it means for the agent's next move.
 (See **[the MCP server surface](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/80_mcp-server-surface.md)**.)
 
@@ -542,6 +542,16 @@ dialect speaks **Hermes**: `dos hook pretool --dialect hermes` emits the
 `{"decision": "block", "reason": …}` object Hermes' `pre_tool_call` shell hook
 reads (wire it in `cli-config.yaml`). A new host's dialect is a driver, never a
 kernel edit.
+
+The flip side of that honesty: a host with **no** hook seam gets **no** dialect.
+ByteDance's **Trae** was proved out and has no hook system at all (no lifecycle
+events, no deny/allow stdout contract), so DOS binds to it advisory-only — the
+MCP server in `.trae/mcp.json`, a verify-before-"done" rule in
+`.trae/rules/project_rules.md`, the generic skills in `.trae/skills/` — and
+`dos init --hooks trae` fails loud rather than writing config Trae would never
+read ([docs/294](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/294_trae-advisory-only-the-host-with-no-hook-seam.md)).
+An invented envelope would be fake enforcement, which is the exact failure the
+dialect seam exists to prevent.
 
 Because these hooks run on *every* tool call, the core kernel logic on the hot
 path is reimplemented in native Go — a `dos-hook` binary that ports the actual

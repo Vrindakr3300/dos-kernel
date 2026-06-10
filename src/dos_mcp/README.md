@@ -190,6 +190,33 @@ the *advisory* surface (the agent CALLS `dos_verify` / …). To make Antigravity
 tool call on a DOS verdict, wire its `PreToolUse` hook with `dos init --hooks antigravity`
 (the enforcement half — docs/217 §7 / docs/221 §3c).
 
+### Trae (`.trae/mcp.json` at the project root, or via the MCP UI)
+
+ByteDance's Trae (the IDE, SOLO mode, and TRAE CLI) auto-loads a project-level
+`.trae/mcp.json` with the standard `mcpServers` map (stdio `command`/`args`/`env`;
+Trae substitutes `${workspaceFolder}` with the project root):
+
+```json
+{
+  "mcpServers": {
+    "dos": {
+      "command": "dos-mcp",
+      "env": { "DISPATCH_WORKSPACE": "${workspaceFolder}" }
+    }
+  }
+}
+```
+
+> **Trae is advisory-ONLY (docs/294).** Trae has no hook system — no lifecycle
+> events, no deny/allow stdout contract — so there is no enforcement half to wire
+> and **no `--hooks trae` / `--dialect trae`** (deliberately: an envelope nothing
+> parses would be fake enforcement; `dos init --hooks trae` fails loud instead).
+> Make the advisory discipline sticky in Trae's own config surface instead: a
+> `.trae/rules/project_rules.md` rule telling the agent to `dos_verify` every
+> claim before "done" (snippet in docs/294 §3b), and the generic skill pack
+> copied to `.trae/skills/` (docs/294 §3c). Revisit when Trae ships hooks — the
+> triggers are docs/294 §4.
+
 > **Two surfaces, both cross-vendor (as of 2026-06-07).** MCP makes DOS a tool the
 > agent can *call* on every one of these hosts with zero code change — the
 > **advisory** path (the agent asks). Making a host *deny* a call on a DOS verdict is
@@ -209,7 +236,8 @@ tool call on a DOS verdict, wire its `PreToolUse` hook with `dos init --hooks an
 >
 > Wire **both**: MCP lets the agent check its own work; the hooks stop a bad action
 > before it lands. The MCP snippets above are the advisory half; the `--hooks`
-> command is the enforcement half.
+> command is the enforcement half. (Trae is the documented exception: it exposes
+> no hook seam at all, so its binding stops at the advisory half — docs/294.)
 
 ## Where this sits in the package
 

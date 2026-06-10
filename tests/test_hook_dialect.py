@@ -299,6 +299,21 @@ def test_available_dialects_lists_every_host():
     assert {"claude-code", "codex", "gemini", "cursor", "antigravity"} <= set(names)
 
 
+def test_trae_dialect_is_a_deliberate_absence():
+    """Trae is NOT a dialect, on purpose — there is no grammar to render (docs/294).
+
+    Proved out 2026-06-10: Trae (ByteDance) has no hook system — no events, no
+    deny/allow stdout JSON, no exit codes — so any TraeDialect envelope would be
+    bytes nothing parses: the silent fail-open this seam's fail-LOUD resolver
+    exists to prevent (the docs/278 OpenClaw/SwarmClaw precedent, one step
+    further out). Trae's support is the advisory surface (MCP / rules / skills,
+    docs/294 §3). If Trae ships hooks, follow the docs/269 playbook and delete
+    this pin consciously — after re-running the docs/294 §1 probe."""
+    assert "trae" not in hd.available_dialects()
+    with pytest.raises(ValueError, match="unknown hook dialect"):
+        hd.resolve_dialect("trae")
+
+
 # ---------------------------------------------------------------------------
 # The byte-author floor — NO dialect ever emits a tool-input rewrite key.
 # ---------------------------------------------------------------------------

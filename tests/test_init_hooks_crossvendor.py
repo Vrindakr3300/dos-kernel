@@ -287,6 +287,28 @@ def test_host_spec_resolver_is_fail_loud():
         assert hi.host_spec(name).host == name
 
 
+def test_trae_install_spec_is_a_deliberate_absence(tmp_path: Path):
+    """Trae has NO hook surface, so `--hooks trae` must keep failing LOUD (docs/294).
+
+    Proved out 2026-06-10: ByteDance's Trae (IDE / SOLO / TRAE CLI) ships no
+    lifecycle hook system — no events, no stdout JSON contract, no exit-code
+    semantics. A `trae_install_spec` would let `dos init --hooks trae` write a
+    config file Trae never reads: FAKE enforcement, the silent fail-open docs/217
+    fails loud to prevent. Trae's real surfaces (MCP via .trae/mcp.json, rules,
+    skills) are advisory and documented in docs/294 §3. If this test bothers you
+    because Trae just shipped hooks: re-run the docs/294 §1 probe, implement the
+    docs/269 playbook, and delete this pin consciously."""
+    import pytest
+    with pytest.raises(ValueError, match="unknown hook host"):
+        hi.host_spec("trae")
+    assert "trae" not in hi.host_names()
+    proc = _cli("init", "--hooks", "trae", str(tmp_path / "svc"))
+    assert proc.returncode == 2
+    assert "invalid choice" in proc.stderr.lower()
+    # And nothing Trae-shaped was written — no fake .trae/hooks.json.
+    assert not (tmp_path / "svc" / ".trae").exists()
+
+
 # ---------------------------------------------------------------------------
 # Read-only detection (the `dos doctor` "runtime hooks" line, docs/221).
 # ---------------------------------------------------------------------------
