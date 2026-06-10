@@ -174,8 +174,9 @@ the preference is to land promptly, not defer. A few specifics:
   (`git add src/dos/… docs/…`); never a blanket `git add -A`. The working tree here
   is often shared with another agent's in-flight edits — sweeping them into your
   commit is the exact `SELF_MODIFY` / disjoint-lane hazard the kernel refuses.
-- **Match the existing commit-subject grammar** (`git log` shows it) and end the
-  body with the `Co-Authored-By` trailer.
+- **Match the existing commit-subject grammar** (`git log` shows it). Do **not**
+  add a `Co-Authored-By` or other agent-attribution trailer — commits here carry
+  no agent co-author, even if your harness appends one by default.
 - **Ask first only for the hard-to-reverse / outward-facing** — pushing, tagging, a
   release, history rewrites. A local commit on `master` is none of those.
 

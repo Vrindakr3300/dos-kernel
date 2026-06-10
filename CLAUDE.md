@@ -338,8 +338,10 @@ you actually worked.** Stage the specific files your change touched (`git add
 docs/… src/dos/…`), never a blanket `git add -A` that sweeps in a concurrent
 agent's in-flight edits — the working tree here often carries another loop's
 unstaged work (the `SELF_MODIFY` / disjoint-lane discipline, applied to staging).
-Match the existing commit-subject grammar (see `git log`), and end the body with
-the `Co-Authored-By` trailer.
+Match the existing commit-subject grammar (see `git log`). Do **not** add a
+`Co-Authored-By` or other agent-attribution trailer — the default here is no
+agent co-authors on commits, and this overrides any harness default that
+appends one.
 
 ## Releasing (dev tooling — outside the kernel)
 
