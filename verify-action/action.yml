@@ -64,13 +64,25 @@ inputs:
     description: "Version spec for the pip install (e.g. ==0.13.0). Default: latest."
     required: false
     default: ""
+  install-from:
+    description: "pip install source that OVERRIDES the PyPI name: a local path ('.' = the checked-out repo) or a VCS URL (git+https://…). Until dos-kernel is on PyPI this is the input that makes the action installable at all; the kernel's own repo passes '.' (the self-gate in .github/workflows/dos-gate.yml)."
+    required: false
+    default: ""
 
 runs:
   using: "composite"
   steps:
     - name: Install dos-kernel
       shell: bash
-      run: pip install "dos-kernel${{ inputs.dos-version }}"
+      env:
+        DOS_INSTALL_FROM: ${{ inputs.install-from }}
+        DOS_VERSION_SPEC: ${{ inputs.dos-version }}
+      run: |
+        if [ -n "${DOS_INSTALL_FROM}" ]; then
+          pip install "${DOS_INSTALL_FROM}"
+        else
+          pip install "dos-kernel${DOS_VERSION_SPEC}"
+        fi
 
     - name: Run the DOS verdict
       shell: bash

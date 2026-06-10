@@ -59,17 +59,29 @@ Read this rung carefully, because the kernel's whole point is to not over-claim:
   shows the same green whether your last `verify` answered `SHIPPED` or
   `NOT_SHIPPED`. Wearing it is a claim about your **process**, not a real-time
   truth syscall result.
-- **The live, per-commit badge is future work.** A *dynamic* badge — one whose
-  colour and message come from an actual `dos verify` run (green `SHIPPED` /
-  red `NOT_SHIPPED`, sourced from a verify-powered endpoint) — is deferred to a
-  phased plan (a `docs/NN_*.md`), because it needs a service/endpoint the static
-  version deliberately avoids. Until then, the static badge is an honest
-  *adoption* mark, and the **gate itself** (below) is what makes it true.
+- **The live, per-commit badge exists today in one place: on DOS's own repo.**
+  The kernel repo's README wears a "verified by DOS" badge that is the status of
+  [`.github/workflows/dos-gate.yml`](../.github/workflows/dos-gate.yml) — its own
+  [`verify-action`](../verify-action/README.md) running `dos commit-audit` over
+  every pushed commit plus `dos verify` of the badge's own ship-stamp, so the
+  colour is a kernel verdict a CI runner computed from git ancestry, never a
+  static pill ([`docs/112`](112_the-dynamic-verified-by-dos-badge.md) Phase 0).
+  The *generalized* dynamic badge — the three-state shields endpoint
+  (green/neutral/red) safe to aim at any repo — is docs/112 Phases 1–2, still
+  future work, because a binary badge must never be pointed at a foreign repo
+  (it would false-accuse the `via none` majority). Until then, for **your** repo
+  the static badge is an honest *adoption* mark, and the **gate itself** (below)
+  is what makes it true.
 
 ## Where to earn it
 
 The badge is only honest if `verify` actually gates your ships. Pair it with the
 CI ship-gate so the green is backed by a real syscall on every PR:
+
+- **The worked example is this repo itself** → the self-gate in
+  [`.github/workflows/dos-gate.yml`](../.github/workflows/dos-gate.yml) (two
+  `verify-action` legs: claim-vs-diff on every push, the truth syscall on the
+  repo's own stamp). Its workflow badge is the live form of this mark.
 
 - **Wire the gate first** → the GitHub Actions ship-gate in
   [`examples/playbooks/cookbook-ci-integration.md`](../examples/playbooks/cookbook-ci-integration.md)

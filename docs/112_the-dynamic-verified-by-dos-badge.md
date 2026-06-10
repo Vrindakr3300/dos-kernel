@@ -34,12 +34,18 @@ move #7 ("`dos-verify` GitHub Action — constitutionally three-state … Gated 
 PyPI") and the §4 **kill-list** that bars a binary, always-accusing Action. This note
 is the *mechanism*; that doc is the *positioning*.
 
-**Status: NOT YET BUILT.** The static badge (`docs/BADGE.md`,
-`docs/assets/verified-by-dos.svg`) is shipped and its honesty note already defers the
-dynamic version to "a phased plan (a `docs/NN_*.md`)" — this is that plan. No `dos
-badge` verb, no `--shields-endpoint` mode, and no badge service exist in the tree
-today (a grep of `src/dos/` for `shields`/`schemaVersion`/`endpoint` returns only the
-incidental word "badge" in `_color_verdict_line`'s comment, `cli.py:367`).
+**Status: Phase 0 (the repo-self gate + worn badge) SHIPPED 2026-06-10; Phases 1–3
+NOT YET BUILT.** The static badge (`docs/BADGE.md`, `docs/assets/verified-by-dos.svg`)
+is shipped, and as of Phase 0 this repo itself wears a LIVE badge: the README's
+"verified by DOS" mark is the status of `.github/workflows/dos-gate.yml`, which runs
+the repo's own `verify-action` (`dos commit-audit` over each pushed commit +
+`dos verify` of this phase's own trailer stamp) — the §4 trust posture 2 ("the runner
+is the repo's own CI, the evidence is its own git"), rendered through GitHub's native
+workflow badge rather than the shields endpoint JSON. No `dos badge` verb, no
+`--shields-endpoint` mode, and no badge service exist in the tree today (a grep of
+`src/dos/` for `shields`/`schemaVersion`/`endpoint` returns only the incidental word
+"badge" in `_color_verdict_line`'s comment, `cli.py:367`) — the three-state endpoint
+renderer remains Phase 1.
 
 ---
 
@@ -198,6 +204,25 @@ The throughline lands in Phase 1: a real, reproducible three-state badge a user 
 wire into their own pipeline today, with no service to trust. Phases 2–3 widen *who runs
 the verify*, never the verdict logic — the three-state rule is written once in Phase 1
 and reused unchanged.
+
+- **Phase 0 — the repo-self gate + worn badge (no new kernel surface).** ☑ SHIPPED
+  2026-06-10, stamped `(docs/112 Phase 0)`. Before any endpoint JSON exists, the badge
+  must first make sense *on this repo itself* — and after the fresh public seed it did
+  not: the squashed history carried **no** ship-stamp `dos verify` could answer
+  `SHIPPED` for, so any badge would have been either an unbacked adoption pill or a
+  neutral `via none`. Phase 0 closes that: `.github/workflows/dos-gate.yml` runs the
+  bundled `verify-action` on this repo itself (`install-from: "."` — the input that
+  also makes the Action installable at all pre-PyPI), with two legs — `dos
+  commit-audit` over each pushed commit (live teeth: an over-claiming subject reddens
+  the badge) and `dos verify docs/112 "Phase 0"` over this phase's own trailer stamp,
+  the first stamp in the public history (reddens if `dos.toml [stamp]` stops parsing
+  the repo's own grammar or a rewrite drops the stamp from ancestry). The README wears
+  the workflow's status badge — §4 trust posture 2 with GitHub's native badge as the
+  renderer. **Deliberately repo-self-only:** the workflow badge is binary
+  (passing/failing), which is honest *here* because both legs are constitutionally
+  abstaining (`commit-audit` never blocks a no-claim subject) and the verified stamp is
+  the repo's own declared grammar — never aim this binary form at a foreign repo
+  (the §6 kill-list); the three-state endpoint renderer for that is Phase 1, unchanged.
 
 - **Phase 1 — the `shields-endpoint` output mode (pure, local, no service).** ☐ NOT
   BUILT. Add a built-in `shields-endpoint` renderer to `render.py` (beside
