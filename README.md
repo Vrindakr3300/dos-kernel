@@ -62,6 +62,13 @@ smoke run · the only runtime dependency is **PyYAML** · **MIT**.</sub>
 > your work, the ~5 files actually worth reading, and the architecture rules a
 > change must satisfy.
 
+> 🔤 **Five words the rest of this page leans on.** A **plan** is a named goal
+> (`AUTH`); a **phase** is one shippable step of it (`AUTH1`); a **lane** is the
+> slice of the file tree one agent may touch; the **oracle** is the part of DOS
+> that reads the evidence and rules; a **stamp** is the mark a shipped phase
+> leaves in a commit subject (`AUTH1: …`) — the thing the oracle greps for.
+> That's the whole vocabulary.
+
 <a id="who-this-is-for"></a>
 
 ## Who this is for
