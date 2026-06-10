@@ -16,6 +16,13 @@ venv/
 .env
 .env.local
 
+# The pre-publish leak scanner — private-side tooling that NEVER ships (it
+# documents the very patterns it forbids, and EXCLUDEs itself from its own
+# scan, so committing it would both leak and pass CI). A maintainer keeps a
+# local copy here so the gate runs on this clone too (CI's leak-scan job runs
+# it when present, skips when absent); ignored so no `git add` can stage it.
+scripts/leak_scan.py
+
 # DOS state / scratch (re-derivable; never tracked in the OS repo itself —
 # the OS is stateless about which workspace it serves)
 _scratch/
