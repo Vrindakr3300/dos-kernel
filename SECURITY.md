@@ -105,3 +105,23 @@ name-collision/confusion hazard:
   (`_resolved_dos`), so it can never silently pick up the squatter.
 - A stale `src/dos.egg-info/` (from before the rename) re-introduces a `dos`-named
   dist on the path — delete any `*.egg-info` carrying `Name: dos` if you see it.
+
+## Publication gate — the maintainer-side leak scan
+
+Everything tracked in this repository is public the moment it is pushed. To keep
+private material (developer-machine paths, hostnames, personal identifiers) from
+ever landing here, maintainer clones run a leak scanner over the shippable tree
+as a local, fail-closed pre-push gate. Two things about it are deliberate:
+
+- **The scanner itself is not tracked here.** It enumerates the very patterns it
+  forbids, so committing it would itself be the leak. It is maintained privately
+  and synced into maintainer clones as an ignored file (see the
+  `scripts/leak_scan.py` entry in `.gitignore`).
+- **CI cooperates either way.** The `leak-scan` job in
+  `.github/workflows/ci.yml` runs the scanner when the file is present (a
+  maintainer clone) and skips with a note otherwise — a skipped leak-scan job on
+  a contributor PR or fork is expected behavior, not a misconfiguration.
+
+If you spot what looks like leaked private content in the published tree or its
+history, please report it through the vulnerability channel at the top of this
+file rather than opening a public issue.
