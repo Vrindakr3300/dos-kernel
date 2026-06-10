@@ -211,6 +211,8 @@ rather than polling a ref on a wall-clock cadence.
 | `docs_only` | Step 2 — **advisory** flag (a docs-only release is legit in DOS) |
 | `phantom_diffs` | Step 1.5 — YAML/JSON files that round-tripped; do not stage blindly |
 | `active_leases` | Step 1.6 — auto-defer dirty paths a live `/dispatch-loop` lane still owns |
+| `workflows_parse_ok` | Step 2 — an unparseable workflow fails CI in 0s; fix forward BEFORE releasing (docs/295 P1) |
+| `ci_on_head` | Step 2 — the latest decisive trunk-CI verdict; a red base means the release inherits it (docs/295 P1) |
 
 Load [`release-runbook.md`](release-runbook.md) **only if**:
 
@@ -394,6 +396,16 @@ no obligation survives un-surfaced past the next release.
 
 From the JSON:
 
+- **Preflight (docs/295 P1) — read these two keys FIRST.** If
+  `workflows_parse_ok.ok` is false, a workflow file is unparseable: CI fails in
+  0 seconds on every push, so this release can never satisfy the publish
+  ci-green witness — fix the named file (it's in `workflows_parse_ok.files`)
+  as a thematic commit before proceeding. If `ci_on_head.status` is `red`, the
+  trunk this release builds on is already failing — diagnose
+  `ci_on_head.latest_trunk_ci`, fix forward first (or confirm the failure is a
+  concurrent agent's in-flight breakage that your snapshot does not touch, and
+  say so in the summary). `unknown`/`none` is advisory only — note it and
+  proceed (fail-to-abstain: an offline `gh` never blocks a release).
 - **Bump level**: patch unless a commit subject (or the user's summary) indicates
   a new feature (minor) or breaking change (major). New kernel syscall / new
   driver / new CLI surface = minor. Bug fix / docs = patch. Breaking ABI change
@@ -527,6 +539,23 @@ Before `git add`, re-run `git status --porcelain` and compare against the
 snapshot. Any path that appeared since Step 1 and isn't in the snapshot → leave
 it alone, note in the final summary. Full rules in runbook "Snapshot discipline".
 
+**Generated pairs are staged from the same source bytes — never across a time
+gap (docs/295 P2, the v0.23.2 scar).** A generated artifact and its source
+(`claude-plugin/skills/` ← `src/dos/skills/`; `README.md` ← `docs/readme/`)
+must enter the commit coherent, and on this hot tree a sibling can edit the
+source between your regeneration and your commit. Two safe forms:
+
+- **Regenerate-in-the-same-breath**: run `build_plugin.py` / `build_readme.py`
+  immediately before the `git add`+`git commit` call — same Bash invocation,
+  no tool calls in between.
+- **Index surgery** (when the source file is dirty with a sibling's hunks):
+  build the index entry from known bytes, bypassing the working tree —
+  `git show HEAD:<f> | <transform> | git hash-object -w --stdin` then
+  `git update-index --cacheinfo 100644,<sha>,<f>` — and commit the INDEX
+  (bare `git commit`, no pathspec) after a final `git status --porcelain`
+  check that nothing foreign is staged. This is how v0.23.3 cut clean while
+  two generated pairs were mid-edit around it.
+
 Do NOT add a `Co-Authored-By` line. Do NOT stage gitignored paths.
 
 ## Step 5.5: Rebuild the bundled plugin binaries (only if Go source changed)
@@ -581,6 +610,25 @@ python -m pytest -q tests/test_workflow_yaml_parses.py tests/test_docs_version_d
   is editing. It complements — never replaces — the full-matrix CI verdict Step 6
   waits for.
 
+**The stronger form — adjudicate the COMMIT, not the tree (docs/295 P2).** The
+quick run above reads the working tree, which on this machine may differ from
+the bytes you just committed (a sibling's unstaged hunk reads as your red — or
+your green). `scripts/release_dry_run.py` runs the same witness against the
+committed bytes, in a detached worktree + scratch venv (isolated from both the
+hot tree and the machine's editable install — its first live run caught a
+sibling's mid-flight version bump skewing every drift test):
+
+```bash
+python scripts/release_dry_run.py --fast     # the release-perturbation set vs HEAD's commit (~40s)
+python scripts/release_dry_run.py            # the FULL suite vs the commit (~5 min) — isolation
+                                             # makes even the hot-tree families trustworthy
+```
+
+Exit 0 → Step 6 (it prints a `release-dry-run: pass …` trailer — carry it into
+the tag annotation, docs/295 P3). Exit 1 → fix forward, re-run, then tag.
+Prefer this form whenever the tree is visibly hot (`git status` shows sibling
+work); prefer the full mode when the release touched code, not just docs.
+
 ## Step 6: Push → wait for the CI verdict → only then tag (tag-after-green)
 
 The tag is the one artifact you can never take back (`v*` and `stable/*` are
@@ -596,7 +644,8 @@ ci=$(gh run list --workflow ci.yml --commit "$sha" --json databaseId --jq '.[0].
 gh run watch "$ci" --interval 30                        # 2. wait for the verdict (~5–10 min)
 gh run view "$ci" --json conclusion                     #    confirm "success" EXPLICITLY — a pipe's
                                                         #    exit code is the tail's, not gh's
-git tag -a vX.Y.Z "$sha" -m "vX.Y.Z"                    # 3. tag only the witnessed-green SHA
+git tag -a vX.Y.Z "$sha" -m "vX.Y.Z" \
+        -m "<release-dry-run trailer from Step 5.9, if it ran>"   # 3. tag only the witnessed-green SHA
 git push origin vX.Y.Z
 ```
 
