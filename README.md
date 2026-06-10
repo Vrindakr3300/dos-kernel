@@ -2,9 +2,9 @@
 
 > ### Catch your AI agents when they lie about what they shipped.
 
-<!-- CI / PyPI / Python badges are added on the public-launch flip — once the repo
-     is public and dos-kernel is on PyPI. Until then they'd render broken (404 /
-     unknown version), so only the static License badge is shown. See PUBLISHING.md. -->
+<!-- PyPI / Python-version badges land with the PyPI release — until dos-kernel is
+     on PyPI they'd render broken (404 / unknown version). -->
+[![CI](https://github.com/anthony-chaudhary/dos-kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/anthony-chaudhary/dos-kernel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
@@ -72,20 +72,16 @@ one command scaffolds a repo, makes a real commit, verifies it, and cleans up
 after itself:
 
 ```bash
-git clone https://github.com/anthony-chaudhary/dos.git && cd dos
+git clone https://github.com/anthony-chaudhary/dos-kernel.git && cd dos-kernel
 pip install -e .            # from the clone — PyYAML is the only runtime dep
 dos quickstart              # → SHIPPED AUTH AUTH1 … then NOT_SHIPPED AUTH AUTH2
 ```
 
 That's it. One `SHIPPED`, one `NOT_SHIPPED` — the first is a claim git can back,
 the second is a claim nothing landed for. **That contrast is the whole product in
-one command.** (Add `--keep ./demo` to keep the repo and poke at it.)
-
-> **Pre-release note (as of 2026-06-10):** `dos-kernel` isn't on PyPI yet, so the
-> clone above IS the install path today. Once it publishes, the first two lines
-> shrink to `pip install dos-kernel` — the package name is `dos-kernel`, NOT `dos`
-> (the bare name on PyPI is an unrelated squatter; see [Install](#install)).
-> Everything below works identically either way.
+one command.** (Add `--keep ./demo` to keep the repo and poke at it. No clone
+wanted? `uvx --from git+https://github.com/anthony-chaudhary/dos-kernel dos
+quickstart` runs the same demo ephemerally — nothing left behind.)
 
 <details>
 <summary><strong>Prefer to watch the gears turn?</strong> The same thing, by hand, in 5 lines — click to expand</summary>
@@ -390,8 +386,8 @@ own last claim. The first time it comes back `NOT_SHIPPED … (via none)` on wor
 agent *swore* it finished, the whole point of this repo clicks into place — in your
 terminal, on your fleet.
 
-`pip install dos-kernel[mcp]` (`dos-kernel`, *not* `dos` — see Install) exposes the
-syscalls as **MCP tools** — the truth tools first (`dos_verify` "did it ship?",
+Installed with the `[mcp]` extra (`pip install -e ".[mcp]"` from your clone — see
+[Install](#install)), DOS exposes the syscalls as **MCP tools** — the truth tools first (`dos_verify` "did it ship?",
 `dos_commit_audit` "does this commit's claim match its diff?", `dos_status` one
 folded fact about a run), then `dos_arbitrate` (may two workers run without
 colliding?), the structured-refusal pair (`dos_refuse_reasons` / `dos_check_reason`),
@@ -447,9 +443,9 @@ fast path and falls back to the always-available Python verb for anything it doe
 serve, so a machine without the binary degrades cleanly with no wiring change
 ([docs/125](docs/125_go-hook-fastpath-build-plan.md),
 [docs/270](docs/270_go-hook-fastpath-benchmarks.md)). You don't build it yourself:
-the per-platform wheels bundle the binary, so a plain `pip install dos-kernel` gets
-the native fast path with **no Go toolchain** — and any platform without a bundled
-binary just runs the pure-Python path
+the per-platform wheels bundle the binary, so a wheel install gets the native fast
+path with **no Go toolchain** — and any platform without a bundled binary (including
+a plain source install) just runs the pure-Python path
 ([docs/286](docs/286_shipping-the-go-binary-through-pypi-per-platform-wheels.md)).
 
 ## The syscall ABI
@@ -516,23 +512,19 @@ channel, upgrade/uninstall, WSL, troubleshooting) is in
 **[docs/INSTALL.md](docs/INSTALL.md)**:
 
 ```bash
-# uv — the modern, fast, isolated CLI install (recommended):
-uv tool install dos-kernel        # `dos` + `dos-mcp` on PATH, isolated, brings its own Python
-uvx --from dos-kernel dos doctor  # or run it once, ephemerally — nothing left behind
+# uv — the modern, fast, isolated CLI install (recommended), straight from GitHub:
+uv tool install git+https://github.com/anthony-chaudhary/dos-kernel       # `dos` + `dos-mcp` on PATH
+uvx --from git+https://github.com/anthony-chaudhary/dos-kernel dos doctor # or run it once, ephemerally
 
 # pip — the library-consumer path (a host pins dos-kernel in its own venv):
-pip install dos-kernel            # core kernel (PyYAML only)
-pip install "dos-kernel[mcp]"     # + the MCP server (the dos-mcp command)
+pip install "dos-kernel @ git+https://github.com/anthony-chaudhary/dos-kernel"      # core kernel (PyYAML only)
+pip install "dos-kernel[mcp] @ git+https://github.com/anthony-chaudhary/dos-kernel" # + the MCP server (dos-mcp)
 
-# from a clone — the paths that work TODAY (pre-PyPI):
+# from a clone — editable, the contributor path:
+git clone https://github.com/anthony-chaudhary/dos-kernel.git && cd dos-kernel
 pip install -e .                  # editable: your edits are live in the install
 ./install.sh                      # or .\install.ps1 on Windows — venv + install + PATH, one line
 ```
-
-> **Pre-release note:** `dos-kernel` isn't on PyPI yet. Until it is, every command
-> above works against a **clone** — swap `dos-kernel` for a path (`uv tool install .`,
-> `uvx --from . dos …`, `pip install -e .`). The clone-based lines are the ones
-> that work right now.
 
 > **The distribution name is `dos-kernel`, not `dos`** — a bare `pip install dos`
 > pulls an unrelated package that squats the name. The *import* name and the CLI
@@ -540,10 +532,11 @@ pip install -e .                  # editable: your edits are live in the install
 > `[mcp]` extra adds the MCP framework; `[tui]` adds the live `dos top` screens).
 > See [SECURITY.md](SECURITY.md), "Supply chain."
 
-Prefer a package manager? **uv** (`uv tool install dos-kernel`) is the 2026
-default — faster than `pipx`, isolates the tool, and manages Python versions; a
-`pipx install dos-kernel` works the same way if your team already uses it.
-Homebrew / WinGet / Scoop one-liners land after the PyPI release (see INSTALL.md).
+Prefer a package manager? **uv** is the 2026 default — faster than `pipx`,
+isolates the tool, and manages Python versions; `pipx install
+git+https://github.com/anthony-chaudhary/dos-kernel` works the same way if your
+team already uses it. PyPI / Homebrew / WinGet / Scoop one-liners are next on the
+release runway (see [docs/INSTALL.md](docs/INSTALL.md)).
 
 A host repo adds DOS as a pinned dependency and points it at its own tree — never
 by vendoring the code in. DOS is **stateless about which repo it serves**: it
@@ -579,7 +572,7 @@ verdict to the runtime is the bundled plugin under
 # 1. The plugin ships JSON + markdown; the brains ship as the pip package, so
 #    install it FIRST into the interpreter Claude Code runs (the [mcp] extra is
 #    what the bundled MCP server needs):
-pip install "dos-kernel[mcp]"
+pip install "dos-kernel[mcp] @ git+https://github.com/anthony-chaudhary/dos-kernel"
 
 # 2. Then, inside Claude Code:
 /plugin marketplace add anthony-chaudhary/dos-kernel
@@ -707,7 +700,7 @@ truth, not by re-reading its own narration.
 
 All three have a **plain-text floor that needs no dependencies** — the live
 `rich` redraw is the optional `[tui]` extra, but `--once` (one frame) and `--json`
-work on a bare `pip install dos-kernel`. Here is `dos top --once` on a fresh
+work on a bare core install (no extras). Here is `dos top --once` on a fresh
 checkout (no leases yet, so every lane is `FREE` and the git strip carries the
 content):
 
