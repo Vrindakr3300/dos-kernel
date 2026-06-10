@@ -3,6 +3,14 @@
 Two self-contained proofs. Each spins up a **fresh `mktemp` git repo**, runs the
 real thing, and cleans up after itself — no agents, no fleet, nothing left behind.
 
+> **The AUTH story is the canonical example.** The tokens (`AUTH`/`AUTH1`/`AUTH2`),
+> the named features (the login endpoint / the password reset), and the one real
+> commit subject are declared once in `src/dos/_demo_story.py`; every surface that
+> retells it (these scripts, the figures, the README parts, the QUICKSTART, the
+> plan-doc example) is pinned to the same strings by
+> `tests/test_canonical_example_lockstep.py`. Retell the story in any genre you
+> like — but copy the canonical strings, or the lockstep test will name the drift.
+
 | Demo | What it proves | Run |
 |---|---|---|
 | [`verify_demo.sh`](verify_demo.sh) · [`.ps1`](verify_demo.ps1) | the **truth syscall** — an agent claims a phase shipped; DOS asks git, not the agent. | `bash examples/demo/verify_demo.sh` |

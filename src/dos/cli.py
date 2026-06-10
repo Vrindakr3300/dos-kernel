@@ -5467,13 +5467,17 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
     driver_name = getattr(args, "driver", None)
 
     try:
+        from dos import _demo_story as _story
         from dos import oracle
 
         # 0. The scene — the universal experience the demo exists to catch. Naming
         #    the two claims up front (login endpoint / password reset) is what makes
-        #    the catch legible to someone who has never heard of a "phase".
+        #    the catch legible to someone who has never heard of a "phase". Every
+        #    story string interpolates dos._demo_story — the canonical example's
+        #    single source (tests/test_canonical_example_lockstep.py pins the
+        #    hand-written copies in docs/examples/figures to the same strings).
         _say("# The story: you asked a coding agent for a login feature. It replied:")
-        _say('#   "Done! Shipped the login endpoint (AUTH1) and the password reset (AUTH2)."')
+        _say(f"#   {_story.AGENT_CLAIM}")
         _say("# One claim is true. One never landed. Catching the difference — from the")
         _say("# artifacts, never the transcript — is the demo. Throwaway repo, four commands:")
         _say()
@@ -5522,16 +5526,18 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
         _run_git("config", "commit.gpgsign", "false")
         # Default mode ships the endpoint under src/ (the lane the fleet act
         # arbitrates over); driver mode keeps the original root-level file.
-        login_path = (work / "login.py") if driver_name \
-            else (work / "src" / "login.py")
-        login_path.write_text("def login(): ...\n", encoding="utf-8")
+        login_path = (work / _story.WORK_FILE) if driver_name \
+            else (work / "src" / _story.WORK_FILE)
+        login_path.write_text(_story.WORK_CONTENT, encoding="utf-8")
         _run_git("add", "-A")
-        _run_git("commit", "-q", "-m", "AUTH1: ship the login endpoint")
+        _run_git("commit", "-q", "-m", _story.COMMIT_SUBJECT)
         head = subprocess.run(["git", "-C", str(work), "rev-parse", "--short", "HEAD"],
                               check=True, capture_output=True, text=True).stdout.strip()
-        _say("# The login endpoint really did land — one commit, stamped with its work-unit")
-        _say("# id (any letters+digit token at the front of a subject; AUTH1 here):")
-        _say("$ git commit -m 'AUTH1: ship the login endpoint'")
+        _say(f"# {_story.SHIPPED_FEATURE.capitalize()} really did land — one commit, "
+             "stamped with its work-unit")
+        _say(f"# id (any letters+digit token at the front of a subject; "
+             f"{_story.SHIPPED_PHASE} here):")
+        _say(f"$ git commit -m '{_story.COMMIT_SUBJECT}'")
         _say(f"  [committed {head}]")
         _say()
 
@@ -5543,17 +5549,19 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
         cfg = _config.load_workspace_config(workspace=work)
         renderer = render.resolve_renderer(_resolve_output_name(args))
 
-        _say('# Claim 1 — "the login endpoint (AUTH1) shipped." Ask git, not the agent:')
-        _say("$ dos verify AUTH AUTH1")
-        v1 = oracle.is_shipped("AUTH", "AUTH1", cfg=cfg)
+        _say(f'# Claim 1 — "{_story.SHIPPED_FEATURE} ({_story.SHIPPED_PHASE}) '
+             'shipped." Ask git, not the agent:')
+        _say(f"$ dos verify {_story.PLAN} {_story.SHIPPED_PHASE}")
+        v1 = oracle.is_shipped(_story.PLAN, _story.SHIPPED_PHASE, cfg=cfg)
         _say(f"  {renderer.render_verdict(v1)}")
         _say(f"  exit={_VERIFY_EXIT_CODES['shipped' if v1.shipped else 'not_shipped']}"
              "  (0 = the verdict is SHIPPED)")
         _say()
 
-        _say('# Claim 2 — "the password reset (AUTH2) shipped too." Did it?')
-        _say("$ dos verify AUTH AUTH2")
-        v2 = oracle.is_shipped("AUTH", "AUTH2", cfg=cfg)
+        _say(f'# Claim 2 — "{_story.UNSHIPPED_FEATURE} ({_story.UNSHIPPED_PHASE}) '
+             'shipped too." Did it?')
+        _say(f"$ dos verify {_story.PLAN} {_story.UNSHIPPED_PHASE}")
+        v2 = oracle.is_shipped(_story.PLAN, _story.UNSHIPPED_PHASE, cfg=cfg)
         _say(f"  {renderer.render_verdict(v2)}")
         _say(f"  exit={_VERIFY_EXIT_CODES['shipped' if v2.shipped else 'not_shipped']}"
              "  (1 = NOT_SHIPPED — the claim is contradicted by the artifacts)")
@@ -5602,7 +5610,8 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
                 _say(f"  (skipped the arbitration demo: {e})")
 
         if keep_dir is not None:
-            poke = (f"dos verify --workspace {work} AUTH AUTH1"
+            poke = (f"dos verify --workspace {work} "
+                    f"{_story.PLAN} {_story.SHIPPED_PHASE}"
                     if not driver_name else
                     f"dos --workspace {work} doctor   # see the {driver_name} lanes")
             _say(f"\nThe demo repo is at {work} — poke at it: {poke}")

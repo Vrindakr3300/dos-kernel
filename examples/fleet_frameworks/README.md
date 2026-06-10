@@ -33,7 +33,7 @@ python examples/fleet_frameworks/langgraph_referee.py
 ```
 
 Every demo builds its own throwaway git repo (`_fixture.make_demo_repo`) with
-one real `AUTH1: implement login` commit, so AUTH1 is verifiably shipped and
+one real `AUTH1: ship the login endpoint` commit, so AUTH1 is verifiably shipped and
 AUTH2 verifiably is not — no recipe touches the repo you run it from. The
 workers are scripted liars, no LLM behind them, because the *control flow* is
 what's being demonstrated: swap in your real agents; the referee doesn't care

@@ -267,14 +267,30 @@ The fleet act of the DEFAULT quickstart — the admission half of the pitch.
 open on one repo are the same two-writers-one-tree hazard.)
 
 The verify contrast catches the LIE; this catches the COLLISION. Three calls
-through the real `arbiter.arbitrate` (the same pure kernel `dos arbitrate`
-uses), leaseless and side-effect-free: agent A is admitted onto `src`; agent B
-asks for the SAME region and is redirected to the free disjoint `docs` (the
-clobber that never reached the files); agent C asks when every lane is held
-and gets a typed refusal, not a silent overwrite. Every outcome/lane/reason
-printed is the decision object's own field, never a canned string — the same
-honesty rule the verify beats follow. Best-effort: the caller swallows any
-error so the demo beat never breaks the verdict contract.
+through the real `lane_lease.acquire` — the DURABLE verb (`dos lease-lane
+acquire`), each grant journaled to the demo repo's lease WAL: agent A is
+admitted onto `src`; agent B asks for the SAME region and is redirected to the
+free disjoint `docs` (the clobber that never reached the files); agent C asks
+when every lane is held and gets a typed refusal, not a silent overwrite.
+
+Journaling for real — rather than threading three pure `arbiter.arbitrate`
+calls through an in-memory lease list, as this act originally did — IS the
+lesson, learned from a field replay: a reader who watched the old transcript's
+`$ dos arbitrate --lane src` escalate (acquire → redirect → refuse) and then
+typed that same command twice in their own repo got `acquire` twice (arbitrate
+journals nothing; the demo's state lived in a list they couldn't see) and
+reasonably read it as a double-booking. So the act now (a) narrates the verb
+whose replay actually reproduces the escalation, (b) shows WHERE the state
+lives (`$ dos lease-lane live` — the journal fold, printed from the real
+`live_leases`), and (c) closes by stating the ask/hold split out loud:
+`arbitrate` reads the journal but never writes it. Under `--keep` the journal
+survives in the kept repo, so the escalation is literally re-runnable
+(pinned by `test_quickstart_keep_dir_fleet_act_replays_from_the_journal`).
+
+Every outcome/lane/reason printed is the decision object's own field, never a
+canned string — the same honesty rule the verify beats follow. Best-effort:
+the caller swallows any error so the demo beat never breaks the verdict
+contract.
 
 ### § `_install_hooks`
 
@@ -1794,24 +1810,46 @@ moment, not buried in reference docs.
 Part two (default mode) is the multi-writer act — the admission half a
 single-agent demo can't show, framed for the widest audience that actually
 hits it (a 20-agent fleet OR just two coding-agent tabs open on one repo):
-three `arbitrate` calls through the real kernel admit agent A onto `src`,
-redirect agent B off the busy region onto the disjoint `docs` (the collision
-that never reached the files), and refuse agent C when every lane is held.
-Lie-catching plus collision-refereeing is the whole pitch in one command.
+three `dos lease-lane acquire` calls journaled against the demo repo's lease
+WAL admit agent A onto `src`, redirect agent B off the busy region onto the
+disjoint `docs` (the collision that never reached the files), and refuse agent
+C when every lane is held — then a `lease-lane live` beat shows the journal
+that made those verdicts differ, and the coda states the ask/hold split
+(`arbitrate` decides; `lease-lane acquire` holds). See § `_quickstart_fleet_act`
+for why the act journals for real. Lie-catching plus collision-refereeing is
+the whole pitch in one command.
 
-The default-mode closing is an adoption ROUTER, not a fleet-only on-ramp: one
+The transcript is paced as a two-part story (`--- Part 1 — catch the false
+"done" ---` / `--- Part 2 — two agents, one repo ---`) so a first read has a
+spine to follow, and the default-mode epilogue leads with the hands-on replay
+(`dos quickstart --keep dos-demo` keeps the repo + its lease journal, so every
+narrated command re-runs against it with `--workspace dos-demo`).
+
+The closing is an adoption ROUTER, not a fleet-only on-ramp: one
 line each for the ways people actually run agents — a hook-capable runtime
 (`dos init --hooks <runtime>`), an MCP host (`dos-mcp` + `dos_verify`), a CI
 step (branch on the exit code), and a fleet on one repo (`dos init` +
-`arbitrate`) — so a newcomer who is not a fleet operator still leaves with the
-one move that applies to them. Pinned by
+`lease-lane acquire`) — so a newcomer who is not a fleet operator still leaves
+with the one move that applies to them. Pinned by
 `test_quickstart_default_routes_the_wider_audience`.
 
 Every verdict line is produced by the SAME `oracle.is_shipped` + renderer the
 real `dos verify` uses (not a canned string), so what the operator sees here is
 exactly what they'll see against their own repo. By default it works in a temp
 dir and cleans up; `--keep DIR` scaffolds in DIR and leaves it for the user to
-poke at. Read-only intent on the user's machine beyond the throwaway repo.
+poke at (including the two still-held demo leases the epilogue points at).
+Read-only intent on the user's machine beyond the throwaway repo.
+
+The story itself — the AUTH plan/phase tokens, the two named features, the one
+real commit subject — is the CANONICAL EXAMPLE, declared once in
+`dos._demo_story` and interpolated here rather than re-spelled. Every other
+surface that tells it (the README parts, `docs/QUICKSTART.md`, the
+`examples/demo/` scripts and figures, `examples/plans/example-plan.md`, the
+fleet-framework fixture, the CI smoke step) carries a genre-local copy, and
+`tests/test_canonical_example_lockstep.py` scans the tracked tree to pin every
+copy to the same subject and feature↔phase bindings. To CHANGE the story, edit
+`dos._demo_story`, update the lockstep test's twin literals, and let its scan
+list every copy left to fix.
 
 Exit 0 when the demo ran and the two verdicts came out as expected (SHIPPED /
 NOT_SHIPPED); 2 if git is unavailable or a step failed (a contract/environment

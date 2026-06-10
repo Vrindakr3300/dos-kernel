@@ -42,7 +42,7 @@ matter what this file claims.
 
 ---
 
-### 1. AUTH AUTH1 — bootstrap the auth schema and migration
+### 1. AUTH AUTH1 — ship the login endpoint
 
 <!-- This phase carries a SHIPPED claim. On the board it lands in one of two
      cells, and that split is the lesson:
@@ -51,16 +51,16 @@ matter what this file claims.
        * if no such commit exists, the oracle DISAGREES → the row reads
          `⚠over-claim` (the divergence headline `dos plan` is built around:
          the plan SAYS done, git says not).
-     Stamp it for real with:  git commit -m "AUTH1: bootstrap the auth schema" -->
+     Stamp it for real with:  git commit -m "AUTH1: ship the login endpoint" -->
 
-Stand up the `users` table, the password-hash column, and the forward migration.
+Add `POST /login`: check the password hash, issue the session token.
 
-- SHIPPED — stamped by `AUTH1: bootstrap the auth schema and migration`.
+- SHIPPED — stamped by `AUTH1: ship the login endpoint`.
 - Verify it yourself: `dos verify --workspace . AUTH AUTH1`
   (`SHIPPED ... (via grep)` once that commit is in history; `NOT_SHIPPED (via
   none)` until then — the over-claim cell).
 
-### 2. AUTH AUTH2 — wire the /login endpoint
+### 2. AUTH AUTH2 — add the password reset
 
 <!-- An OPEN phase: no claim-word under it, so the source reads it as
      claimed-open. The board shows the bare oracle verdict (`·pending` until a
@@ -69,7 +69,8 @@ Stand up the `users` table, the password-hash column, and the forward migration.
      text (comments included) for its claim word, so keep the stamp tokens out
      of explanatory comments under an open phase — see the README gotcha. -->
 
-Add `POST /login`, issue the session token, rate-limit the handler. Not started.
+Add `POST /password-reset`, email the one-time link, expire it on use. Not
+started — exactly the claim the quickstart's agent swears is done.
 
 - `dos verify --workspace . AUTH AUTH2`  →  `NOT_SHIPPED AUTH AUTH2 (via none)`
   (exit 1) — the truth syscall has no commit to stamp it, and does not believe
@@ -82,7 +83,7 @@ Add `POST /login`, issue the session token, rate-limit the handler. Not started.
      narration — the oracle's verdict is independent of it. -->
 
 Rotate refresh tokens on use; revoke on logout. SOAK — gated behind AUTH2,
-awaiting the rate-limit soak window before it can be picked.
+awaiting the password-reset soak window before it can be picked.
 
 - `dos verify --workspace . AUTH AUTH3`  →  `NOT_SHIPPED AUTH AUTH3 (via none)`.
 

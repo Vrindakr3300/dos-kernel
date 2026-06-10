@@ -19,7 +19,8 @@ from dos import arbiter, oracle
 def make_demo_repo(root: Path | str | None = None) -> dos.SubstrateConfig:
     """A throwaway git repo where AUTH1 verifiably shipped and AUTH2 did not.
 
-    One commit, subject ``AUTH1: implement login``. The generic stamp grammar
+    One commit, subject ``AUTH1: ship the login endpoint`` (the canonical
+    caught-lie example — `dos._demo_story`). The generic stamp grammar
     `dos.default_config` carries reads that subject as the phase's ship stamp,
     so ``oracle.is_shipped("AUTH", "AUTH1", cfg=...)`` answers SHIPPED via the
     grep-subject rung — from git ancestry alone, no plan, no registry. AUTH2
@@ -37,7 +38,7 @@ def make_demo_repo(root: Path | str | None = None) -> dos.SubstrateConfig:
     git("config", "user.name", "fleet-demo")
     (repo / "auth.py").write_text("def login(): ...\n", encoding="utf-8")
     git("add", "auth.py")
-    git("commit", "-q", "-m", "AUTH1: implement login")
+    git("commit", "-q", "-m", "AUTH1: ship the login endpoint")
     return dos.default_config(repo)
 
 
