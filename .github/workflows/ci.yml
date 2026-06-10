@@ -15,6 +15,10 @@ name: CI
 #   dispatch / schedule  → full matrix (no diff to classify against)
 #   v* tag               → nothing here — publish.yml owns tags, and ITS ci-green
 #                          gate refuses to upload a SHA this workflow never greened.
+#   every run            → ci-ok, the one-job fold of every needed result above —
+#                          the single branch-protection required check (the leg
+#                          set changes shape per-diff, so no per-leg check name
+#                          is stable enough to require).
 
 on:
   push:
@@ -271,3 +275,26 @@ jobs:
           # bytes that actually publish are built fresh by publish.yml (which
           # keeps ITS artifact on the default 90-day forensic window).
           retention-days: 7
+
+  # The single stable verdict — the ONE context branch protection requires. The
+  # docs-aware classifier above changes which legs even exist per-diff (and a
+  # docs-only run skips `build` entirely), so any per-leg required check would
+  # either go stale or hang forever as "expected". This job folds every needed
+  # result into one constant name: skipped-by-design counts as green;
+  # failure/cancellation of ANYTHING needed is red. `if: always()` so a red leg
+  # cannot skip the fold (a skipped required check would read as merge-blocking
+  # "expected", but the failure mode to refuse is it silently passing).
+  ci-ok:
+    name: ci-ok
+    needs: [changes, leak-scan, lint, test, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refuse on any failed or cancelled needed job
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::a needed job failed or was cancelled — results: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - name: All needed jobs green
+        run: echo "ci-ok — needed results: ${{ join(needs.*.result, ', ') }}"
