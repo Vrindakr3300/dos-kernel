@@ -2,15 +2,14 @@
 
 > **Status:** Phase 1–3 shipped (release-context `active_leases`, the
 > commit-prefix lint, the `release`/`stable-release` skill upgrades). Phase 4
-> (a `scoped_release_stage` analogue) is deferred — argued below.
+> (an atomic-staging analogue) is deferred — argued below.
 
 ## The question
 
-The reference userland app (`job`, the sibling checkout) has the most mature
-release tooling in the work tree: a `release` skill with eight steps, a
-`stable-release` skill with a hero-metric gate, and five supporting scripts
-(`release_context.py`, `release_bump.py`, `scoped_release_stage.py`,
-`check_release_commit_prefix.py`, `stable_release_promote.py`). DOS's two release
+The reference userland app (private repo) has the most mature
+release tooling in the work tree: a multi-step `release` skill, a
+`stable-release` skill gated on its hero metric, and a handful of supporting
+release scripts. DOS's two release
 skills were lifted from that source and then **deliberately thinned** — DOS is a
 substrate, not an app, so it dropped the Go binary, the zip, screenshots, the
 versioned-install snapshot, plan-state regeneration, the apply-loop gate, and the
@@ -19,8 +18,7 @@ fanout/dispatch manifest.
 The thinning was correct. But it threw out a few concepts that are **not
 host-specific** — they are about *cutting a release safely on a concurrently
 written git tree*, which is exactly DOS's situation (the working tree here is
-"multi-session hot": several agents commit to `master` at once; see the
-`project-dos-multi-session-hot-tree` and `feedback-shared-index-*` memories). This
+"multi-session hot": several agents commit to `master` at once). This
 doc is the gap analysis and the decision for each concept.
 
 ## The rule that decides every row
@@ -39,14 +37,14 @@ rather than re-import the host's bolt-on.
 
 | Concept (userland app) | Ports? | DOS form |
 |---|---|---|
-| **Auto-defer paths under a live lease** (`release` Step 1.6, `active_leases`) | ✅ **yes — and it's DOS-native** | Fold `lane_journal.read_all → replay` to the live-lease set; defer any dirty path matching a non-stale lease's `tree` globs. The userland app reads a bespoke `active_leases` field its dispatch loop writes; DOS reads its **own kernel WAL**, the same fold `dos top` uses. |
-| **Concurrent-write index race protection** (`scoped_release_stage.py`) | ⚠️ **concept yes, code no** | The 944-line helper couples to `agents.lease_state.state` and a job-only index lock. Port the *discipline* (commit by pathspec from the worktree; never bare `git add -A`; the hot-file patch→reset→apply recipe) into the skill body — DOS's own memories already encode the hard-won recipe. A standalone script is deferred (Phase 4 below). |
-| **Opt-in commit-prefix lint** (`check_release_commit_prefix.py`, `--lint-prefix`) | ✅ **yes** | A thin, warn-never-block lint that recognizes `vX.Y.Z:` + DOS's commit-subject grammar. DOS-native: no `_NOISE_PREFIXES` import (that taxonomy is the userland app's dispatch/fanout bookkeeping); DOS subjects are plain imperative or `area:`-prefixed. |
+| **Auto-defer paths under a live lease** (the host release skill's lease-defer step) | ✅ **yes — and it's DOS-native** | Fold `lane_journal.read_all → replay` to the live-lease set; defer any dirty path matching a non-stale lease's `tree` globs. The userland app reads a bespoke lease field its dispatch loop writes; DOS reads its **own kernel WAL**, the same fold `dos top` uses. |
+| **Concurrent-write index race protection** (the host's atomic-staging helper) | ⚠️ **concept yes, code no** | The helper couples to the host's own lease state and an app-only index lock. Port the *discipline* (commit by pathspec from the worktree; never bare `git add -A`; the hot-file patch→reset→apply recipe) into the skill body — DOS's own memories already encode the hard-won recipe. A standalone script is deferred (Phase 4 below). |
+| **Opt-in commit-prefix lint** (the host's release-prefix check) | ✅ **yes** | A thin, warn-never-block lint that recognizes `vX.Y.Z:` + DOS's commit-subject grammar. DOS-native: it imports none of the host's subject-noise taxonomy (that bookkeeping is the userland app's); DOS subjects are plain imperative or `area:`-prefixed. |
 | **Dogfood the honesty witness post-release** | ✅ **yes — DOS-only** | The userland app has no commit-audit. DOS *does* (`dos commit-audit`, the docs/179 flip off ground truth). The release skill should run it after committing — the kernel's own contract (`CLAUDE.md` "Committing — close the loop") says to. The userland app can't do this; DOS should. |
-| **Idempotent re-run after partial failure** (`stable_release_promote.py`) | ✅ **yes** | Detect the already-done tag / evidence file and surface an `idempotent_skips` list instead of erroring. Critical for `stable-release` (operator Ctrl-C between tag-create and push). DOS has no pointer flip, so the set of side-effects is smaller, but the property is the same. |
-| **`--from-manifest` structured scope** (`release` Step 0.5) | ❌ **no** | The manifest (`release-manifest.json`, RMC schema) is emitted by the fanout/dispatch producer skills. Those are host workflow; DOS has no producer that writes one. Skip. |
-| **Versioned-install snapshot advance** (`release` Step 7.5) | ❌ **already correctly dropped** | DOS is a pip package; there is no snapshot pointer. The existing skill is right to omit it. |
-| **Hero-metric / KEEP-slot gate** (`stable-release` Step 3) | ❌ **already re-grounded** | DOS has no apply-loop funnel. The existing skill already re-grounds the gate on suite + truth-syscall + CI + soak. No change. |
+| **Idempotent re-run after partial failure** (the host's stable-promote script) | ✅ **yes** | Detect the already-done tag / evidence file and surface an `idempotent_skips` list instead of erroring. Critical for `stable-release` (operator Ctrl-C between tag-create and push). DOS has no pointer flip, so the set of side-effects is smaller, but the property is the same. |
+| **Manifest-driven structured scope** | ❌ **no** | The host's release manifest is emitted by its fan-out/dispatch producer skills. Those are host workflow; DOS has no producer that writes one. Skip. |
+| **Versioned-install snapshot advance** | ❌ **already correctly dropped** | DOS is a pip package; there is no snapshot pointer. The existing skill is right to omit it. |
+| **Hero-metric / KEEP-slot gate** | ❌ **already re-grounded** | DOS has no apply-loop funnel. The existing skill already re-grounds the gate on suite + truth-syscall + CI + soak. No change. |
 | **Force-promote rationale capture** | — already in DOS | The DOS `stable-release` already requires a `## Force-promote rationale` section. No change. |
 
 ## Why the four "yes" rows are the durable ones
@@ -62,14 +60,11 @@ maintains and defer the leased region, exactly as `dos arbitrate` would refuse a
 contended lane. The release flow becomes a *client of the arbiter's evidence*,
 which is the dogfooding the `CLAUDE.md` "DOS on DOS" section asks for.
 
-**The index-race discipline is the lesson the memories paid for.** Five separate
-memory entries (`feedback-commit-pathspec-on-shared-tree`,
-`feedback-shared-index-commit-by-pathspec-from-worktree`,
-`feedback-shared-index-bare-commit-grabs-concurrent-staged`,
-`feedback-pathspec-commit-pulls-working-tree`, `project-dos-multi-session-hot-tree`)
-record the same scar from different angles: on a hot tree, a bare `git add`/
+**The index-race discipline is the lesson the operator memories paid for.** Five
+separate memory entries record the same scar from different angles: on a hot
+tree, a bare `git add`/
 `git commit` grabs another session's staged or unstaged content. The userland
-app's answer is a 944-line atomic-staging helper; DOS's answer (for now) is to
+app's answer is a heavyweight atomic-staging helper; DOS's answer (for now) is to
 write the recipe those memories distilled into the skill body, so the release flow
 follows it by default instead of re-learning it. Encoding it as *prose the skill
 obeys* is cheaper than a script and captures everything the memories know.
@@ -84,9 +79,9 @@ one. Running `commit-audit` at the end of a release is the natural place: a
 release is a batch of fresh commits, and the contract says to witness them from
 outside the loop that wrote them.
 
-## Phase 4 (deferred): a `scoped_release_stage` analogue
+## Phase 4 (deferred): an atomic-staging analogue
 
-The userland app's `scoped_release_stage.py` stages only *your* hunks of an
+The userland app's atomic-staging helper stages only *your* hunks of an
 interleaved file as a git blob, gates out foreign symbols, and commits the index
 atomically under a lock. It is the heavy-weapons answer to hunk-level interleave
 (two lanes editing the same file).

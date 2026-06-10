@@ -182,8 +182,8 @@ Opus rates.
 makes the over-payment not just expensive but *structurally* unnecessary. Tracing the
 dispatch-loop iteration, the upper LLM's per-iteration contribution is ~6 mechanical tool
 calls (launch a child, confirm it started, heartbeat the lease, parse one result envelope) —
-[trustworthy-fanout-ships.md](../../job/docs/trustworthy-fanout-ships.md) clocks it at *"~6
-tool calls per iteration… It authored none of the 5 ships."* Every genuinely hard decision is
+the reference app's own fan-out audit clocked it at ~6 tool calls per iteration, none of
+which authored a ship. Every genuinely hard decision is
 a $0 kernel verdict the LLM is **forbidden to re-derive**:
 
 | Per-iteration decision | Decided by (zero model tokens) | LLM's role |
@@ -195,9 +195,9 @@ a $0 kernel verdict the LLM is **forbidden to re-derive**:
 | Is the lane held by a re-dispatch-invariant reason? | `pickable.classify()` | reads a flag |
 | Backlog genuinely drained twice? | `gate_classify` drained-twice rule | reads a token |
 
-The SKILL.md states the contract in one line: **"Act on `decision.action` (the kernel
-already called `decide()` — do NOT re-derive the stop conditions)"**
-(`.claude/skills/dispatch-loop/SKILL.md:605`). The continue/stop choice is a *mechanical
+The host's dispatch-loop skill states the contract in one line: act on the kernel's
+`decision.action` — the kernel already called `decide()`; do NOT re-derive the stop
+conditions. The continue/stop choice is a *mechanical
 obey*, not a reasoning task — there is no branch where the LLM reads git and overrules the
 kernel. The judgment was lifted out of the model and into deterministic code on purpose.
 
@@ -213,14 +213,14 @@ kernel. The judgment was lifted out of the model and into deterministic code on 
 > Opus each scored 65/65 over all decision cells and 30/30 over every trap rep in both polarities;
 > followed-lie count = 0 for both arms.** Neither model ever shipped a phantom on a lying-SHIPPED
 > token nor missed a real ship under a lying-BLOCKED one. The *only* systematic Haiku-vs-Opus delta
-> was **cost: Opus cost 5.7× Haiku ($25.68 vs $4.48) for the identical floor** — the dividend made
+> was **cost: Opus cost 5.7× Haiku for the identical floor** — the dividend made
 > concrete. (The run also surfaced a clean refinement, caught by the Opus positive control: the
 > orchestrator's residual in-model work has two axes — *ship-truth* (model-invariant, above) and the
 > *loop-control action* continue/stop/retry, which depends on loop-state the model isn't given and
 > which the kernel's `loop_decide.decide()` owns deterministically in production, not the model. Only
-> the ship-truth axis is the model's job, and it is the invariant one.) Full protocol, pre-registration,
-> 140-row result log, and analysis:
-> [`job/docs/_audits/haiku-opus-floor-ab-20260607T2030Z/`](../../job/docs/_audits/haiku-opus-floor-ab-20260607T2030Z/).
+> the ship-truth axis is the model's job, and it is the invariant one.) The full protocol,
+> pre-registration, 140-row result log, and analysis are archived in the reference app's
+> audit bundle (private repo).
 > So the downgrade changes the cost and the narration, not the floor — the "capable enough" bet for
 > the orchestrator is no longer a candidate, it is *measured*, including the hardest
 > distrust-your-own-tooling case.
@@ -346,17 +346,15 @@ forbidden to re-derive — the capability-routing dividend, fully earned and not
   — sibling "the kernel reads a trend git already knows, not the model's self-report"; same
   externalize-the-judgment move.
 
-**Source evidence (the property + the asymmetry, in `../../job` and `../src`):**
+**Source evidence (the property + the asymmetry):**
 - `src/dos/oracle.py:30, 370` — `is_shipped` pure fn; only external call is git via
   subprocess; zero LLM surface across `src/dos/`.
 - `src/dos/liveness.py:163-167` — `tokens_spent_since` explicitly not a verdict input; the
   kernel never reasons about cost or model.
-- `agents/_phase_shared.py:709, 721` (job) — the *work* is already capability-routed (Haiku
-  for read-only/simple phases).
-- `agents/config_pkg/gemini.py:38` (job) — Gemini chains tier read-only phases down.
-- `scripts/dispatch_child_config.py:67-106` (job) — orchestration uniformly Opus;
-  line 102 is the *"deep reasoning wasted and paid N times over"* tension.
-- `.claude/skills/dispatch-loop/SKILL.md:605` (job) — *"the kernel already called `decide()`
-  — do NOT re-derive the stop conditions"*: the judgment is in the kernel, the LLM obeys.
-- `docs/trustworthy-fanout-ships.md` (job) — *"~6 tool calls per iteration… authored none of
-  the 5 ships"*: the orchestrator's residual in-model work is mechanical.
+- The reference userland app (private repo) supplies the asymmetry's other half: its
+  *worker* phases are already capability-routed (cheaper tiers for read-only/simple
+  phases) while its *orchestration* runs uniformly on the strong model — the
+  "deep reasoning wasted and paid N times over" tension this doc lifts to a kernel
+  concern — and its dispatch-loop skill instructs the model to obey the kernel's
+  `decide()` rather than re-derive it, with its fan-out audit showing the
+  orchestrator's residual in-model work is mechanical (~6 tool calls/iteration).

@@ -23,7 +23,7 @@ unbuilt driver — but they never went deep on the **adapter design itself**: th
 ladder from a copy-pasted terminal to CloudWatch, what shape a `LogSource` takes,
 and the trap a naive "add native log adapters" feature falls into. This note does
 that, motivated by the one objection that decides whether the whole axis is worth
-anything (§1), informed by what a legacy log-inspection system (netra-apex) actually
+anything (§1), informed by what a legacy log-inspection system in this lineage actually
 did (§3), and it ships the smallest honest slice: a pure `LogSource` seam +
 `LogEvidence` value + one deliberately-floored driver (§6–7).
 
@@ -139,9 +139,9 @@ that reached the prompt, so it is the same forgeable floor.
 
 ---
 
-## 3. What netra-apex did, and the one move worth lifting
+## 3. What the legacy auditor did, and the one move worth lifting
 
-A legacy log-inspection system in this lineage (netra-apex) did what every log
+A legacy log-inspection system in this lineage (call it *the auditor*) did what every log
 analytics engine does: **tail many heterogeneous sources, run a rule/regex/pattern
 set over the stream, classify lines, and emit alerts/rollups.** The valuable
 engineering there was the *adapter layer* — a uniform way to pull lines from a dozen
@@ -156,25 +156,25 @@ Run that whole design through the kernel's one test and it splits cleanly:
   monitoring product that is the entire value. In a *verification substrate* it is a
   JUDGE input ([`93 §3`](93_verifying-live-non-git-sources.md), screenshare row): it
   leaves gate 1's "ground-truth state" and enters taste/heuristic, so it is advisory,
-  fail-to-abstain, never a deterministic verdict. apex's rules become a
+  fail-to-abstain, never a deterministic verdict. The auditor's rules become a
   [`drivers/llm_judge`](../src/dos/drivers/llm_judge.py)-style adjudicator (or a
   cheaper deterministic-pattern judge) that *rules on residue*, scored by
   [`judge_eval`](../src/dos/judge_eval.py) for false-clear rate like any judge.
-- **The "watch the infra audit log" path is a driver oracle.** Where apex tailed a
+- **The "watch the infra audit log" path is a driver oracle.** Where the auditor tailed a
   *third-party, agent-unwriteable* log (a cloud trail, a privileged journald tree),
   the same reader is a [`93 §4`](93_verifying-live-non-git-sources.md) move-B driver
   oracle — boundary reader pulls the record, a pure classifier renders a typed
   verdict that degrades to `NO_SIGNAL`.
 - **The adapter abstraction is the lift.** The one piece worth taking wholesale is
-  apex's *uniform source adapter* — the "many backends, one record shape" layer. DOS
+  the auditor's *uniform source adapter* — the "many backends, one record shape" layer. DOS
   needs exactly that, but as a **pure seam** ([`judges.py`](../src/dos/judges.py) /
   [`overlap_policy.py`](../src/dos/overlap_policy.py) shape): a `LogSource` Protocol +
   a frozen `LogEvidence` record + a by-name resolver over an entry-point group, with
-  every backend a driver. We lift the *abstraction*, not the *trust posture*: apex
+  every backend a driver. We lift the *abstraction*, not the *trust posture*: the auditor
   treated every source as equally actionable; DOS tags each source with where it sits
   on the spectrum, and the tag decides JUDGE-input vs oracle.
 
-So the apex lesson is: **build the adapter layer; do not inherit the assumption that
+So the auditor's lesson is: **build the adapter layer; do not inherit the assumption that
 a matched log line is an actionable fact.** A matched line is a *judge's hint* unless
 the bytes are infra-authored, in which case it is an *oracle's evidence*. The adapter
 is domain-free plumbing; the trust rung is a property of the *source*, carried as
@@ -382,7 +382,7 @@ example proves the fence holds.
   witness** (§1) — the kernel running the program, or an infra-authored fossil, in
   place of the agent's self-report; that ingestion-ease is *anti-correlated* with
   trust, so a log-adapter framework must be organized by the accountability spectrum,
-  not convenience (§2); that the apex pattern-engine is a JUDGE and only its
+  not convenience (§2); that the legacy pattern-engine is a JUDGE and only its
   infra-log path is an oracle, with the adapter abstraction the one piece worth
   lifting (§3); and that the shape is the proven pure-seam-many-drivers one (§4),
   with kernel-launched acceptance the prize (§5).
