@@ -11,12 +11,19 @@ when something is weird. Load it when:
 - `active_leases` is non-empty (a live `/dispatch-loop`) → read **Lease auto-defer**.
 - You passed `--lint-prefix`, or you're running the post-release commit-audit, and
   want the full witness rationale → read **Two witnesses on the commit subjects**.
+- The pre-push leak gate refused a push, or you need its mechanics → read
+  **Public-repo push gates**.
+- The publish run failed or stalled (tag≠version, ci-green refusal, approval
+  hold) → read **The publish pipeline**.
 
 This is the DOS adaptation of `job`'s release runbook, stripped of the job-only
 buckets (fanout-run artifacts, build-referenced Go/template traps, apply-audit
 PNG policy, the four-version-file drift table). DOS has **two** *single-sourced*
 version markers (plus the two plugin-manifest mirrors the bumper keeps in
-lockstep) and **no** Go/zip/screenshot surface.
+lockstep) and **no** zip/screenshot surface. Its Go surface — the `dos-hook`
+binaries — is CI-built into the per-platform wheels (docs/286, `publish.yml`) and
+committed under `claude-plugin/bin/` for marketplace installs; neither is a
+release asset this skill builds or uploads.
 
 What DOS *kept and re-grounded* from job (docs/267): the **lease auto-defer** (job
 reads a bespoke `active_leases` field; DOS reads its own kernel WAL —
@@ -272,6 +279,73 @@ region (a version bump + a tag on `master`) it reads the same lease evidence
 
 The lease defer and the Step 0 scope **compose** (AND): a path must be in-scope and
 not live-leased to be committed.
+
+---
+
+## Public-repo push gates (post-cutover, 2026-06-10)
+
+This working repo IS the public `anthony-chaudhary/dos-kernel` — a push is
+publication. Two gates stand at and after the push, both outside this skill:
+
+**The machine-local pre-push leak gate** (`.git/hooks/pre-push`, untracked by
+construction). It runs `scripts/leak_scan.py` — a *gitignored* local sync of the
+canonical tracked scanner `../dos-private/tools/leak_scan.py`. The scanner's
+pattern list names the very strings it forbids, so it must never ship; its
+gitignore entry is load-bearing. The hook is **fail-closed**: a hit *or a missing
+scanner* refuses the push.
+
+- **On a hit:** scrub the leak (sibling-relative paths, neutral fixture roots —
+  the `CLAUDE.md` authoring rule), `git commit --amend` (or a follow-up commit if
+  the SHA already left this machine), re-push. If the pattern itself needs
+  adjudicating, that happens on the canonical copy in `dos-private`, then re-sync
+  the local one.
+- **On a missing scanner:** `cp ../dos-private/tools/leak_scan.py scripts/` —
+  never `--no-verify`. The fail-closed refusal is the gate working, not an
+  obstacle.
+- CI runs the same scan runs-if-present (`ci.yml`'s leak-scan job); in the public
+  tree the file is absent, so that job no-ops green — the **local hook is the
+  real gate**, and SECURITY.md's "Publication gate" section is its public stub.
+
+**`ci.yml` on the master push:** leak-scan + lint unconditionally; the docs-aware
+test matrix (full 3-interpreter × ubuntu grid + a windows leg for code; one
+ubuntu + one windows leg on the primary Python for prose — README.md counts as
+*code* here, it ships as the wheel's long_description); per-platform wheel build
++ the binary-format guard on code changes. `dos-gate.yml` (the repo-self DOS
+gate: commit-audit + verify via the bundled verify-action) fires alongside it. A
+red run on the release SHA blocks the publish (next section) — fix forward.
+
+---
+
+## The publish pipeline (`publish.yml` — what the tag push starts)
+
+The `vX.Y.Z` tag push triggers the Trusted-Publishing pipeline (OIDC, no stored
+token). Anatomy and failure modes:
+
+- **build** — `scripts/build_wheels.py` → one wheel per OS/arch, each embedding
+  its arch's `dos-hook` binary at `dos/_bin/` (docs/286), + a pure-source sdist;
+  `twine check` over all; then asserts tag == `pyproject.toml` version.
+  - *Tag≠version failure:* the markers weren't bumped before tagging. Do NOT
+    re-point or delete the pushed tag — bump properly and cut the next patch
+    version.
+- **ci-green** — polls `gh run list --workflow ci.yml --commit <sha>` until a
+  `success` exists; refuses on completed-without-success or no-run-ever. The
+  witness rule: `ci.yml` cancels superseded master runs, so a tagged commit can
+  carry no CI verdict — the gate goes and *reads* one rather than believing the
+  tag. The common `/release` flow pushes master + tag together, so the poll
+  usually just absorbs CI's runtime.
+  - *Refusal:* get a green run on the exact SHA (`gh run rerun <id>`, or fix
+    forward + next patch release), then re-run the publish workflow.
+- **publish-pypi** — holds at the protected `pypi` environment for
+  required-reviewer approval (the operator's click), then uploads. No
+  `skip-existing` on real PyPI: re-uploading an existing version fails loudly —
+  the answer is the next version, never replacement.
+- **TestPyPI leg** — manual dispatch with `target=testpypi`; `skip-existing:
+  true` there (TestPyPI is noisy). Registered + scratch-verified 2026-06-10.
+
+Two distinct binary surfaces — don't conflate them: the **wheel's embedded**
+`dos-hook` is CI-built fresh per publish; the **committed** `claude-plugin/bin/`
+binaries serve marketplace (git-clone) installs and are rebuilt locally at
+Step 5.5 only when `go/` changed.
 
 ---
 

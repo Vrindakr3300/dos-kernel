@@ -58,8 +58,18 @@ The user (or a scheduled cron) invokes this skill. Typical triggers:
 - Quarterly hygiene — pick the highest `vX.Y.Z` that satisfies the gate.
 - After a regression rollback, to mark the recovered state.
 
-There is **no calendar cadence**. Promotion is event-driven. The gate either
-passes today or it doesn't.
+**Cadence — the two-channel contract.** Rolling `vX.Y.Z` tags ship continuously:
+`/release` is deliberately cheap, and a coherent unit that clears the mechanical
+gates (suite, leak scan, CI, the publish ci-green witness) just ships — several
+per week is healthy. The stable channel is the deliberate counterweight: an
+infrequent, gate-driven promotion that answers "which version do I pin in
+production." There is still **no fixed calendar** — the gate either passes or it
+doesn't — but the working rhythm is: promote the highest soaked-green tag
+(a) after a milestone (a new syscall family, a major/ABI bump, the first
+PyPI-published era), or (b) when a meaningful run of rolling tags has accumulated
+since the last stable — every few weeks, not every few days. Rolling moves fast
+*because* stable exists to absorb the trust question; stable can afford its soak
+window *because* rolling carries the urgency.
 
 ## Codename convention
 
@@ -135,6 +145,17 @@ Refuse to promote (the context script flags these as blockers):
 If `candidate_tag` is `null`, there is **no `vX.Y.Z` tag yet** — DOS has not cut
 a rolling release. Stop and tell the operator to run `/release` first; a stable
 promotion has nothing to promote.
+
+**Advisory check (PyPI live since 2026-06-10): did the candidate actually
+publish?** The stable promise includes "pin this in production," and the pin is
+`pip install dos-kernel==<underlying>` — which only resolves if the candidate
+tag's `publish.yml` run was approved and uploaded (the tag push triggers the
+pipeline, but the upload waits on the ci-green witness + the `pypi`-environment
+approval, so a tag can exist unpublished). Check `pip index versions dos-kernel`
+(or the publish run on the tag). If unpublished: prefer approving the pending
+publish first; promoting anyway is allowed (the git tag still anchors the
+rollback) but the evidence file must note the pin does not resolve. Hand-checked
+for now — not a script gate row yet.
 
 ## Step 2.5 — Idempotent re-run (a partial-failure replay is SAFE)
 
@@ -234,6 +255,8 @@ Promotes `v0.3.0` (commit `abc123…`).
 - Kernel suite green (`pytest -q`, exit 0) at this commit.
 - Truth syscall executes clean (`dos verify` → well-formed verdict).
 - Candidate soaked 5.2 days (≥ 3-day window).
+- Pinned install: `pip install dos-kernel==0.3.0` (published on PyPI — or note
+  here if the candidate's publish run was never approved).
 
 ## Rollback target
 
@@ -341,8 +364,8 @@ mechanism/policy split the kernel keeps everywhere.
 - **A stable install pointer.** job flips `stable_current.txt` via
   `install_versioned.py`; DOS has no versioned-install snapshot at all (it's a
   pip package), so there is no pointer to flip. `pip install dos-kernel==<underlying>`
-  pins the promoted version directly — note the dist name is `dos-kernel`, not
-  the bare `dos` (an unrelated PyPI package).
+  pins the promoted version directly (live on PyPI since 2026-06-10) — note the
+  dist name is `dos-kernel`, not the bare `dos` (an unrelated PyPI package).
 - **GitHub Releases entry for stable tags.** The evidence file + annotated tag are
   the canonical artifacts. Revisit if operators ask.
 - **Auto-promotion via cron.** Easy to add later (`/loop` + this skill), but the

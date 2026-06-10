@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a versioned release of the DOS kernel — bump the version, draft release notes, commit, tag, push to master, and create a GitHub release.
+description: Cut a versioned release of the DOS kernel — bump the version, draft release notes, commit, tag, push to master, and create a GitHub release. The tag push triggers the gated PyPI publish pipeline (publish.yml); the skill surfaces the run and its approval gate.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Edit, Grep, Glob, Bash, Write
@@ -15,11 +15,14 @@ Semver: `major.minor.patch`. Patch = bug fix, minor = new feature, major = break
 > **DOS is a substrate, not an app.** This skill is the DOS-context adaptation of
 > the `job` release skill. It is deliberately *thinner*: DOS single-sources its
 > version from `pyproject.toml` (one marker, not four), ships **no** release-asset
-> Go binary (the wheel is pure Python), zip archive, screenshots, versioned-install
-> snapshot, plan-state regeneration, apply-loop gate, or fanout/dispatch manifest.
-> The verification step is the kernel test suite + the truth syscall, not an apply
-> pipeline. If you find yourself reaching for any of those job-only ceremonies,
-> you're in the wrong repo's skill.
+> zip archive, screenshots, versioned-install snapshot, plan-state regeneration,
+> apply-loop gate, or fanout/dispatch manifest. The dist artifacts — one wheel per
+> OS/arch, each embedding its native `dos-hook` fast-path binary at `dos/_bin/`
+> (docs/286), plus a pure-source sdist — are built by CI (`publish.yml` via
+> `scripts/build_wheels.py`), **never by this skill locally**. The verification
+> step is the kernel test suite + the truth syscall, not an apply pipeline. If you
+> find yourself reaching for any of those job-only ceremonies, you're in the wrong
+> repo's skill.
 >
 > **One exception — the plugin's native hook binaries.** The Claude Code plugin
 > (`claude-plugin/`) bundles the compiled `dos-hook` fast-path binaries (docs/125
@@ -29,7 +32,53 @@ Semver: `major.minor.patch`. Patch = bug fix, minor = new feature, major = break
 > against changed Go source.
 
 **Trunk is `master`** (there is no `main` branch in DOS). Every `git push` in
-this skill targets `master`.
+this skill targets `master`. Master-direct is the deliberate branching model for
+now (a trunk+lane-branch PR cutover is planned, evidence-triggered — not a `dev`
+branch); this skill assumes it.
+
+**This repo is PUBLIC and the tag is a publish trigger (the 2026-06-10 cutover).**
+Three consequences every release run must respect:
+
+1. **A push IS publication.** `origin` is the public `anthony-chaudhary/dos-kernel`.
+   The machine-local pre-push hook (`.git/hooks/pre-push`) runs the leak scanner
+   (`scripts/leak_scan.py`, a *gitignored* sync of the canonical
+   `../dos-private/tools/leak_scan.py`) and is **fail-closed**: a hit — or a
+   missing scanner — refuses the push. On a refusal: scrub and amend, never
+   `--no-verify` ("a leak is a refusal, not a warning"). Details in the runbook's
+   **Public-repo push gates** section.
+2. **Pushing the `vX.Y.Z` tag starts the PyPI publish pipeline.** `publish.yml`
+   fires on every `v*` tag: it builds the per-platform wheels + sdist, asserts
+   tag == `pyproject.toml` version, refuses to upload any SHA without a green
+   `ci.yml` run on it (the **ci-green witness gate** — it polls while CI
+   finishes), then pauses at the protected `pypi` environment for the operator's
+   approval before the OIDC Trusted-Publishing upload. So Step 6's tag push is
+   also the publish request, and Step 7.4 is "surface/approve the pipeline,"
+   not "run twine."
+3. **Release notes are public documents.** `docs/releases/vX.Y.Z.md` ships to the
+   world (and into the GH release body). No dev-machine absolute paths, hostnames,
+   or personal identifiers; private-SUBJECT prose (operator process, fleet audits,
+   launch mechanics) is born in `dos-private`, never here — the `CLAUDE.md`
+   route-privacy-at-authoring-time rule, applied to the notes you draft in Step 3.
+
+## Cadence — two channels, one rule
+
+- **Rolling `vX.Y.Z` (this skill): ship whenever the gates are green.** A
+  coherent, user-visible unit of work + a green suite is enough to cut a tag —
+  several per week is healthy, not churn. The cost is low by design: every hard
+  gate is mechanical and already wired (pre-push leak scan, `ci.yml` on the push,
+  the publish ci-green witness, one human approval click for PyPI). Don't batch
+  work waiting for a "big enough" release — the oracle reads git, and unshipped
+  work is `NOT_SHIPPED`.
+- **Stable `stable/<codename>` (`/stable-release`): promote deliberately.** The
+  infrequent counterweight — a promotion of an already-soaked rolling tag (green
+  suite + green third-party CI + clean truth syscall + soak window), producing
+  the evidence file + the tag consumers pin in production
+  (`pip install dos-kernel==<underlying>`). Rolling moves fast *because* stable
+  exists; stable can afford its soak window *because* rolling carries the urgency.
+- **Semver carries the compatibility promise; the channel carries the trust
+  promise.** Major = breaking ABI (verdict vocabulary, syscall signature,
+  `SubstrateConfig` shape). A major bump deserves a stable promotion soon after
+  it soaks, so consumers get a provably-good anchor on the new ABI.
 
 **Git authorization.** Invoking this skill is the user's explicit authorization
 to run `git add`, `git commit`, `git tag`, and `git push origin master`/`vX.Y.Z`
@@ -80,8 +129,11 @@ contended region (a tag on `master`).
 ## Step 0: Scope (default — derive and suggest a scope unless `--whole-tree`)
 
 **A scoped release is the default.** DOS's working tree routinely carries
-in-flight WIP — the genericization plan series (`docs/7x_*-plan.md`), business
-docs, host-plan drafts — that is not necessarily part of *this* release's theme.
+in-flight WIP — the plan series (`docs/NN_*-plan.md`), a concurrent loop's
+mid-theme edits — that is not necessarily part of *this* release's theme.
+(Strategy/business prose no longer lives in this tree at all — it routes to
+`dos-private` at authoring time; if you see it dirty here, that's a misroute to
+flag, not to ship.)
 A whole-tree release sweeps all of it into one `chore` blob. So on a bare
 `/release`, **derive a recommended scope and proceed scoped** — don't default to
 whole-tree.
@@ -498,45 +550,85 @@ agent pushed), rebase your single commit on top — do NOT force-push master.
 > (see the `feedback-stay-on-master-by-default` memory) — return to it after the
 > branch merges. Do not silently retarget a push.
 
+**What the push sets in motion (post-cutover — check, don't assume):**
+
+- The **pre-push leak gate** runs first, locally, on both pushes (fail-closed —
+  see the public-repo note up top). A refusal means scrub + amend, never
+  `--no-verify`; a missing scanner means re-sync it from
+  `../dos-private/tools/leak_scan.py`.
+- The `master` push fires **`ci.yml`** (leak-scan + lint always; the docs-aware
+  test matrix — full 4-leg grid for code, 2-leg for prose; per-platform wheel
+  build + binary-format guard on code changes) and the repo-self DOS gate
+  (**`dos-gate.yml`**: commit-audit + verify via the bundled verify-action).
+- The tag push fires **`publish.yml`** (Step 7.4): it waits for a green `ci.yml`
+  run on this exact SHA, then holds at the `pypi` environment for the operator's
+  approval. If CI goes RED on the tagged SHA, the publish refuses — fix forward
+  with a follow-up commit and cut the next patch release; **never re-point or
+  delete the pushed tag.**
+
+Read the verdicts rather than assuming them:
+
+```bash
+gh run list --commit "$(git rev-parse HEAD)"     # ci.yml + dos-gate.yml on the release SHA
+gh run list --workflow publish.yml --limit 1     # the publish run (ci-green poll / approval hold)
+```
+
 ## Step 7: GitHub release
 
 ```bash
 gh release create vX.Y.Z --title "vX.Y.Z" --notes "$(cat docs/releases/vX.Y.Z.md)"
 ```
 
-The **PyPI dist** ships **no zip and no binary** — it's a pip-installable pure-Python
-package. The install path is `pip install dos-kernel` (or `dos-kernel==X.Y.Z` to pin
-this tag), or `pip install -e .` from a checkout. The **distribution name is
-`dos-kernel`** — **not** `dos`, which on PyPI is an unrelated package (the import
-name stays `dos`). Publishing the dist to PyPI is the optional step below; the git
-tag + GH release are the canonical artifacts regardless. There is no `release.py`,
-no archive prune, no versioned install snapshot, no screenshots. (The native
-`dos-hook` plugin binaries are NOT a GH-release asset — they ship committed in the
-git tree under `claude-plugin/bin/`, rebuilt at Step 5.5; nothing to upload here.)
+The GH release carries **no uploaded assets** — the dist ships through PyPI, not
+as GH-release attachments. The dist is **no longer pure-Python** (docs/286):
+`publish.yml` builds one wheel per OS/arch, each embedding its native `dos-hook`
+fast-path binary at `dos/_bin/`, plus a pure-source sdist — all CI-built; this
+skill builds nothing locally. The install path is `pip install dos-kernel`
+(**live on PyPI since 2026-06-10**; `dos-kernel==X.Y.Z` pins this tag), or
+`pip install -e .` from a checkout. The **distribution name is `dos-kernel`** —
+**not** `dos`, which on PyPI is an unrelated package (the import name stays
+`dos`). There is no `release.py`, no archive prune, no versioned install
+snapshot, no screenshots. (The `claude-plugin/bin/` binaries are NOT a GH-release
+asset either — they ship committed in the git tree, rebuilt at Step 5.5; they are
+a *separate* surface from the wheel's embedded binary.)
 
-### Step 7.4 (optional): Publish the `dos-kernel` dist to PyPI
+### Step 7.4: Surface the PyPI publish run (the pipeline is already in flight)
 
-Publishing is a *distribution* concern layered on top of the release cut — do it
-only when the operator asks (the git tag + GH release stand on their own). The
-distribution name is **`dos-kernel`** (the bare `dos` name on PyPI is an unrelated
-squatter; the import name stays `dos`).
+`dos-kernel` is **live on PyPI** (first published 2026-06-10 via the pending
+trusted publisher that claimed the name — `publish.yml`'s header records the
+one-time setup). Publishing is no longer a local `twine` act: the Step 6 tag push
+**already triggered** `publish.yml`, which
+
+1. builds the per-platform wheels + sdist (`scripts/build_wheels.py`) and
+   `twine check`s every artifact,
+2. asserts the tag matches `pyproject.toml`'s version (a mismatch fails the run
+   — the bumper scar, now also enforced server-side),
+3. refuses to upload until a green `ci.yml` run exists on the exact tagged SHA
+   (the **ci-green witness gate**: "I tagged it" is a forgeable claim; a
+   completed CI run on those bytes is not), and
+4. **pauses at the protected `pypi` environment for required-reviewer approval**
+   — the deliberate human hand on the one-way step.
+
+The skill's job here: surface the run and its state, and tell the operator it is
+waiting on their approval (approval happens in the GitHub UI — the `pypi`
+environment review):
 
 ```bash
-python -m build                         # -> dist/dos_kernel-X.Y.Z{.tar.gz,-py3-none-any.whl}
-python -m twine check dist/*            # metadata sanity (Name must read dos-kernel)
-# smoke the wheel in a throwaway venv BEFORE upload — proves `import dos`, the
-# `dos`/`dos-mcp` scripts, and the shipped skills survive a non-editable install:
-python -m venv /tmp/relcheck && /tmp/relcheck/bin/pip install dist/*.whl
-/tmp/relcheck/bin/dos doctor --workspace .          # -> DOS vX.Y.Z
-python -m twine upload dist/*            # needs a PyPI token; --repository testpypi to rehearse
+gh run list --workflow publish.yml --limit 1     # the run on this tag
+gh run watch <run-id>                            # optional: follow the ci-green poll
+pip index versions dos-kernel                    # after approval: confirm X.Y.Z is live
 ```
 
-- **First publish claims the `dos-kernel` name** — do it once the name is decided
-  so no one else can squat it (the whole reason we are *off* the `dos` name).
-- Pin consumers to the published version with `dos-kernel==X.Y.Z` (job pins
-  `dos-kernel`); never the bare `dos`.
-- Use `--repository testpypi` for a dry run; the real upload is idempotent per
-  version (re-uploading an existing X.Y.Z is rejected — bump first).
+- **TestPyPI dry-run** = manual dispatch (Actions → Publish to PyPI → Run
+  workflow → `target=testpypi`); validates the whole OIDC path, `skip-existing`
+  is on there. The leg was registered + scratch-verified 2026-06-10.
+- The **manual local fallback** (`python scripts/build_wheels.py` + `twine
+  upload` with a real token) exists only for a broken-pipeline emergency — it
+  needs the Go toolchain for the per-platform wheels and has no OIDC. Prefer
+  fixing the pipeline.
+- Pin consumers with `dos-kernel==X.Y.Z`; never the bare `dos` (a squatter).
+- PyPI rejects a re-upload of an existing X.Y.Z — a botched publish means cutting
+  the next patch version, never force-replacing.
 
 ## Step 7.5: Verify (mandatory — the DOS analogue of an apply-loop smoke)
 
@@ -559,6 +651,12 @@ dos doctor --workspace .
 
 This verification runs against the **editable working tree** (`pip install -e .`)
 — DOS has no production snapshot to advance, so there is nothing further to flip.
+
+This local run is the *fast feedback*, not the witness: `ci.yml` re-runs the same
+suite on the pushed SHA across the full matrix, and the publish gate consumes
+**that** verdict, not this one. A locally-green/CI-red release SHA means a
+matrix-leg failure your box never ran — fix forward (follow-up commit + next
+patch release); the publish run will refuse the red SHA on its own.
 
 ## Step 7.6: Commit-audit the release (advisory — dogfood the honesty witness)
 
@@ -605,6 +703,12 @@ Print:
 - Release tag + commit sha (short)
 - GitHub release URL
 - Push target (`master`) + whether a branch/PR detour was taken
+- **Publish pipeline** (Step 7.4): the `publish.yml` run URL + its state —
+  polling ci-green / **holding for `pypi`-environment approval** (tell the
+  operator the approval is theirs to click) / uploaded (confirmed via
+  `pip index versions dos-kernel`) / refused (and why)
+- **Leak gate**: clean, or what the pre-push hook refused + what was scrubbed
+  and amended
 - Verify: `pytest -q` result (passed / N failed) + `dos doctor` ok
 - **Commit-audit** (Step 7.6): `commit-audit clean` or the flagged commit(s) + a
   note that a follow-up correction is needed (the release was NOT rolled back).
