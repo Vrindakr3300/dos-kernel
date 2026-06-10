@@ -1,6 +1,10 @@
 # 293 — the design-doc plan dialect: `dos plan` rows from this repo's own prose plans
 
-> **Status:** PLAN (design accepted; Phase 1 shipped; Phase 2 in flight).
+> **Status:** ✅ **SHIPPED** (both phases, 2026-06-10) — closed by the oracle,
+> not this sentence: `dos verify --workspace . docs/293_design-doc-plan-dialect-plan
+> "Phase 1"` / `"Phase 2"` → SHIPPED via grep-subject (the `(docs/293 Phase N)`
+> trailer stamps). The `dos doctor` plan-source surface named under Phase 2
+> remains a deferred follow-up.
 >
 > **Design revision (2026-06-10, during Phase 2):** the first cut of Phase 2 put
 > the `[plan]` reader in `config.py` as a `SubstrateConfig.plan_source_name`
