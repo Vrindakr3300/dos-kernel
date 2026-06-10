@@ -15,7 +15,7 @@ dos complete --run-id R [--diverged]   # completion verdict: is the WHOLE declar
 dos rewind --run-id R [--fire SIGNAL]  # conversation-rewind verdict: PROPOSE excising dead-end turns (never truncates)
 dos status --run-id R                  # the folded fact: one fail-closed digest of a run (liveness + verified progress + lease)
 dos arg-provenance --tool T --args J [--new-key K]  # did the model MINT this id/FK, or RESOLVE it from env bytes? (exit 0 believe / 3 UNSUPPORTED)
-dos arbitrate --lane L --kind K --leases '[…]'   # admission: may a lane start without collision?
+dos arbitrate --lane L --kind K --leases '[…]'   # admission: may a lane start without collision? (decision only — journals nothing; hold via lease-lane)
 dos scope-gate --lane L [--staged]     # binding pre-effect scope gate: may this PROPOSED write land in its lane? (ALLOW/REFUSE)
 dos lease {acquire,release,status} OWNER         # the cross-process archive lock
 dos lease-lane {acquire,release,heartbeat,live}  # durable lane lease over the pure arbiter (write-back to the WAL)

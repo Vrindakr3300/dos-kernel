@@ -256,6 +256,57 @@ way the refusal is *structured* — a named reason you can look up: `dos man wed
 lists the whole refusal vocabulary, and
 `dos man wedge <NAME>` prints a generated man page for any one of them.
 
+## 6. `arbitrate` decides — `lease-lane acquire` holds
+
+Run that `arbitrate` again and it answers `acquire` again. That is correct, not
+a double-booking: **`arbitrate` is the pure decision.** It reads the workspace's
+lease journal (plus anything you hand it via `--leases`) but never *writes* it,
+so nothing stays held when it exits. The verb that **takes** a lane — the same
+arbiter, then the grant journaled to the workspace's write-ahead log where every
+later caller in any process sees it — is `lease-lane acquire`:
+
+```bash
+dos lease-lane acquire --lane main --owner me
+```
+
+```json
+{"outcome": "acquire", "journaled": true, "lane": "main", "owner": "me",
+ "reason": "exclusive lane 'main' — no other loop live, admitted.", "tree": ["**/*"], …}
+```
+
+`journaled: true` is the difference. Now the hold is real — a second taker is
+refused, from another shell, another process, another agent's tab:
+
+```bash
+dos lease-lane acquire --lane main --owner teammate
+```
+
+```json
+{"outcome": "refuse", "journaled": false, "owner": "teammate",
+ "reason": "lane 'main' is already held by a live loop — …", …}
+```
+
+Inspect or end the hold any time — the journal, not anyone's narration, is the
+fleet's memory:
+
+```bash
+dos lease-lane live                              # the live-lease set, folded from the WAL
+dos lease-lane release --lane main --owner me    # work landed; free the lane
+```
+
+So: **ask** with `arbitrate` (a script gating "may I start?", a what-if against
+hypothetical `--leases`), **hold** with `lease-lane acquire` (real concurrent
+work). Part two of `dos quickstart` plays this exact escalation — admit,
+redirect, refuse — journaled in a throwaway repo.
+
+> **Windows / PowerShell.** Everything in this tour runs as-is in PowerShell. One
+> caveat for later: an argument with *embedded* double quotes — e.g. a non-empty
+> `--leases '[{"lane":"api"}]'` — is mangled by Windows PowerShell 5.1, which
+> strips the inner quotes before `dos` sees them (PowerShell 7 passes them
+> through correctly). On 5.1, escape them as `\"`
+> (`--leases '[{\"lane\":\"api\"}]'`) — or simply omit `--leases` and let the
+> verbs read the live set from the workspace journal, which is the default.
+
 ## Where to go next
 
 You've now used the two load-bearing syscalls. The rest of the surface:
@@ -265,7 +316,8 @@ You've now used the two load-bearing syscalls. The rest of the surface:
 | See your active config & taxonomy | `dos doctor [--json]` |
 | Check a finished claim | `dos verify PLAN PHASE` |
 | Check an in-flight run is moving, not spinning | `dos liveness --run-id … --start-sha …` |
-| Decide if a lane may start | `dos arbitrate --lane … --kind … --leases …` |
+| Decide if a lane may start (decision only) | `dos arbitrate --lane … --kind … --leases …` |
+| Take a lane and hold it (journaled) | `dos lease-lane acquire --lane … --owner …` |
 | Watch what's **running** (lanes/leases/verdicts/commits) | `dos top` (read-only; `--once` for one frame) |
 | See what's **waiting on you** (refusals to resolve) | `dos decisions` |
 | Check the plan's **claim** vs. the **ground truth** | `dos plan [--once]` |

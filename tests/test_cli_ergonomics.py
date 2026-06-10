@@ -351,12 +351,21 @@ def test_quickstart_default_shows_the_fleet_act():
     disjoint docs lane (the collision that never reached the files), and agent C
     is refused when every lane is held. All three lines must come from the real
     arbiter's decision fields (lane names, the auto-pick redirect reason, the
-    saturation refuse), not canned strings."""
+    saturation refuse), not canned strings.
+
+    The act runs — and narrates — the DURABLE verb (`dos lease-lane acquire`,
+    journaled to the demo repo's WAL), not the pure `arbitrate`: a reader who
+    replayed `dos arbitrate` after watching the old transcript got `acquire`
+    twice in a row (nothing was journaled) and read it as a double-booking. The
+    state that made B and C answer differently from A must be VISIBLE (the
+    `lease-lane live` beat) and the ask/hold split must be said out loud."""
     cp = _cli("quickstart")
     assert cp.returncode == 0, (cp.stdout, cp.stderr)
     out = cp.stdout
     # The scaffold derived the two-lane taxonomy the act arbitrates over.
     assert "derived 2 concurrent lane(s) (docs, src)" in out
+    # The narrated command is the journaling verb the reader can replay.
+    assert "dos lease-lane acquire --lane src" in out
     # Agent A admitted onto src.
     assert "acquire 'src'" in out
     # Agent B redirected onto the free disjoint lane — auto-pick, not a refusal
@@ -366,8 +375,14 @@ def test_quickstart_default_shows_the_fleet_act():
     # Agent C refused when saturated — the typed, scriptable no.
     assert "refuse" in out
     assert "all concurrent cluster lanes are held" in out
-    # And the closing on-ramp points the reader's own repo at the arbiter.
+    # The state is shown where it lives: the lease journal, folded by the real
+    # `lease-lane live` (the holder tags prove it is the fold, not a canned list).
+    assert "dos lease-lane live" in out
+    assert "held by agent-A" in out
+    assert "held by agent-B" in out
+    # The ask/hold split is stated: arbitrate reads the journal, never writes it.
     assert "dos arbitrate --lane" in out
+    assert "reads the journal but never writes it" in out
 
 
 def test_quickstart_default_routes_the_wider_audience():
@@ -415,6 +430,36 @@ def test_quickstart_keep_dir_persists_a_working_workspace(tmp_path: Path):
     assert "SHIPPED" in again.stdout
 
 
+def test_quickstart_keep_dir_fleet_act_replays_from_the_journal(tmp_path: Path):
+    """The fleet act's escalation is REPLAYABLE in the kept repo, because the demo
+    journaled real leases (agent-A on src, agent-B on docs) rather than threading
+    an in-memory list: a later `dos arbitrate --lane src` — a different process,
+    long after the demo exited — reads the WAL and refuses/redirects exactly as
+    the transcript taught. This is the property the old in-memory act lacked (a
+    reader replaying its `arbitrate` line got `acquire` twice and read it as a
+    double-booking)."""
+    keep = tmp_path / "demo"
+    cp = _cli("quickstart", "--keep", str(keep))
+    assert cp.returncode == 0, (cp.stdout, cp.stderr)
+    # The epilogue tells the keeper the leases are still held + how to see them.
+    assert "lease-lane live" in cp.stdout
+    # The journal survives the demo process: the fold still shows both holders.
+    live = _cli("--workspace", str(keep), "lease-lane", "live")
+    assert live.returncode == 0, (live.stdout, live.stderr)
+    leases = json.loads(live.stdout)
+    holders = {(l.get("lane"), l.get("holder")) for l in leases}
+    assert ("src", "agent-A") in holders
+    assert ("docs", "agent-B") in holders
+    # And a fresh arbitrate against the kept repo sees the held world: requesting
+    # the held src lane cannot acquire it (exit 1 refuse, or an auto-pick redirect
+    # to a lane that is NOT src — either way, never a double-booking of src).
+    arb = _cli("arbitrate", "--workspace", str(keep), "--lane", "src",
+               "--output", "json")
+    decision = json.loads(arb.stdout)
+    assert not (decision["outcome"] == "acquire" and decision["lane"] == "src"), \
+        decision
+
+
 def test_quickstart_driver_workshop_shows_concurrency_arbitration():
     """`dos quickstart --driver workshop` runs in a throwaway repo (so the reference
     driver is NEVER shadowed by a workspace's own dos.toml) and shows BOTH halves:
@@ -443,6 +488,52 @@ def test_quickstart_unknown_driver_is_a_clean_error():
     assert cp.returncode == 2, (cp.stdout, cp.stderr)
     assert "could not be resolved" in cp.stderr
     assert "workshop" in cp.stderr  # the suggested template
+
+
+# ---------------------------------------------------------------------------
+# the arbitrate follow-up note — ask vs hold, said at the moment it bites
+# ---------------------------------------------------------------------------
+def test_arbitrate_followup_note_names_the_durable_verb(tmp_path: Path):
+    """An interactive ACQUIRE gets the two-line orientation a first run needs:
+    arbitrate journals NOTHING (so a second call "acquires" again — the field
+    confusion this note exists for), the durable verb is `lease-lane acquire`;
+    and when the requested name is not a lane this workspace declares, the way
+    to get real lanes (`dos init .` / `dos man lane`). Pure builder, unit-tested
+    here; emission is TTY-gated (test_arbitrate_non_tty_stderr_is_silent)."""
+    from dos import config as dos_config
+    from dos.arbiter import LaneDecision
+    from dos.cli import _arbitrate_followup_note
+
+    cfg = dos_config.load_workspace_config(workspace=tmp_path)
+    d = LaneDecision("acquire", lane="main", lane_kind="cluster",
+                     tree=["**/*"], auto_picked=True,
+                     reason="auto-picked free cluster lane 'main' "
+                            "(requested 'src' is not a lane in this workspace).")
+    note = _arbitrate_followup_note(d, "src", cfg.lanes)
+    assert "not a lane in this workspace" in note
+    assert "dos init ." in note and "dos man lane" in note
+    assert "nothing was journaled" in note
+    assert "dos lease-lane acquire --lane main" in note
+
+    # A KNOWN lane name skips the unknown-lane orientation, keeps the verb note.
+    note_known = _arbitrate_followup_note(d, "main", cfg.lanes)
+    assert "not a lane in this workspace" not in note_known
+    assert "dos lease-lane acquire" in note_known
+
+    # A refusal gets no note — the operator was not misled into holding anything.
+    refused = LaneDecision("refuse", reason="held")
+    assert _arbitrate_followup_note(refused, "src", cfg.lanes) is None
+
+
+def test_arbitrate_non_tty_stderr_is_silent(tmp_path: Path):
+    """Piped/scripted invocations see NO follow-up note: stderr stays empty on a
+    non-TTY acquire, so existing parsers, hooks, and CI logs are byte-identical
+    with or without the interactive affordance."""
+    _plain_repo(tmp_path)
+    cp = _cli("arbitrate", "--workspace", str(tmp_path), "--lane", "src",
+              "--leases", "[]", "--output", "json")
+    assert cp.returncode in (0, 1), (cp.stdout, cp.stderr)
+    assert cp.stderr.strip() == ""
 
 
 def test_init_example_workshop_scaffolds_the_reference_taxonomy(tmp_path: Path):

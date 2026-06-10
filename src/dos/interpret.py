@@ -83,12 +83,21 @@ def arbitrate(decision: dict) -> str:
     `free_clusters`). A GO names the (possibly auto-picked) lane and why
     concurrency is safe; a STOP says don't start and lists any free lane to take
     instead.
+
+    The GO also says what `arbitrate` did NOT do: it journals nothing, so the
+    grant is invisible to the next caller (the field confusion: an agent — or an
+    operator running the command twice — believes a lease was taken and "sees"
+    it double-book). The durable verb is `dos lease-lane acquire`; naming it
+    here puts the fix on both `--explain` and the MCP `interpretation` field.
     """
     if decision.get("outcome") == "acquire":
         lane = decision.get("lane", "")
         picked = " (auto-picked for you)" if decision.get("auto_picked") else ""
         return (f"GO — you may take lane {lane!r}{picked}. Its file tree is "
-                f"disjoint from every live lease, so concurrent work is safe.")
+                f"disjoint from every live lease, so concurrent work is safe. "
+                f"(This was a decision only — no lease was journaled; to HOLD "
+                f"the lane so later calls and sibling workers see it, run "
+                f"`dos lease-lane acquire --lane {lane} --owner <id>`.)")
     free = decision.get("free_clusters") or []
     tail = (f" Free lanes you could take instead: {', '.join(free)}."
             if free else " No free lane is available right now — wait or retry.")

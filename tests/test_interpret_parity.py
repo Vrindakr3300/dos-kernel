@@ -99,6 +99,11 @@ def test_arbitrate_interpretation_go_and_stop():
     go = interpret.arbitrate({"outcome": "acquire", "lane": "api",
                               "auto_picked": False})
     assert go.startswith("GO") and "'api'" in go
+    # The GO must also say what arbitrate did NOT do — no lease was journaled —
+    # and name the durable verb, so an agent reading the MCP `interpretation`
+    # (or an operator reading `--explain`) doesn't believe the grant sticks.
+    assert "no lease was journaled" in go
+    assert "dos lease-lane acquire --lane api" in go
 
     go_auto = interpret.arbitrate({"outcome": "acquire", "lane": "docs",
                                    "auto_picked": True})

@@ -525,7 +525,7 @@ def _quickstart_fleet_act(cfg, say) -> None:
 
     Detail: docs/CLI.md § _quickstart_fleet_act.
     """
-    from dos import arbiter
+    from dos import lane_lease
     lanes = cfg.lanes
     tree_src = list(lanes.trees.get("src", []))
     tree_docs = list(lanes.trees.get("docs", []))
@@ -533,33 +533,54 @@ def _quickstart_fleet_act(cfg, say) -> None:
         say("  (the scaffold derived no src/docs lanes — nothing to referee)")
         return
 
-    d_a = arbiter.arbitrate(requested_lane="src", requested_kind="cluster",
-                            requested_tree=tree_src, live_leases=[], config=cfg)
-    say("$ dos arbitrate --lane src     # agent A starts")
-    say(f"  {d_a.outcome} {d_a.lane!r}   (lease on {', '.join(d_a.tree)})")
+    # Each beat is the REAL durable verb against the demo repo's lease journal —
+    # not three pure arbitrate() calls threading an in-memory list. That choice is
+    # the lesson: B and C's verdicts differ from A's because A's grant was
+    # JOURNALED where the next caller reads it (the WAL), so a reader who replays
+    # these commands in a kept demo repo (--keep) sees the same escalation.
+    def _take(owner: str):
+        return lane_lease.acquire(cfg, lane="src", kind="cluster",
+                                  tree=tree_src, owner=owner)
+
+    d_a = _take("agent-A").decision
+    say("$ dos lease-lane acquire --lane src --owner agent-A")
+    say(f"  {d_a.outcome} {d_a.lane!r}   (lease on {', '.join(d_a.tree)} — "
+        "journaled, so the NEXT caller sees it)")
     if d_a.outcome != "acquire":
         say(f"  ({d_a.reason})")
         return
-    live = [{"lane": d_a.lane, "lane_kind": d_a.lane_kind, "tree": d_a.tree}]
 
-    d_b = arbiter.arbitrate(requested_lane="src", requested_kind="cluster",
-                            requested_tree=tree_src, live_leases=live, config=cfg)
+    d_b = _take("agent-B").decision
     say()
-    say("$ dos arbitrate --lane src     # agent B asks for the SAME region")
+    say("$ dos lease-lane acquire --lane src --owner agent-B   # B wants the "
+        "SAME region")
     say(f"  {d_b.outcome} {d_b.lane!r}   ({d_b.reason.rstrip('.')})")
     if d_b.outcome == "acquire" and d_b.lane != "src":
-        say("  ^ the collision never happened — B was handed free DISJOINT work "
-            "instead, and both agents run in parallel")
-        live.append({"lane": d_b.lane, "lane_kind": d_b.lane_kind, "tree": d_b.tree})
+        say("  ^ the collision never happened — B saw A's journaled lease and was "
+            "handed free DISJOINT work; both run in parallel")
 
-    d_c = arbiter.arbitrate(requested_lane="src", requested_kind="cluster",
-                            requested_tree=tree_src, live_leases=live, config=cfg)
+    d_c = _take("agent-C").decision
     say()
-    say("$ dos arbitrate --lane src     # agent C — every lane is now held")
+    say("$ dos lease-lane acquire --lane src --owner agent-C   # C — every lane "
+        "is now held")
     say(f"  {d_c.outcome}   ({d_c.reason.split('.', 1)[0]}.)")
     if d_c.outcome == "refuse":
         say("  ^ exit=1: C waits. A silent overwrite became a typed, scriptable "
             "refusal.")
+
+    # The state that made B and C answer differently from A, made visible: the
+    # workspace's lease journal, not any process's memory or any agent's say-so.
+    say()
+    say("# Who holds what? The fleet's memory is the repo's lease journal "
+        "(a WAL on disk):")
+    say("$ dos lease-lane live")
+    for lease in lane_lease.live_leases(cfg):
+        say(f"  lane {str(lease.get('lane', '?')):<5}  held by "
+            f"{lease.get('holder', '?')}")
+    say()
+    say("# (`dos arbitrate --lane src` answers the same may-I question as a pure")
+    say("#  DECISION — it reads the journal but never writes it, so nothing stays")
+    say("#  held. Ask with `arbitrate`; take the lane with `lease-lane acquire`.)")
 
 
 # docs/207 Phase 7 — the skill on-ramp. `dos init --skills` copies the generic
@@ -1480,6 +1501,45 @@ def cmd_coverage(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # arbitrate  (the admission kernel)
 # ---------------------------------------------------------------------------
+def _arbitrate_followup_note(decision, requested_lane: str, lanes) -> str | None:
+    """The interactive follow-up for an `arbitrate` ACQUIRE (stderr, TTY only).
+
+    Names, at the moment they bite, the two things a first interactive run
+    misreads:
+
+    * `arbitrate` is the PURE decision — nothing is journaled, so a second call
+      sees the same world and "acquires" again. The durable verb is
+      `dos lease-lane acquire` (the WAL write-back, docs/96).
+    * a bare request naming a lane this workspace never declared degrades to
+      auto-pick (the docs/104 soft-hint redirect). The decision's reason already
+      SAYS so; the fix (`dos init .` / `dos man lane`) lives here.
+
+    Pure (decision + taxonomy in, text out) so it is unit-testable; the caller
+    gates emission on stderr being a TTY, so piped/scripted/CI output stays
+    byte-identical with or without it.
+    """
+    if getattr(decision, "outcome", "") != "acquire":
+        return None
+    lines: list[str] = []
+    if requested_lane:
+        known = {str(n or "").casefold() for n in (
+            *lanes.concurrent, *lanes.exclusive, *lanes.autopick,
+            *lanes.trees.keys(), *lanes.aliases.keys(), "global")}
+        if requested_lane.casefold() not in known:
+            lines.append(
+                f"note: {requested_lane!r} is not a lane in this workspace. "
+                f"`dos init .` derives lanes from your top-level dirs; "
+                f"`dos man lane` lists the declared ones.")
+    lane = decision.lane or requested_lane
+    lines.append(
+        "note: arbitrate DECIDES only — nothing was journaled, so the next "
+        "call sees the same world. To hold "
+        + (f"lane {lane!r}" if lane else "a lane")
+        + f" durably: dos lease-lane acquire --lane {lane or '<lane>'} "
+          "--owner <id>")
+    return "\n".join(lines)
+
+
 def cmd_arbitrate(args: argparse.Namespace) -> int:
     _apply_workspace(args)
     from dos import arbiter
@@ -1595,6 +1655,13 @@ def cmd_arbitrate(args: argparse.Namespace) -> int:
                 "resolution": {"action": "force_acquire",
                                "lane": args.lane or "", "forced": True},
             })
+    # The interactive follow-up (TTY-only, stderr): "did anything get held?"
+    # and "why did my lane name redirect?", answered at the moment they bite.
+    # stdout stays byte-identical (a piped `dos arbitrate --output json | jq`
+    # sees no extra bytes), and a non-TTY stderr (scripts, CI) sees nothing.
+    note = _arbitrate_followup_note(decision, args.lane or "", cfg.lanes)
+    if note and sys.stderr.isatty():
+        print(note, file=sys.stderr)
     return decision_code
 
 
@@ -5479,7 +5546,10 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
         _say("# The story: you asked a coding agent for a login feature. It replied:")
         _say(f"#   {_story.AGENT_CLAIM}")
         _say("# One claim is true. One never landed. Catching the difference — from the")
-        _say("# artifacts, never the transcript — is the demo. Throwaway repo, four commands:")
+        _say("# artifacts, never the transcript — is the demo. Two parts, one throwaway repo.")
+        _say()
+        _say('# --- Part 1 — catch the false "done" '
+             '-----------------------------------------')
         _say()
 
         # 1. Scaffold the workspace. Two modes:
@@ -5584,12 +5654,13 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
         #   (full prose: docs/CLI.md § "4. The fleet act (default mode) — the admission half of the")
         if not driver_name:
             _say()
-            _say("# Part two — more than one agent on the SAME repo. A 20-agent "
-                 "fleet, or just two")
-            _say("# coding-agent tabs you opened side by side — same hazard: two "
-                 "writers, one file")
-            _say("# tree. Before touching files, each asks the arbiter for a lease "
-                 "on a region (a lane):")
+            _say("# --- Part 2 — two agents, one repo "
+                 "-------------------------------------------")
+            _say("# A 20-agent fleet, or just two coding-agent tabs you opened "
+                 "side by side —")
+            _say("# same hazard: two writers, one file tree. Before touching "
+                 "files, each takes")
+            _say("# a LEASE on a disjoint region of the tree (a lane):")
             _say()
             try:
                 _quickstart_fleet_act(cfg, _say)
@@ -5615,8 +5686,16 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
                     if not driver_name else
                     f"dos --workspace {work} doctor   # see the {driver_name} lanes")
             _say(f"\nThe demo repo is at {work} — poke at it: {poke}")
+            if not driver_name:
+                _say(f"(agent-A and agent-B still hold their leases in its journal "
+                     f"— see them:\n dos --workspace {work} lease-lane live)")
         else:
-            _say("\nRun it on your own repo:   dos verify --workspace . PLAN PHASE")
+            _say("\nReplay it hands-on:        dos quickstart --keep dos-demo   "
+                 "(keeps the repo +")
+            _say("                           its lease journal; rerun any command "
+                 "above with")
+            _say("                           --workspace dos-demo)")
+            _say("Run it on your own repo:   dos verify --workspace . PLAN PHASE")
             if driver_name:
                 _say(f"Adopt the {driver_name} lanes in your repo:  "
                      f"dos init --example {driver_name}")
@@ -5636,7 +5715,7 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
                 _say("  a CI step          run dos verify and branch on the exit "
                      "code: 0 shipped / 1 not")
                 _say("  a fleet, one repo  dos init .   then   "
-                     "dos arbitrate --lane <dir>")
+                     "dos lease-lane acquire --lane <dir> --owner <id>")
         return 0
     except subprocess.CalledProcessError as e:
         print(f"error: a git step failed during quickstart: "
