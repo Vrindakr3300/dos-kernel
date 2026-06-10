@@ -1,0 +1,43 @@
+{
+  "task": "swe9_csv",
+  "family": "swe",
+  "note": "quoted-field parsing",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": "..                                                                       [100%]\n2 passed in 0.20s",
+  "cli_returncode": 0,
+  "wall_s": 24.1,
+  "total_cost_usd": 0.13317625000000002,
+  "num_turns": 5,
+  "duration_ms": 23196,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 502,
+      "outputTokens": 14,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.0005719999999999999,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1985,
+      "outputTokens": 1105,
+      "cacheReadInputTokens": 121171,
+      "cacheCreationInputTokens": 5515,
+      "webSearchRequests": 0,
+      "costUSD": 0.13260425,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "bc64ae1",
+  "head_subject": "Fix parse_line to handle quoted fields with commas",
+  "n_commits_total": "2"
+}

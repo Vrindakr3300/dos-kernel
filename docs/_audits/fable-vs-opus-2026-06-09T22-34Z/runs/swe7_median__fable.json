@@ -1,0 +1,43 @@
+{
+  "task": "swe7_median",
+  "family": "swe",
+  "note": "even-case + edge",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": "..                                                                       [100%]\n2 passed in 0.23s",
+  "cli_returncode": 0,
+  "wall_s": 29.6,
+  "total_cost_usd": 0.276534,
+  "num_turns": 5,
+  "duration_ms": 28537,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 494,
+      "outputTokens": 19,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000589,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 1985,
+      "outputTokens": 1002,
+      "cacheReadInputTokens": 125545,
+      "cacheCreationInputTokens": 6436,
+      "webSearchRequests": 0,
+      "costUSD": 0.275945,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "8dd4b4a",
+  "head_subject": "Fix median: average two middle values for even n, raise ValueError on empty",
+  "n_commits_total": "2"
+}

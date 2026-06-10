@@ -1,0 +1,13 @@
+# Keep POSIX shell scripts LF-only on every platform.
+#
+# `install.sh` (and any other `*.sh`) carries a `#!/usr/bin/env sh` shebang. If a
+# Windows clone with `core.autocrlf=true` rewrites it to CRLF, the trailing `\r`
+# turns the interpreter into `sh\r` and the script fails to launch
+# (`/usr/bin/env: 'sh\r': No such file or directory`) — exactly on the install
+# path a newcomer hits first. Forcing `eol=lf` on `*.sh` keeps the bootstrap
+# wrapper runnable in WSL / Git Bash / Linux / macOS regardless of the clone's
+# autocrlf setting.
+*.sh text eol=lf
+
+# PowerShell is comfortable with either ending; leave it to the platform default.
+*.ps1 text

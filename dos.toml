@@ -1,0 +1,90 @@
+# DOS workspace config — the per-repo policy the installed `dos` package reads.
+# The mechanism (oracle, arbiter, refusal enum) lives in the package; THIS file
+# is the only policy that crosses into your tree (brownfield-port §5.5.3).
+#
+# Every table below is read by `dos` at workspace load (no dead scaffold remains
+# after SCV+WCR) — see docs/HACKING.md for the full readback contract:
+#   [lanes]  REPLACES the generic main/global taxonomy with yours.
+#   [paths]  OVERRIDES individual layout fields (e.g. where your plans live).
+#   [stamp]  OVERRIDES the ship-subject grammar `verify`'s grep rung recognises.
+#   [reasons.*] (not scaffolded) ADD block reasons onto the built-in set.
+workspace = "."
+
+# Lane taxonomy — concurrent clusters run in parallel iff their file trees are
+# disjoint; exclusive lanes run alone. These were auto-derived from this repo's
+# top-level directories; curate them as your real concurrency topics emerge.
+# `dos arbitrate` reads this; `dos doctor --check` flags a lane with no tree.
+[lanes]
+concurrent = ["benchmark", "claude-plugin", "docs", "examples", "go", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
+exclusive = ["global"]
+autopick = ["benchmark", "claude-plugin", "docs", "examples", "go", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
+
+[lanes.trees]
+benchmark = ["benchmark/**"]
+claude-plugin = ["claude-plugin/**"]
+docs = ["docs/**"]
+examples = ["examples/**"]
+go = ["go/**"]
+paper = ["paper/**"]
+scripts = ["scripts/**"]
+spikes = ["spikes/**"]
+src = ["src/**"]
+tests = ["tests/**"]
+verify-action = ["verify-action/**"]
+global = ["**/*"]
+
+# Where this repo keeps the state DOS reads. Only the fields you name are
+# overridden; the rest inherit the default layout. `plans_glob` lives HERE (it is
+# a path), distinct from `[stamp]` (which is the ship-subject *grammar*).
+[paths]
+plans_glob = "docs/**/*-plan.md"
+
+# How this repo stamps a shipped phase in its commit subjects. The default is the
+# strict reference grammar; declare `subject_dirs` (or `subject_dirs = []` for the
+# generic, dir-free shape) to make `verify` recognise YOUR convention.
+[stamp]
+style = "grep"                 # ship oracle grep rung over `git log` subjects
+# subject_dirs = ["src", "lib"]  # uncomment to declare your own ship-dir prefixes
+trailer_stamp = true           # this repo's subjects are Conventional Commits; the
+                               # plan/phase rides an end-of-subject trailer —
+                               # `feat(pypi): … (docs/286 Phase 3)` (docs/289)
+
+# Dogfood: a leak is just "content that must never be admitted to the public-bound
+# tree" — the same shape the kernel's SELF_MODIFY rung already refuses. So this repo
+# adds PUBLISH_LEAK to its own closed refusal vocabulary, declared as DATA (no kernel
+# edit), and the deterministic floor under it is `scripts/leak_scan.py` (run by CI +
+# the seed gate). A private dev path / hostname authored into a public-bound file is
+# an OPERATOR_GATE refusal: a human must clear it before it can ship. See the
+# publication-pipeline note + docs/281 for why the gate kept going stale.
+[reasons.PUBLISH_LEAK]
+category = "OPERATOR_GATE"
+refusal  = true
+summary  = "edit introduces a private dev path / hostname into a public-bound file"
+fix      = "scrub the leak (run `python scripts/leak_scan.py`); a leak is a refusal, not a warning"
+see_also = ["scripts/leak_scan.py", "scripts/seed_public_repo.ps1", "man wedge SELF_MODIFY"]
+
+# How much `.dos/` scratch to keep (docs/106 §3.3). `dos reap` bounds the per-project
+# scratch to these caps — recency keep-last-N for audits/verdicts/runs, a size/age
+# threshold for the WAL. Only what you name overrides the generous generic default;
+# the "never reap a live lease" floor is the collector's, independent of these numbers.
+# A cap of -1 (or "none") means unbounded on that axis.
+[retention]
+audits_keep_last = 30          # keep the newest 30 trajectory-audit reports (the
+                               # audit's OWN output is an unbounded-growth source —
+                               # it was the 2026-06-03 audit's side-finding)
+
+# The wait-marker (keep-alive poll) budget knobs (docs/274). The budget refuses a
+# `claude -p` keep-alive marker once its per-session count is spent — but ONLY inside
+# a loop: a `Stop` hook fires on every finished turn, so on a bare binding an unscoped
+# budget would force keep-alive turns on every interactive turn (the docs/274 inversion).
+# The defaults below are the generic, interactive-safe ones — uncomment to tune.
+[marker]
+# max_streak = 4                    # the no-op-turn budget (handed to noop_streak); the
+                                    # refusal fires one marker before the keepalive_poll
+                                    # telemetry flag at >=5.
+# arm_on_env = ["DOS_LOOP", "CID_RUN_ID"]  # env-var names whose presence ARMS the budget
+                                    # (the evidence this Stop is a poll inside a loop).
+                                    # Name your own loop sentinel here; this REPLACES the
+                                    # built-ins. [] means only an explicit `--loop` arms it.
+# respect_stop_hook_active = true   # honor Claude Code's own infinite-loop backstop —
+                                    # never re-block a stop it is ALREADY continuing.

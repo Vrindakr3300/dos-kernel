@@ -1,0 +1,40 @@
+diff --git a/scripts/run_single_containerized.sh b/scripts/run_single_containerized.sh
+index 73e4224c..a3cb35fa 100755
+--- a/scripts/run_single_containerized.sh
++++ b/scripts/run_single_containerized.sh
+@@ -112,6 +112,23 @@ if [ ! -z "${TOOLATHLON_OPENAI_API_KEY+x}" ]; then
+     echo "Detected host TOOLATHLON_OPENAI_API_KEY, will pass into container"
+ fi
+ 
++# --- DOS WARN-arm injection (docs/164 F0). NO-OP unless DOS_WARN is set, so OBSERVE runs and any
++# other user are completely unaffected. Mounts the dos repo + passes the flag so the container-side
++# sitecustomize installs the tool_stream WARN patch. EXTRA_MOUNT_ARGS is appended to the docker run. ---
++EXTRA_MOUNT_ARGS=()
++if [ ! -z "${DOS_WARN+x}" ] && [ "${DOS_WARN}" != "" ] && [ "${DOS_WARN}" != "0" ]; then
++    DOS_REPO_HOST="${DOS_REPO_HOST:?set DOS_REPO_HOST to your dos checkout path}"
++    EXTRA_ENV_ARGS+=("-e" "DOS_WARN=${DOS_WARN}")
++    EXTRA_ENV_ARGS+=("-e" "DOS_REPO_MOUNT=/dos")
++    EXTRA_MOUNT_ARGS+=("-v" "${DOS_REPO_HOST}:/dos")
++    # mount the sitecustomize directly at /workspace so the in-container python auto-imports it
++    # (avoids depending on the project-file copy list). PYTHONPATH must include /workspace so
++    # sitecustomize is found — set it in the container env too.
++    EXTRA_MOUNT_ARGS+=("-v" "${DOS_REPO_HOST}/benchmark/toolathlon/_ab_wiring/sitecustomize.py:/workspace/sitecustomize.py")
++    EXTRA_ENV_ARGS+=("-e" "PYTHONPATH=/workspace")
++    echo "DOS WARN arm: mounting ${DOS_REPO_HOST} -> /dos + sitecustomize, passing DOS_WARN into container"
++fi
++
+ # Detect TOOLATHLON_MODEL_PARAMS_FILE - will copy file and set container path later
+ HOST_MODEL_PARAMS_FILE=""
+ CONTAINER_MODEL_PARAMS_FILE=""
+@@ -203,6 +220,11 @@ for envarg in "${EXTRA_ENV_ARGS[@]}"; do
+     START_CONTAINER_ARGS+=("$envarg")
+ done
+ 
++# DOS WARN-arm: append the dos repo mount (no-op array unless DOS_WARN set above)
++for mountarg in "${EXTRA_MOUNT_ARGS[@]:-}"; do
++    [ -n "$mountarg" ] && START_CONTAINER_ARGS+=("$mountarg")
++done
++
+ # Add socket mount based on container runtime
+ if [ "$CONTAINER_RUNTIME" = "podman" ]; then
+     echo "Configuring Podman environment..."

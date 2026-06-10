@@ -1,0 +1,125 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/08_appendix_b.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{Appendix B. How it works --- from a forgeable claim to a grounded refusal}
+
+Appendix A said \emph{what} DOS believes and \emph{where} a verdict pays. This appendix says
+\emph{how} a verdict is computed --- the machine that turns a forgeable sentence into a grounded ``no'' ---
+and shows the two live consumers from \cref{sec:payoff} are the \emph{same} pipeline pointed at the
+two ways a fleet fails. The reference points are real: the gate is
+\code{benchmark/agentprocessbench/writeadmit/gate.py}, the referee-between-agents is
+\code{coord\_loop.py}, and the floor both stand on is \code{dos.effect\_witness}.
+
+\subsection{B.1 The pipeline: four steps, and only one of them decides}
+
+Every DOS verdict --- the write-admission gate, the race arbiter, every detector here --- runs the same
+four-step pipeline. What does the work is not any one clever step but the strict separation between
+them.
+
+\begin{enumerate}
+  \item \textbf{Gather evidence --- at the boundary, never inside the decision.} All reading from the
+messy world happens here and only here (the database hash, the tool-result stream, the git log); it
+judges nothing, just collects bytes and notes \emph{who wrote each one}.
+  \item \textbf{Tag each byte with its author.} Every piece of evidence is labelled by which rung
+of trust it came from --- agent, environment, or third party. This label decides everything downstream
+(B.2).
+  \item \textbf{Classify --- a pure function, no I/O.} One function takes the tagged evidence and a
+policy and returns a verdict, reading no files and asking no model, so the same evidence returns the
+same verdict forever. The only step that decides.
+  \item \textbf{Return a typed refusal --- from a closed list.} One value from a fixed vocabulary
+(admit / block / abstain, with a named reason), so a consumer branches without parsing prose and a
+human can check every answer was accounted for.
+\end{enumerate}
+
+Splitting reading from deciding is the reason a courtroom separates gathering testimony from
+rendering a verdict: a decision that re-reads the world while deciding can be swayed by what it
+re-reads. By the time the pure classifier runs, the evidence is fixed and labelled and the agent has no
+further move. \emph{I/O at the boundary, a pure verdict at the core} is the one structural rule the
+kernel obeys.
+
+\subsection{B.2 The accountability ladder --- why the agent's own words can never tip the scale}
+
+Step 2 is where byte-clean turns from a slogan into a working mechanism. Each piece of
+evidence carries a label naming its author, and the labels are ordered by how hard they are to
+forge:
+
+\begin{itemize}
+  \item \textbf{AGENT\&\#8209;AUTHORED} --- the agent wrote it (its final message, its self-report). This is the Vaseline: admitted into evidence but marked, and that mark keeps it from deciding anything.
+  \item \textbf{OS\&\#8209;RECORDED} --- the environment wrote it (the database hash, the mail server's error envelope, the git commit). The agent triggered the action but did not author the byte.
+  \item \textbf{THIRD\&\#8209;PARTY} --- an independent grader wrote it (Toolathlon's \code{evaluation/main.py}, tau2's database-hash check). Authored by neither the agent nor DOS.
+\end{itemize}
+
+The rule that makes the floor unforgeable: \textbf{only an OS\&\#8209;RECORDED or THIRD\&\#8209;PARTY
+witness may set the ``refuted'' bit.} An AGENT\&\#8209;AUTHORED byte can be \emph{recorded} (the
+verdict notes the agent \emph{claimed} success) but can never \emph{confirm} or \emph{refute}. So
+a policy that writes itself a glowing receipt moves nothing --- its bytes land on the forgeable floor,
+treated as \emph{no evidence either way}; only a byte from a higher rung flips a write from ``admit'' to
+``block''. In code this is the \code{believe\_under\_floor} discipline: a read-back on the
+AGENT\&\#8209;AUTHORED rung yields \emph{unwitnessed}, never \emph{refuted}.
+
+The agent's words are admitted as \emph{testimony}, never as \emph{proof}: only a byte the agent
+did not author can decide the case. This is the A.2 trust ladder (ORACLE~$\rightarrow$~JUDGE~$\rightarrow$~HUMAN)
+seen from the evidence side: an accountable witness ranks above the agent's narration, and a missing
+witness fails safe to ``admit'' --- trust the unforgeable thing first, and when it is silent, do the
+cautious thing, never the flattering one.
+
+\subsection{B.3 The two consumers as one pipeline, two witness-moments}
+
+The write-admission gate of \cref{sec:payoff} is the four steps turning. \textbf{Gather}
+A's final message (the claim) and the tau2 evaluator's \code{db\_match} result.
+\textbf{Tag} the message AGENT\&\#8209;AUTHORED and \code{db\_match} OS\&\#8209;RECORDED
+(\code{True} an attestation, \code{False} a refutation, \code{None} no witness).
+\textbf{Classify}: does A confidently claim a write (a closed write-verb \&cap; mutating-tool
+test, not a keyword sniff) \emph{and} does an accountable witness refute it? Block only when both.
+\textbf{Return} admit / block / abstain. The structure buys three properties: it
+\textbf{cannot be talked into admitting} (only an OS\&\#8209;RECORDED byte sets ``refuted,'' so a
+fake receipt changes nothing --- the gate can only block \emph{more} under a real witness, never less);
+it \textbf{never blocks correct work} (a database-confirmed write is attested, so all nine
+honest writes were admitted and only the five refuted ones blocked); and \textbf{blocking B's input
+writes nothing into A's loop}, so the in-loop harm of \cref{sec:giveup-activefix} is
+structurally absent --- the entire reason the consumer is B, not A.
+
+The race arbiter of \cref{sec:payoff-race} is the \emph{same} pipeline with one substitution:
+the witness is read \emph{before} the write, not after. A reservation is a region
+\code{reservations/<id>}; the pure call \code{arbitrate(region, live\_leases)} refuses
+A2's lease on a region A1 holds (the same disjointness verdict the live \code{dos lease-lane}
+uses, no model, no I/O), so A2 --- re-run after A1 commits --- sees R already cancelled and does nothing.
+Its scoring witness is the same airline database hash, and a clobber is counted only when
+\emph{directional} (the discipline that took the headline from 7 to an honest 6,
+\cref{sec:payoff-race}). The arbiter's refusal is a refusal in the identical sense the gate's block
+is: a typed ``no'' from a pure verdict over evidence the agent cannot forge. One reads the witness after
+the claim, the other before the write. Two moments, one machine.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{appx_dos_syscall_map}
+  \caption{The same kernel map as Appendix A, read as \emph{machinery}: each call is the B.1 pipeline with a different evidence source at step 1 (\code{verify} reads git, \code{arbitrate} the live leases, the gate the database hash), the same author-tag at step 2, one pure classification at step 3, and the same closed-vocabulary ``no'' at step 4. The trust ladder beneath is the B.2 accountability ladder from the adjudicator's side.}
+  \label{fig:unknown}
+\end{figure*}
+
+\subsection{B.4 Why the answer is a closed list, not a sentence}
+
+The fourth step --- return a value from a fixed vocabulary --- carries real weight. A free-text verdict
+(``looks mostly fine, but maybe double-check the booking'') cannot be acted on by a machine or audited by
+a human: you cannot enumerate the prose a model might emit, so you cannot prove you handled every case.
+A verdict that is one of {admit, block, abstain} with a named reason can be branched on without
+parsing, logged without ambiguity, and --- the part that matters for trust --- \emph{checked for
+completeness}. This is why ``abstain'' is a first-class member, not a shrug: a verdict allowed to say
+``I have no witness for this'' never has to guess, and a kernel that never guesses is one whose every
+``block'' you can believe. That closure also lets the same verdict be spent in two places without
+re-deciding --- the gate's ``block'' and the arbiter's ``refuse'' are the same typed object a consumer routes
+(drop the write, hold the lease, surface it) but never re-litigates. \emph{That} is the mechanism
+behind the paper's one sentence: ``handed to anyone else'' is nothing more than routing a closed,
+grounded value to a consumer who is not the one being judged.
+
+The whole machine: read bytes at the boundary, tag each by its author, decide once with a pure
+function that only an unforgeable byte can sway, emit one value from a closed list --- then route that
+value anywhere except back to the agent it judged.
+
+The companion engineering write-up --- the gate, the arbiter, and the
+\code{effect\_witness} floor with their tests --- lives under
+\code{benchmark/agentprocessbench/writeadmit/} and \code{src/dos/effect\_witness.py}
+in the DOS repository; the kernel's own architecture contract is \code{CLAUDE.md} and
+\code{docs/ARCHITECTURE.md}.

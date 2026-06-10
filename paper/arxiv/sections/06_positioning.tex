@@ -1,0 +1,189 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/06_positioning.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{Is the signal real? Naive baselines}\label{sec:baselines}
+
+A detector that fires on the right runs is only impressive if a dumb
+detector cannot do the same. So we measured the dumb ones, scored by the
+same lift and false-alarm from \cref{sec:bench} (lift = precision minus the 76.2\%
+base fail rate; false-alarm = how often the detector fires on a run that
+actually passed). A good detector has high lift and low false-alarm.
+
+\begin{table}[t]
+  \centering
+  \caption{\cref{tab:baselines}. Naive baselines vs. the shipped detector
+(Toolathlon, third-party scored). Read the \emph{lift} column: it is precision
+minus the 76.2\% base, so it strips out the credit a detector gets for free on a
+benchmark where failure is the default.}
+  \label{tab:baselines}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Detector & Fire & Precision & Lift & False-alarm \\
+    \midrule
+    baseline-always-fail & 100\% & 76.2\% & +0.0pp & 100\% \\
+    naive-loose & 32.3\% & 81.1\% & +4.9pp & 25.6\% \\
+    naive-any-error & 19.5\% & 81.4\% & +5.2pp & 15.2\% \\
+    tight-no-recovery & 2.3\% & 93.0\% & +16.9pp & 0.7\% \\
+    terminal\_error (shipped) & 1.2\% & 95.0\% & +18.8pp & 0.24\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+(``Fire'' is how often the detector triggers at all.)
+
+\textbf{The recall mirage.} Recall is the wrong scoreboard here. The baseline that prints
+``fail'' on every run posts 100\% recall --- it catches every failure because it flags everything
+--- yet its lift is +0.0pp and it false-alarms 100\% of the time. Score by lift and false-alarm
+instead and it falls to the bottom where it belongs. Our detectors make the opposite trade (high
+precision, low false-alarm, low recall) because a verdict is meant to be \emph{acted on}, and
+\cref{sec:giveup} is what that looks like: you only give up on a run you are sure is doomed.
+
+\textbf{The tight grammar is load-bearing.} You might think reading the structured error
+envelope more loosely would catch more failures. It does not: loosening buys $\sim$5pp of precision but
+pushes false-alarm from 0.24\% to 25.6\%--69.4\% ($\approx$105$\times$--285$\times$ worse). You cannot buy
+recall by reading the bytes you already have more loosely; the only way to catch more is an
+\emph{independent} witness --- exactly the Tier-B re-read of \cref{sec:payoff}. The per-model
+grid (\cref{fig:permodel}) shows the precision holding across every
+model that fires.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{fig2_per_model_grid}
+  \caption{\cref{fig:permodel}. Model by model (weakest to strongest): precision stays high all the way up the ladder; only the fire-rate falls away on the strongest models. The only honest way to catch more failures is a new source of evidence, not a looser reading of the bytes already in hand.}
+  \label{fig:permodel}
+\end{figure}
+
+\section{Positioning}\label{sec:positioning}
+
+Three kinds of system sit near this work. The first does the same job by a cheaper-looking trick --- re-run the agent until a check passes --- and works only for one agent. The second does the same job --- catch a silent failure --- by a different method (a trained classifier). The third does a different job entirely. We take each on its own terms.
+
+\subsection{The re-run wrapper (and why a fleet defeats it)}\label{sec:positioning-wrapper}
+
+The most common reaction is that this looks unnecessary: \emph{if you do not trust an agent's
+``done,'' just check the result and re-run when the check fails.} The loop is correct for
+a single agent and we make no claim against it --- only against the dismissal it smuggles in, that
+single-agent reliability is therefore trivial. Two parts of the loop are real work the phrase hides:
+the \emph{check} must be one the agent cannot forge (a git-ancestry, registry-first ship oracle under
+a closed vocabulary, not ``re-read the result,'' which falls into the same mirror-verifier
+trap), and the \emph{loop} must sense fast enough to gate every turn (here the in-flight path needed
+a rewrite from a $\sim$250~ms Python hook to a $\sim$10~ms native one). Neither is a few lines of
+glue.
+
+But the \emph{headline} claim --- the place a re-run wrapper provably cannot follow --- is
+the concurrent one, and we concede the stronger objection first. If the shared store offered a
+transactional primitive (a serializable transaction, a compare-and-swap, a conditional write), a
+wrapper around even a lone agent could fuse check and write into one atomic step and close the race
+with no referee. Our claim is scoped to the regime that holds for agents in the wild: they act through
+high-level tool APIs (cancel a reservation, file a ticket) that expose only unconditional writes, so no
+such primitive is available to wrap. There the TOCTOU argument bites --- A's read and write
+are separate non-atomic calls, so no number of re-runs makes two calls one. The number settles it:
+\cref{sec:payoff-race}'s arbiter prevents all 6 live would-be clobbers across its 8 racing
+pairs and a re-run wrapper prevents none, because each agent's own check passed. (The arbiter is a lock service supplying the
+serialization the store does not, lifted \emph{outside} any single agent --- which is why it
+works where a wrapper on A cannot.)
+
+The honest converse is our own boundary. At the single easy hop where a wrapper \emph{does} apply,
+handing the verdict back in-loop is mildly \emph{harmful} ($\Delta$B, Appendix~D) --- so we do
+not rest the headline payoff on the single-agent case. The concurrency case without a transactional
+store is where the entire \emph{incremental} payoff over a wrapper lives.
+
+\subsection{Trained classifiers}\label{sec:positioning-classifier}
+
+The nearest neighbour is a \emph{trained} classifier: a model fitted on a labelled set of past failures, which then predicts whether a new run failed (arXiv 2511.04032\cite{silentfailures}, 2025, about 98\% accuracy on its own data). On paper that beats our detectors by a wide margin. The catch is what the number costs, and where that 98\% actually lives.
+
+A classifier needs a labelled set of failures from the same kind of task, and a held-out slice to score it honestly. That labelled set is exactly the thing you do not have on a task you have never seen, which is the whole problem. Run the classifier \emph{fairly} on this corpus and two things happen. Its best-balanced operating point just predicts ``everything failed'': on a benchmark where 76.2\% of runs fail, that scores well by accuracy but buys no real skill, and this is where the 98\% headline lives (the recall mirage from \cref{sec:baselines}). Its only deployable operating point --- the one that almost never cries wolf --- fires exactly once. So at a false-alarm rate you could ship, it does nothing.
+
+\begin{table}[t]
+  \centering
+  \caption{\cref{tab:classifier}. The zero-training detectors versus a trained classifier on this corpus, on the same scoreboard. A classifier has to pick an \emph{operating point} (how eager to fire); we show its two honest choices. Watch the \emph{lift} column --- the real-skill number from \cref{sec:bench} --- not the precision.}
+  \label{tab:classifier}
+  \begin{tabular}{lrrrr}
+    \toprule
+    method & fire & precision & lift & false-alarm \\
+    \midrule
+    \code{terminal\_error} (0-training) & 1.2\% & 95.0\% & +18.8pp & 0.24\% \\
+    DOS trio (union, 0-training) & 5.1\% & 92.6\% & +16.4pp & 1.6\% \\
+    trained clf --- \textbf{deployable} point & 0.0\% & 100.0\% & n/a (1 fire) & 0.0\% \\
+    trained clf --- \textbf{F1-optimal} point & 100.0\% & 76.2\% & +0.0pp & 99.9\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The two classifier rows are the ends of one dial. At the \emph{deployable} point (the only setting that does not constantly cry wolf) it fires once in 6,862 runs --- effectively silent. At the \emph{F1-optimal} point (best by the usual accuracy measures) it just predicts ``everything failed'': 100\% fire, +0.0 lift, no skill. The widely-quoted ``98\% accuracy'' lives at that second setting --- the recall mirage of \cref{sec:baselines} in classifier's clothes. No dial position both fires usefully and stays trustworthy on an unseen task; our zero-training detectors sit at +16 to +19 lift at a deployable false-alarm rate.
+
+Two further problems. The classifier reads the agent's own trajectory structure, so it risks the mirror-verifier trap (\cref{sec:intro}) --- it can learn the tells a model stops emitting once trained against. And when we feed it the DOS detector flags as features, its top weights \emph{are} those detectors (\code{dangling\_fired}, \code{terminal\_error\_fired}, \code{tool\_stream\_fired}): it re-derives the cheap signals it was handed. The right place for such a model is not beside DOS as a rival but \emph{under} it --- a JUDGE-rung adjudicator (ORACLE $\rightarrow$ JUDGE $\rightarrow$ HUMAN) that rules only on the residue the deterministic detectors abstained on, fail-to-abstain, never the floor.
+
+\subsection{Arbiter neighbours}\label{sec:positioning-arbiter}
+
+Two multi-agent arbitration systems sit nearby: Limen\cite{limen} (advisory write-leases) and CodeCRDT\cite{codecrdt} (lock-free CRDT). Both compare to DOS's \code{arbitrate()} call, not its detector, and neither can run on this benchmark: a frozen single-agent trace has no live write to mediate. (The arbiter axis is not unmeasured in this paper --- \cref{sec:payoff-race} exercises it live and counts J~=~6; neither neighbour reports a comparable prevented-corruption count.) On this frozen target DOS's arbiter likewise has nothing to mediate, and its enforcement point --- a pre-tool \code{permissionDecision: deny} hook an agent runtime such as Claude~Code honours before a tool runs --- is never exercised by a single-agent benchmark. The detector axis of this study and the arbiter axis of these neighbours do not share a scoreboard.
+
+\section{Limitations}\label{sec:limits}
+
+\begin{itemize}
+  \item \textbf{In-loop: DETECT, not FIX --- no task-lift number on Toolathlon.} Every Toolathlon figure is detection on frozen runs; the one validated \emph{in-loop} action is give-up (\cref{sec:giveup}), which repairs nothing. The \emph{out-of-loop} result (\cref{sec:payoff}, J~=~10 across two models / 120 tasks) is a measured \emph{existence} result at an 8.3\% rate, not a calibrated population rate, and on a different benchmark (tau2-bench).
+  \item \textbf{The recall ceiling is hard and tightens on the frontier.} Union recall is 6.18\%--7.42\%, so $\sim$93\% of failures stay silent, and fire-rate falls toward zero on the strongest models.
+  \item \textbf{Four syscalls are null by construction here.} Toolathlon runs one agent on isolated state with no git or WAL, so \code{arbitrate}, \code{verify}, \code{liveness}, and \code{resume} have no job; only the in-flight detectors do.
+  \item \textbf{The give-up token-saving magnitude is single-corpus, single-model.} The gate never wrongly halts a winner where it fires (specificity, across 22 models and two benchmarks); how \emph{often} it fires, and so how much it saves, is benchmark-dependent.
+\end{itemize}
+
+\section{Conclusion}\label{sec:conclusion}
+
+Hold one thing fixed --- a byte-clean verdict the agent cannot forge, scored by a third-party
+oracle DOS does not own --- and the result is about \emph{where} to spend it. \emph{In-loop},
+every active fix (warn, rewind, inject the environment's own correction) was flat or
+net-negative, because injecting a turn perturbs runs that would have passed; the one in-loop action
+that helped was the negative one, give up correctly (\textbf{zero of 1,634 winners halted across 22
+models}, $\sim$11\% of tokens saved). \emph{Out-of-loop}, the same verdict pays on both ways a
+fleet fails --- a write-admission gate blocked \textbf{10 over-claims} at an identical 8.3\%
+rate across two models (so the signal does not fade at the stronger tier), and an arbiter prevented
+\textbf{all 6 would-be clobbers across 8 racing pairs} --- both off a byte no agent wrote,
+neither touching the judged agent. The decisive move is not a better detector but a better \emph{consumer}: detect cheaply
+in-loop, stop the doomed run, and spend the verdict out-of-loop --- with the W3 residue (a goal
+with no world footprint) still beyond any witness short of a human.
+
+\subsection{Directions}\label{sec:conclusion-directions}
+
+The result generalizes along the axis that gave it: \emph{where} a non-forgeable verdict is
+spent, and \emph{what witness} it can read. Four directions follow from the honest edges above, each
+a measurement we know how to run. \textbf{Close the RLVR loop to a weight update.} \cref{sec:payoff-scope} measures the
+label purge (poison reward labels removed off ground truth); the next rung is the trained-behaviour
+delta --- fine-tune two models on the poison and the witness-cleaned reward set and measure
+whether the second over-claims less. The pipeline is built and the proxy separates (+60pp over a
+control that over-claims 0/4); only the weight update is unmeasured, and that is the one number a
+training lab would want first. \textbf{Raise the witness floor.} About 38\% of frontier
+goals reach \emph{no} sound witness at any rung (\cref{sec:boundary}); the open question is
+how far a richer, still-non-forgeable witness (a structured state-diff, an environment-authored
+trace, a second independent grader) can push that floor down before the irreducible human-seed
+residue. \textbf{Cascade depth as a calibrated curve, not an existence shape.}
+Appendix~D shows the payoff compounds F$^{D}$ across a branching fleet, but
+with an injected root and per-node re-inheritance; a fully serial chain whose nodes \emph{write}
+on the poison turns the shape into a calibrated constant. \textbf{Push the referee from advisory to
+enforcing, carefully.} Everything here is advisory --- it proposes, a human or a
+downstream system decides --- which is the right default; the controlled question is where an
+out-of-loop \emph{enforcement} point (a pre-write deny the runtime honours) can be trusted to act
+without a human in the loop, and where it cannot. The throughline is a small trusted referee that lets
+a fleet of fallible, self-narrating agents --- and the loop that trains them --- be scaled
+without scaling the trust placed in any one of them.
+
+\section{Reproducibility}
+
+Every number in the Toolathlon study (the detectors and their ceiling, \cref{sec:bench}--\cref{sec:result}; the give-up specificity, \cref{sec:giveup}; and the naive baselines, \cref{sec:baselines}) recomputes offline, with no network or model calls, from the durable per-run join \code{replay\_all\_rows.csv} (7,116 records, content fingerprint \code{sha256:1a55e8d8e2d4} --- computed line-ending-normalized, CRLF$\rightarrow$LF, so a checkout on Windows whose raw \code{sha256sum} differs is \emph{not} seeing drift; \code{additivity.py:rows\_fingerprint} is the canonical computation). The additivity single-source-of-truth re-asserts the headline claims and exits non-zero if a regenerated file drifts from them, so a claim cannot silently part from its data; the give-up cross-benchmark numbers and figure regenerate from their own script. The one exception is \cref{sec:payoff}: it reports a \emph{live, paid} run (tau2-bench through Gemini; single-model run \$0.89, cross-model run \$4.77), so its numbers are a fixed read-off of that run, not an offline recompute. They are transcribed verbatim into the figure's single source of truth (\code{paper/\_VERIFIED\_FACTS\_228\_2026-06-08.md} and \code{\_VERIFIED\_FACTS\_232\_2026-06-08.md}), and the run is resumable from a per-task cache so it never re-spends; re-running it requires a Gemini API key and reproduces an \emph{existence} result (the gate blocks real over-claims), not the exact count, since the live rollouts vary.
+
+\begin{verbatim}
+# 1. regenerate the durable rows from the frozen trajectories (offline once _data/ is cached):
+python -m benchmark.toolathlon.run_replay --all --no-download --by-model \
+    --rows-out benchmark/toolathlon/_results/replay_all_rows
+
+# 2. recompute + re-assert the detector / additivity / union claims (exits non-zero on drift):
+python -m benchmark.toolathlon.additivity --check
+
+# 3. regenerate the give-up-correctly numbers and the cross-benchmark figure:
+python benchmark/giveup_cross_benchmark.py
+
+# 4. redraw every figure from the same single-source-of-truth numbers:
+python -m benchmark.toolathlon.viz
+\end{verbatim}
+
+\textbf{Artifact.} The replay harness, the per-run data, the figures, and the single-source-of-truth scripts that compute every number in this paper are released together, under \code{benchmark/toolathlon/} and \code{benchmark/} in the project repository. The Toolathlon benchmark and its \code{Toolathlon-Trajectories} dataset (CC-BY-4.0) are the work of the HKUST-NLP authors; we replay them here as an external, third-party-scored test target, and they are not a contribution of this paper.

@@ -1,0 +1,43 @@
+{
+  "task": "swe9_csv",
+  "family": "swe",
+  "note": "quoted-field parsing",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": "..                                                                       [100%]\n2 passed in 0.19s",
+  "cli_returncode": 0,
+  "wall_s": 84.9,
+  "total_cost_usd": 0.612897,
+  "num_turns": 11,
+  "duration_ms": 84054,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 502,
+      "outputTokens": 17,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000587,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 2126,
+      "outputTokens": 3536,
+      "cacheReadInputTokens": 296600,
+      "cacheCreationInputTokens": 9412,
+      "webSearchRequests": 0,
+      "costUSD": 0.6123100000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "af68b6d",
+  "head_subject": "Fix parse_line to handle quoted fields containing commas",
+  "n_commits_total": "2"
+}

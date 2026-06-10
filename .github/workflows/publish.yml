@@ -1,0 +1,200 @@
+name: Publish to PyPI
+
+# Publishes `dos-kernel` to PyPI via **Trusted Publishing (OIDC)** — no stored
+# API token. GitHub mints a short-lived OIDC token, PyPI exchanges it for an
+# upload token that expires in ~15 minutes, and `pypa/gh-action-pypi-publish`
+# does the upload. This is the recommended 2026 path (docs.pypi.org/trusted-publishers).
+#
+# WHY a separate workflow from ci.yml: ci.yml proves the wheel BUILDS + passes
+# `twine check` on every push (a gate). THIS workflow takes the one-way,
+# outward-facing step — it uploads — and so it is deliberately gated on (a) a
+# version tag and (b) a protected GitHub Environment, never on a plain push.
+#
+# ── ONE-TIME OWNER SETUP (web, before the first run) ────────────────────────────
+# A trusted publisher is a record on PyPI that says "this repo + this workflow
+# file + this environment may upload this project, tokenlessly." You configure it
+# once on the web; nothing here works until you do.
+#
+#   1. PyPI  → https://pypi.org/manage/account/publishing/  (Add a pending publisher)
+#        PyPI Project Name : dos-kernel
+#        Owner             : anthony-chaudhary
+#        Repository        : dos-kernel        (the PUBLIC repo name — see PUBLISHING.md)
+#        Workflow name     : publish.yml
+#        Environment       : pypi
+#      (A "pending" publisher reserves the name on first publish; after the first
+#       upload it becomes a normal trusted publisher. This is how the reserved
+#       `dos-kernel` name is claimed — see SECURITY.md "Supply chain".)
+#
+#   2. TestPyPI → https://test.pypi.org/manage/account/publishing/  (same fields,
+#        Environment: testpypi) — only if you want the dry-run leg below.
+#
+#   3. GitHub → repo Settings → Environments → create `pypi` (and `testpypi`).
+#        Add "Required reviewers" (yourself) to `pypi` so a human approves each
+#        real upload — the protected gate that makes the one-way step deliberate.
+#
+# ── HOW TO RELEASE ──────────────────────────────────────────────────────────────
+#   * Real publish:  push a `v*` tag (what `/release` already does), OR run this
+#     workflow manually (Actions → Publish to PyPI → Run workflow) with
+#     target=pypi. The `pypi` environment's required-reviewer gate pauses it for
+#     your approval before the upload.
+#   * Dry-run first (recommended before the FIRST real upload): run it manually
+#     with target=testpypi — uploads to TestPyPI, validating the entire OIDC path
+#     without touching real PyPI. TestPyPI rejects a version it already has, so
+#     bump or use a throwaway `.devN` for repeat dry-runs.
+
+on:
+  # A version tag is the trigger for a real release — the same `vX.Y.Z` tag
+  # `/release` pushes. (Tag pushes don't carry a branch, so this never fires on a
+  # normal commit.)
+  push:
+    tags: ["v*"]
+  # Manual runs let you pick TestPyPI (dry-run) vs PyPI without cutting a tag.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Where to publish"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never run two publishes of the same ref at once (a double-upload is a hard
+  # error on PyPI, but failing fast here is cleaner). Do NOT cancel-in-progress —
+  # an upload mid-flight should finish, not be killed.
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. Build once, validate, hand the artifacts downstream ─────────────────────
+  # The artifact built HERE is the exact artifact uploaded below — build-once,
+  # publish-the-same-bytes (never rebuild between check and upload).
+  build:
+    name: build & check
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      # The native dos-hook fast-path binary (docs/125/286) is a STATIC, no-cgo Go
+      # executable, so ONE runner cross-compiles every arch (CGO_ENABLED=0 means no
+      # glibc link — the manylinux2014 tag is honest from any builder). scripts/
+      # build_wheels.py drives the per-arch loop.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: go/go.sum
+
+      - name: Build per-platform wheels (+ sdist) and validate metadata
+        run: |
+          python -m pip install --upgrade pip build twine wheel
+          # One wheel per OS/arch, each embedding only its matching dos-hook binary at
+          # dos/_bin/, re-tagged py3-none-any -> py3-none-<platform> so pip selects the
+          # one wheel that matches the installing machine (docs/286). The sdist is built
+          # pure-source (no binary; falls through to the Python verb on install).
+          python scripts/build_wheels.py
+          # `twine check` is the cheap pre-flight: it fails if the long-description
+          # (README) won't render on PyPI, or a classifier is malformed. The same gate
+          # ci.yml runs; repeated here (over EVERY per-platform wheel + the sdist) so a
+          # publish can't outrun it.
+          python -m twine check dist/*
+
+      - name: Read the built version (and assert tag agreement)
+        id: version
+        shell: bash
+        run: |
+          v="$(python -c 'import dos; print(dos.__version__)')"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Built dos-kernel $v"
+          # On a tag push, the tag (vX.Y.Z) MUST match the package version — a
+          # mismatch means the version markers weren't bumped (the scar /release's
+          # bumper guards against). Fail loudly rather than ship a mislabelled wheel.
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$v" ]; then
+              echo "::error::tag $GITHUB_REF_NAME disagrees with package version $v — bump the version markers (see /release) before tagging."
+              exit 1
+            fi
+          fi
+
+      - name: Upload the distribution for the publish jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  # ── 2a. Dry-run leg → TestPyPI ────────────────────────────────────────────────
+  # Runs only on a manual dispatch with target=testpypi. Validates the full OIDC
+  # publish path without polluting real PyPI.
+  publish-testpypi:
+    name: publish → TestPyPI (dry-run)
+    needs: build
+    # Repo guard: `/release` tags the PRIVATE archive too, and this workflow ships
+    # in the seed — but the trusted publisher is bound to the public repo, so a
+    # run anywhere else could only fail noisily at upload. Skip it there entirely.
+    if: >-
+      github.repository == 'anthony-chaudhary/dos-kernel' &&
+      github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/dos-kernel/
+    permissions:
+      id-token: write   # the OIDC token mint — REQUIRED for trusted publishing
+    steps:
+      - name: Download the built distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish to TestPyPI
+        # SHA-pinned (= release/v1 at pin time): this is the credential-bearing
+        # upload step, so it gets a full-SHA pin rather than a movable tag.
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # TestPyPI is noisy with leftover versions; don't fail a dry-run just
+          # because a file already exists there.
+          skip-existing: true
+
+  # ── 2b. Real publish → PyPI ───────────────────────────────────────────────────
+  # Runs on a `v*` tag push, OR a manual dispatch with target=pypi. The `pypi`
+  # environment's required-reviewer gate (one-time setup above) pauses here for
+  # human approval — the deliberate hand on the one-way step.
+  publish-pypi:
+    name: publish → PyPI
+    needs: build
+    # Same repo guard as the dry-run leg: a `v*` tag pushed in the private archive
+    # must not even attempt a publish from there.
+    if: >-
+      github.repository == 'anthony-chaudhary/dos-kernel' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi'))
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/dos-kernel/
+    permissions:
+      id-token: write   # the OIDC token mint — REQUIRED for trusted publishing
+    steps:
+      - name: Download the built distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish to PyPI
+        # SHA-pinned (= release/v1 at pin time): this is the credential-bearing
+        # upload step, so it gets a full-SHA pin rather than a movable tag.
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        # No `password:` — Trusted Publishing supplies the credential via OIDC.
+        # No `skip-existing` — a re-upload of an existing version on REAL PyPI
+        # should fail loudly (you forgot to bump), not be silently skipped.

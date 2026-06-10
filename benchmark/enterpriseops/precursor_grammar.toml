@@ -1,0 +1,33 @@
+# Hand-authored mandated-precursor grammar for the EnterpriseOps-Gym (docs/147).
+#
+# The plan's load-bearing discipline: this map is WRITTEN by a human reading each
+# task's `system_prompt` PROSE once, NEVER inferred (inferring it from the prose IS
+# parsing policy = planner-adjacent = off-limits). Drop this table into a workspace's
+# `dos.toml` (or load it directly) so `SubstrateConfig.precursors` carries it.
+#
+# Provenance — the two genuine Half-A SEQUENCING rules found across the 13 real tasks
+# in the clone (most prose is Half-B role-permission prohibition, which is off-limits;
+# see docs/147 §0 gym-reality probe). Each entry quotes the prose it came from.
+#
+#   "the case state must first be transitioned from new to in_progress before calling
+#    link_new_case_sla."
+#       -> link_new_case_sla requires a prior state transition, performed via update_case.
+#
+#   "Cases ... must first be moved to resolved, then to closed."
+#       -> closing a case requires a prior resolve; in this gym a state change is an
+#          update_case, so a close-via-update is preceded by a resolve-via-update. This
+#          one is borderline (a VALUE ordering on `state`, closer to cross-call
+#          contradiction than a tool precursor) — it is included only as the lookup-tool
+#          precursor `get_case` (read current state before mutating it), the clean
+#          Half-A reading.
+
+[precursor.requires]
+# link_new_case_sla must be preceded by the state transition (an update_case call).
+link_new_case_sla = ["update_case"]
+# a case mutation should be preceded by reading the case's current state.
+update_case = ["get_case"]
+
+[precursor.aliases]
+# tool-name synonyms a host may discover from the live trajectory (the R2 calibration,
+# docs/147 §6). Empty until a `dos precursor-gate-eval` false_refute_rate run surfaces one.
+# get_case = ["retrieve_case", "fetch_case"]

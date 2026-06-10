@@ -1,0 +1,63 @@
+# A copy-me DOS extension package. `pip install -e examples/dos_ext` registers
+# FIVE plugins across the hackability axes (HACKING.md): TWO output renderers
+# (`dos.renderers` — `terse` for a coder's status bar, `friendly` a product's own
+# non-coder verdict surface that overrides the built-in `plain`), a `budget_guard`
+# admission predicate (`dos.predicates`), a `keyword` judge (`dos.judges` — the
+# JUDGE rung), and a `semantic-groups` overlap policy (`dos.overlap_policies` — the
+# disjointness scorer, Axis 7). The installed `dos` CLI discovers each via packaging
+# entry_points — never an import-path hack — so `--output terse`, `--output
+# friendly`, the budget-guard refusal, `dos judge-eval --judge keyword`, and `dos
+# overlap-eval --policy semantic-groups` all work without the package being imported
+# directly. (`--output plain` is the BUILT-IN non-coder floor; no install needed.)
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dos_ext"
+version = "0.1.0"
+description = "Example DOS extension — a custom `terse` renderer + a `budget_guard` admission predicate (the behavior axes of hackability)."
+requires-python = ">=3.11"
+# The renderer needs nothing from `dos` (pure presentation, handed already-decided
+# objects). The admission predicate DOES import `dos.admission` for the
+# `AdmissionVerdict` / `AdmissionRequest` types it returns/reads, so the package
+# now depends on `dos`. The DISTRIBUTION is `dos-kernel` (the bare `dos` name on
+# PyPI is an UNRELATED package); the IMPORT is still `import dos`. In this repo
+# `dos-kernel` is the editable sibling install, so this dep is already satisfied.
+dependencies = ["dos-kernel"]
+
+# The entry points the `dos` CLI discovers. `name = "module:Class"` — `dos`
+# loads the object, instantiates it if it's a class, and uses it.
+[project.entry-points."dos.renderers"]
+terse = "dos_ext.renderer:TerseRenderer"
+# A SECOND renderer, for a different audience: `friendly` is a product's OWN non-coder
+# verdict surface — the copy-me OVERRIDE of the built-in `plain` renderer, showing a
+# dev team customizing the wording for their users. `terse` is a coder's status bar;
+# the built-in `plain` is the zero-plugin non-coder floor; `friendly` is "same as
+# plain, but in our product's words." All render the same ShipVerdict.
+friendly = "dos_ext.friendly_renderer:FriendlyRenderer"
+
+# An admission predicate (Axis 3). The arbiter appends it AFTER the built-in
+# disjointness + self-modify guards in the conjunction; it can only REFUSE, never
+# force-admit (the conjunctive-only invariant). `--force` overrides its refusal.
+[project.entry-points."dos.predicates"]
+budget_guard = "dos_ext.predicates:BudgetGuard"
+
+# A judge (Axis 6 — the JUDGE rung of the trust ladder). Discovered by name for
+# `dos judge-eval --judge keyword` and listed by `dos doctor`. A judge is
+# advisory-only and fails to ABSTAIN (never AGREE), so registering one can never
+# loosen the kernel's distrust — at worst it abstains and a human still decides.
+[project.entry-points."dos.judges"]
+keyword = "dos_ext.judge:KeywordJudge"
+
+# An overlap policy (Axis 7 — the disjointness scorer, docs/113). Discovered by
+# name for `dos overlap-eval --policy semantic-groups` and listed by `dos doctor`.
+# Whatever it returns, the kernel AND-s it under the deterministic prefix floor
+# (`overlap_policy.admissible_under_floor`), so registering one can only make
+# admission STRICTER — it can never admit a path-colliding pair. It catches
+# semantic collisions the path-prefix rule misses.
+[project.entry-points."dos.overlap_policies"]
+semantic-groups = "dos_ext.overlap:SemanticGroupPolicy"
+
+[tool.setuptools]
+packages = ["dos_ext"]

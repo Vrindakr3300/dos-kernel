@@ -1,0 +1,170 @@
+<h2 data-sec="appendixd">Appendix D. Extended out-of-loop results</h2>
+
+<p>The body (&sect;{{sec:payoff}}) carries the two headline live results &mdash; the write-admission
+gate (J&nbsp;=&nbsp;10) and the race arbiter (J&nbsp;=&nbsp;6). This appendix holds three further
+results that <em>strengthen</em> the existence claim without being the headline: a richer witness and
+the first measurement of what one propagated phantom costs (D.1); a frontier test that puts a frontier
+model in the verifier&rsquo;s own seat against a ladder of non-forgeable rungs (D.2); and the
+compounding payoff across a branching fleet (D.3). All three read the same kind of byte the agent
+cannot author, and each carries its evidence-strength label in the same breath as its number.</p>
+
+<h3 data-sec="appendixd.richerwitness">D.1 A richer witness, and the first measurement of what propagation costs</h3>
+
+<p>tau2&rsquo;s witness is a single bit, so a reader might ask whether the result is an artifact of that
+coarse signal. We re-aimed the <em>identical</em> gate at a second benchmark with a much richer witness:
+<strong>Agent-Diff</strong> (a write-heavy enterprise-API benchmark over Slack, Box, Linear, and Google
+Calendar), whose environment computes a full <em>structured state-diff</em> from database snapshots &mdash;
+the exact rows inserted, updated, deleted &mdash; and grades against a multi-assertion gold
+specification. Driving an agent live through Gemini on the 45-task test split, the
+<strong>detection result holds across the capability step a second time</strong>: flash over-claims on
+{{fact:ad_block_flash}} of its 35 confident writes ({{fact:ad_rate_flash}}), pro on
+{{fact:ad_block_pro}} of 31 ({{fact:ad_rate_pro}} &mdash; <em>more</em>, not less), and the gate blocks
+every one. The over-claims are partly <em>model-specific</em> (14 tasks over-claim on both models, the
+rest on only one), so the gate catches the <em>deployed</em> model&rsquo;s blind spots, not a fixed set
+of impossible tasks. Detection generalizes off the coarse <code>db_match</code> bit to a structured
+diff and across two tiers.</p>
+
+<p>Agent-Diff also lets us measure the thing J names but does not itself quantify: <strong>what does
+letting a phantom write propagate actually cost a downstream agent?</strong> We build the peer&nbsp;B
+handoff explicitly. For each blocked over-claim we run a second agent twice from the <em>same</em>
+fresh, correct environment, changing only what B is told it inherited: under <strong>believe</strong>
+B receives A&rsquo;s claim verbatim; under <strong>adjudicate</strong> B receives the gate&rsquo;s
+env-verified correction (&ldquo;the prior write did not land &mdash; re-verify before acting&rdquo;).
+The measured quantity is</p>
+
+<p style="text-align:center"><strong>&Delta;B = success(B&nbsp;|&nbsp;adjudicate) &minus; success(B&nbsp;|&nbsp;believe)</strong></p>
+
+<p>over the over-claim slice. On flash, <strong>&Delta;B&nbsp;=&nbsp;{{fact:ad_deltab_flash}}</strong>
+(four flips, zero reverses): telling the peer the truth turned four phantom-induced failures into
+successes and never made one worse. On pro, <strong>&Delta;B&nbsp;=&nbsp;{{fact:ad_deltab_pro}}</strong>
+(two flips cancelled by two reverses; one reverse traced to a real gate bug &mdash; a blanket
+&ldquo;treat the records as unchanged&rdquo; over-corrected a <em>partial</em> over-claim in which one
+of two writes had landed. We fixed the gate for future runs but report the as-run number).</p>
+
+<p>We lead with J, not &Delta;B, because they are a product and a lower bound on one of its terms, not
+two estimates of one thing. J counts the lies stopped at the root; &Delta;B measures the cost of
+letting <em>one</em> lie propagate <em>one</em> hop to the most <em>forgiving</em> consumer imaginable
+&mdash; an LLM peer that re-runs the task and can sometimes heal the missing write for free. So
+&Delta;B is a pessimistic floor: the gate's real value is <strong>blocks &times; depth &times; per-hop
+damage</strong>, and &Delta;B pins depth and consumer to their minimum. A consumer that does <em>not</em>
+re-check (a reward labeler, an auto-merge, a dashboard) recovers nothing. The <em>depth</em> term is
+what D.3 measures.</p>
+
+<h3 data-sec="appendixd.frontierfloor">D.2 The frontier test: a ladder of rungs a frontier model cannot all climb</h3>
+
+<p>The cross-model results answer &ldquo;does a <em>stronger agent</em> over-claim less&rdquo; &mdash;
+it does not. The sharper version of the objection is that <strong>the latest model is smart enough that
+you no longer need a referee</strong> &mdash; either it stops over-claiming, or, as a judge, it sees
+through forgeries an older checker missed. We test the decisive second half: the referee here has two
+implementations, the deterministic floor that reads ground truth or a model asked to <em>judge</em> the
+same claim, so we put a frontier model in the judge seat and raced it against the floor. The model is
+<strong>Fable&nbsp;5</strong> (the newest at the time of writing), reached the way an operator would
+&mdash; straight through the Claude&nbsp;Code command line (<code>claude&nbsp;-p</code>), the model
+named only in an environment variable, <em>not a line of model-specific code</em> in the harness.</p>
+
+<p>The test materializes nine artifacts as <em>real, freshly authored</em> git commits &mdash; seven
+forgeries plus two honest controls. Four forgeries touch the <em>wrong</em> files (an empty commit
+claiming the work; a keyword-stuffed subject; deleting the test that would have caught the gap; a long
+&ldquo;production-ready&rdquo; narration over a commit that did none of it). The other three are the
+adversary that matters &mdash; commits that touch the <strong>exact deliverable files the plan
+names</strong> but ship nothing behind them (empty stubs; code that does not import; a lookalike
+filename). Both channels see the <em>same</em> forgery-resistant evidence; the only asymmetry, stated up
+front so the fight is fair, is that the model judge <em>also</em> reads the agent&rsquo;s narration. The
+floor is a <strong>ladder</strong> of three rungs: the commit <em>subject</em> (forgeable, the author
+types it); <em>which files the commit touched</em> (a commit cannot fake that, but it certifies
+presence, not behavior &mdash; a stub passes); and the OS <em>running the test and reading the exit
+code</em> (a <code>0</code> the agent cannot forge, because it did not run the process).</p>
+
+<figure class="wide" data-fig="frontierfloor">
+  <img src="figs/forge_frontier_floor.png"
+       alt="Two panels. LEFT: the non-forgeable floor is a ladder of three rungs, with false-accepts on the 8 not-actually-shipped artifacts. The forgeable rung that greps the commit subject is fooled on 7 of 8 (red). The presence rung, which reads which files the commit touched, is non-forgeable to narration but content-blind, so a stub that touches the right files fools it on 2 of 8 (amber). The behavior rung, where the operating system runs the test and reads the exit code, holds at 0 of 8 (green) — it catches the path-touching stubs the presence rung admits. An arrow notes each rung up asks a harder non-forgeable question. RIGHT: the secondary finding. On the one honest landing, the same Fable 5 judge is shown at three witness strengths. Given only the narration it abstains (0/1). Given which files were touched it still abstains (0/1, the earlier posture). Given the operating-system test result it confirms the landing (1/1, green). A stronger non-forgeable witness makes the same learned judge functional.">
+  <figcaption>Figure&nbsp;{{fig:frontierfloor}}. <strong>The floor is a ladder, and its top rung still
+  catches a frontier model&rsquo;s best forgery.</strong> <strong>Left:</strong> on the
+  {{fact:forge_floor_n}} not-shipped artifacts, the grep-the-subject rung is fooled
+  {{fact:forge_subject_fa}}/{{fact:forge_floor_n}} and the presence rung
+  {{fact:forge_presence_fa}}/{{fact:forge_floor_n}} (path-touching stubs), but the behavior rung &mdash;
+  the OS runs the test and reads the exit code &mdash; holds at
+  {{fact:forge_behavior_fa}}/{{fact:forge_floor_n}}. <strong>Right:</strong> on the one honest landing
+  the same Fable judge abstains given narration or files-touched
+  ({{fact:forge_fable_ev_ta_blind_witness}}/{{fact:forge_landings_n}}) but confirms it given the OS test
+  result ({{fact:forge_fable_ev_ta}}/{{fact:forge_landings_n}}).</figcaption>
+</figure>
+
+<p>The result is not &ldquo;the floor is perfect.&rdquo; The <em>presence</em> rung &mdash; what most
+people picture by &ldquo;check that the files landed&rdquo; &mdash; is <strong>fooled
+{{fact:forge_presence_fa}} of {{fact:forge_floor_n}}</strong> by the path-touching stubs, the honest
+ceiling of any file-counting check. What sits <em>above</em> it is the point: the <strong>behavior rung
+holds at {{fact:forge_behavior_fa}} of {{fact:forge_floor_n}}</strong> and still confirms the one real
+landing, because it has the OS <em>run the code</em> and reads an exit code the agent cannot author (the
+forgeable subject rung is fooled on {{fact:forge_subject_fa}} of {{fact:forge_floor_n}}). The lesson is
+not &ldquo;determinism wins&rdquo; but <strong>which non-forgeable byte you condition belief on, and that
+the rung you must stand on rises with the forger&rsquo;s sophistication.</strong></p>
+
+<p>The judge-side result is the more surprising one: the learned judge is <em>exactly as good as the
+evidence the kernel computes for it</em>. Given only narration, Fable abstains on the honest landing
+({{fact:forge_fable_blind_ta}}/{{fact:forge_landings_n}}); given only which files were touched it
+<em>still</em> abstains ({{fact:forge_fable_ev_ta_blind_witness}}/{{fact:forge_landings_n}}) &mdash; it
+will not certify presence as completion. But given the OS test result &mdash; the byte the behavior rung
+reads &mdash; the <em>same model</em> confirms the work
+({{fact:forge_fable_ev_ta}}/{{fact:forge_landings_n}}) and disagrees with every forgery
+({{fact:forge_fable_ev_fa}}/{{fact:forge_floor_n}}). Left to its own reading the judge yields no value
+&mdash; gamed if forced to answer (35.2% false-accepts elsewhere), inert if allowed to abstain.
+<strong>The floor's value is that it <em>computes</em> the non-forgeable witness &mdash; including
+running the code &mdash; for free, every time, lifting both the deterministic verdict and the learned
+one.</strong> The stronger the model, the more the value concentrates in the byte it cannot author.
+(Full grid: docs/272.)</p>
+
+<h3 data-sec="appendixd.cascade">D.3 The payoff compounds: one block at the root keeps the whole downstream fleet clean</h3>
+
+<p>&Delta;B priced a <em>single</em> phantom propagating <em>one</em> hop. A real fleet is neither
+single nor shallow &mdash; a phantom is inherited again by the next agent, and a fleet
+<em>branches</em> &mdash; so the true quantity the gate protects is the whole set of downstream agents a
+root corruption reaches. We measured that set live, down a chain and across a fan-out tree, on the same
+tau2 airline witness with two arms (<em>believe</em>: each agent inherits the corrupt state;
+<em>adjudicate</em>: the gate blocked the root, so each inherits the gold state). The root corruption is
+one reservation&nbsp;R wrongly cancelled (injected; every <em>downstream</em> node runs live), and the
+witness is exact: <strong>is R still cancelled when this agent finishes?</strong></p>
+
+<figure class="wide" data-fig="cascade">
+  <img src="figs/cascade_depth_live.png"
+       alt="Two panels titled 'F1: corruption compounds down a believe chain, the referee stops it at the root (tau2-bench, gemini-2.5-flash, live)'. Left: two lines over chain depth 2, 3, 4. The BELIEVE line rises 1, 2, 3 — every downstream node is left corrupt (R still wrongly cancelled). The ADJUDICATE line is flat at 0 at every depth — the gate blocked the root so every node inherited the gold database. Right: a bar chart of the compounding payoff (believe minus adjudicate) = 1, 2, 3 at depths 2, 3, 4, with a caption that one over-claim caught at the root saves the whole downstream chain, and that the live agents did NOT self-heal a corrupt state the way they healed a narrated one.">
+  <figcaption>Figure&nbsp;{{fig:cascade}}. The cascade, run live, down a chain. Under
+  <strong>believe</strong> all D&minus;1 downstream agents inherit the cancelled reservation and are
+  left corrupt (rising 1&ndash;2&ndash;3 with depth); under <strong>adjudicate</strong> the one root
+  block keeps every node on the gold database (flat at zero). The believe agents <em>did not heal
+  it</em> &mdash; a corrupt <em>state</em> is not second-guessed away the way a narrated claim is,
+  which is why &Delta;B was near zero to a self-recovering peer.</figcaption>
+</figure>
+
+<p>Down a single chain the result is linear: under <em>believe</em> a depth-D chain leaves all
+<strong>D&minus;1</strong> downstream nodes corrupt, under <em>adjudicate</em> zero (the gate prevents
+1, 2, and {{fact:cascade_chain_d4}} corrupt nodes at depths 2, 3, 4). The believe agents are
+instructive: each, handed a cancelled reservation, simply could not do its task and gave up &mdash; none
+restored R. So a capable peer re-checks and heals a <em>narrated</em> phantom (hence
+&Delta;B&nbsp;&asymp;&nbsp;0) but cannot re-check away a corrupt <em>starting world</em>; the state
+handoff is the one that compounds.</p>
+
+<figure class="wide" data-fig="cascadetree">
+  <img src="figs/cascade_fanout_live.png"
+       alt="Two panels titled 'F1-super-linear: one over-claim caught at the root saves the whole fan-out tree (tau2-bench, gemini-2.5-flash, live)'. Left: two payoff curves over fleet depth 2 and 3. The CHAIN curve (single line of agents, D minus 1) is 1 then 2. The TREE curve (fan-out F=2, F to the D) is 4 then 8 — super-linear, well above the chain. Right: a depth-3 fan-out tree drawn as two columns of dots. The BELIEVE column shows 2, then 4, then 8 nodes all red — 8 of 8 corrupt. The ADJUDICATE column shows the same nodes all green — 0 of 8 corrupt. A box in the middle reads PAYOFF F to the D = 8.">
+  <figcaption>Figure&nbsp;{{fig:cascadetree}}. The same cascade across a fan-out tree
+  (F&nbsp;=&nbsp;2). <strong>Left:</strong> the chain&rsquo;s linear D&minus;1 payoff (1, 2) against
+  the tree&rsquo;s F<sup>D</sup> ({{fact:cascade_tree_d2}}, {{fact:cascade_tree_d3}}). Branching makes
+  the payoff super-linear in depth. <strong>Right:</strong> the depth-3 tree &mdash; under
+  <em>believe</em> all 8 leaves are corrupt; under <em>adjudicate</em> the one block at the root keeps
+  all 8 clean.</figcaption>
+</figure>
+
+<p>A chain understates a fleet, because fleets branch. A depth-D, fan-out-F dependency <em>tree</em> has
+F<sup>D</sup> leaves, all downstream of the root corruption. Under <em>believe</em> every leaf is corrupt
+(<strong>4 of 4</strong> at depth&nbsp;2, <strong>8 of 8</strong> at depth&nbsp;3, F&nbsp;=&nbsp;2);
+under <em>adjudicate</em> the single root block keeps every leaf clean. So the prevented-corruption
+payoff is <strong>F<sup>D</sup></strong> &mdash; {{fact:cascade_tree_d2}} at depth&nbsp;2,
+{{fact:cascade_tree_d3}} at depth&nbsp;3 &mdash; against the chain&rsquo;s linear D&minus;1. F<sup>D</sup>
+here is <strong>breadth</strong> (F<sup>D</sup> agents each <em>blocked</em> by the one shared poison,
+not one corrupt value mutating into many): a poisoned shared resource fails every agent that depends on
+it, and that set grows F<sup>D</sup> as the fleet branches. This is the <em>depth</em> term &Delta;B
+pinned to one, now measured live. (Caveats: the root is injected, not waited for, and each node
+re-inherits the same root state rather than chaining onto the previous node&rsquo;s output; it is an
+existence result for the compounding <em>shape</em> &mdash; one model, F&nbsp;=&nbsp;2, depths 2&ndash;4
+&mdash; not a calibrated constant. The fleet-of-one floor holds: at depth&nbsp;0 the payoff is zero.)</p>

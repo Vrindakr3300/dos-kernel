@@ -1,0 +1,40 @@
+# DOS pre-commit hooks (docs/225) — the claim-vs-diff gate, fired locally at commit
+# time so an unwitnessed claim is caught before the push, not after.
+#
+# Consumers add this to their .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/anthony-chaudhary/dos-kernel
+#       rev: v0.13.0
+#       hooks:
+#         - id: dos-commit-audit        # block a commit whose claim its diff can't witness
+#
+# These are TOOLING that consumes the package (the `dos` CLI installed from PyPI);
+# nothing under src/dos/ imports them. The verdict IS the exit code, so pre-commit's
+# pass/fail is the kernel's verdict with no glue.
+#
+# Scope note: `commit-audit` grades whether a diff did the KIND of thing its message
+# CLAIMED — it is presence/claim-witnessing, NOT correctness (Wall 3, docs/204 §3).
+# Keep your test/lint hooks too; this sits beside them. It abstains (never blocks) on
+# a wip/merge commit or a subject with no checkable claim.
+
+- id: dos-commit-audit
+  name: "DOS: a commit's claim must be backed by its diff"
+  description: "Block a commit whose subject claims work its diff does not witness (author-neutral, deterministic; abstains where it can't ground a verdict)."
+  entry: dos commit-audit
+  language: python
+  additional_dependencies: ["dos-kernel"]
+  # commit-audit defaults to HEAD; at commit time HEAD is the commit being made once
+  # pre-commit stages it. Pass no filenames (this is a whole-commit verdict, not a
+  # per-file linter).
+  pass_filenames: false
+  stages: [commit]
+
+- id: dos-commit-audit-warn
+  name: "DOS: claim-vs-diff (observe-only — warns, never blocks)"
+  description: "The advisory floor: report an unwitnessed claim but always exit 0. For teams that want the signal in the log without a hard block yet."
+  entry: dos commit-audit --warn-only
+  language: python
+  additional_dependencies: ["dos-kernel"]
+  pass_filenames: false
+  stages: [commit]

@@ -1,0 +1,43 @@
+{
+  "task": "term6_wordcount",
+  "family": "term",
+  "note": "fix shell script",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.22s",
+  "cli_returncode": 0,
+  "wall_s": 16.9,
+  "total_cost_usd": 0.12285449999999998,
+  "num_turns": 5,
+  "duration_ms": 16045,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 487,
+      "outputTokens": 19,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000582,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1985,
+      "outputTokens": 784,
+      "cacheReadInputTokens": 120795,
+      "cacheCreationInputTokens": 5176,
+      "webSearchRequests": 0,
+      "costUSD": 0.12227249999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "d51e88c",
+  "head_subject": "Fix wordcount.py to print word count instead of char count",
+  "n_commits_total": "2"
+}

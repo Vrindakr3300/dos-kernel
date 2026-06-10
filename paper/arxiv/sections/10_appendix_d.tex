@@ -1,0 +1,178 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/10_appendix_d.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{Appendix D. Extended out-of-loop results}\label{sec:appendixd}
+
+The body (\cref{sec:payoff}) carries the two headline live results --- the write-admission
+gate (J~=~10) and the race arbiter (J~=~6). This appendix holds three further
+results that \emph{strengthen} the existence claim without being the headline: a richer witness and
+the first measurement of what one propagated phantom costs (D.1); a frontier test that puts a frontier
+model in the verifier's own seat against a ladder of non-forgeable rungs (D.2); and the
+compounding payoff across a branching fleet (D.3). All three read the same kind of byte the agent
+cannot author, and each carries its evidence-strength label in the same breath as its number.
+
+\subsection{D.1 A richer witness, and the first measurement of what propagation costs}\label{sec:appendixd-richerwitness}
+
+tau2's witness is a single bit, so a reader might ask whether the result is an artifact of that
+coarse signal. We re-aimed the \emph{identical} gate at a second benchmark with a much richer witness:
+\textbf{Agent-Diff} (a write-heavy enterprise-API benchmark over Slack, Box, Linear, and Google
+Calendar), whose environment computes a full \emph{structured state-diff} from database snapshots ---
+the exact rows inserted, updated, deleted --- and grades against a multi-assertion gold
+specification. Driving an agent live through Gemini on the 45-task test split, the
+\textbf{detection result holds across the capability step a second time}: flash over-claims on
+23 of its 35 confident writes (66\%), pro on
+25 of 31 (81\% --- \emph{more}, not less), and the gate blocks
+every one. The over-claims are partly \emph{model-specific} (14 tasks over-claim on both models, the
+rest on only one), so the gate catches the \emph{deployed} model's blind spots, not a fixed set
+of impossible tasks. Detection generalizes off the coarse \code{db\_match} bit to a structured
+diff and across two tiers.
+
+Agent-Diff also lets us measure the thing J names but does not itself quantify: \textbf{what does
+letting a phantom write propagate actually cost a downstream agent?} We build the peer~B
+handoff explicitly. For each blocked over-claim we run a second agent twice from the \emph{same}
+fresh, correct environment, changing only what B is told it inherited: under \textbf{believe}
+B receives A's claim verbatim; under \textbf{adjudicate} B receives the gate's
+env-verified correction (``the prior write did not land --- re-verify before acting'').
+The measured quantity is
+
+\textbf{$\Delta$B = success(B~|~adjudicate) $-$ success(B~|~believe)}
+
+over the over-claim slice. On flash, \textbf{$\Delta$B~=~+4}
+(four flips, zero reverses): telling the peer the truth turned four phantom-induced failures into
+successes and never made one worse. On pro, \textbf{$\Delta$B~=~0}
+(two flips cancelled by two reverses; one reverse traced to a real gate bug --- a blanket
+``treat the records as unchanged'' over-corrected a \emph{partial} over-claim in which one
+of two writes had landed. We fixed the gate for future runs but report the as-run number).
+
+We lead with J, not $\Delta$B, because they are a product and a lower bound on one of its terms, not
+two estimates of one thing. J counts the lies stopped at the root; $\Delta$B measures the cost of
+letting \emph{one} lie propagate \emph{one} hop to the most \emph{forgiving} consumer imaginable
+--- an LLM peer that re-runs the task and can sometimes heal the missing write for free. So
+$\Delta$B is a pessimistic floor: the gate's real value is \textbf{blocks $\times$ depth $\times$ per-hop
+damage}, and $\Delta$B pins depth and consumer to their minimum. A consumer that does \emph{not}
+re-check (a reward labeler, an auto-merge, a dashboard) recovers nothing. The \emph{depth} term is
+what D.3 measures.
+
+\subsection{D.2 The frontier test: a ladder of rungs a frontier model cannot all climb}\label{sec:appendixd-frontierfloor}
+
+The cross-model results answer ``does a \emph{stronger agent} over-claim less'' ---
+it does not. The sharper version of the objection is that \textbf{the latest model is smart enough that
+you no longer need a referee} --- either it stops over-claiming, or, as a judge, it sees
+through forgeries an older checker missed. We test the decisive second half: the referee here has two
+implementations, the deterministic floor that reads ground truth or a model asked to \emph{judge} the
+same claim, so we put a frontier model in the judge seat and raced it against the floor. The model is
+\textbf{Fable~5} (the newest at the time of writing), reached the way an operator would
+--- straight through the Claude~Code command line (\code{claude -p}), the model
+named only in an environment variable, \emph{not a line of model-specific code} in the harness.
+
+The test materializes nine artifacts as \emph{real, freshly authored} git commits --- seven
+forgeries plus two honest controls. Four forgeries touch the \emph{wrong} files (an empty commit
+claiming the work; a keyword-stuffed subject; deleting the test that would have caught the gap; a long
+``production-ready'' narration over a commit that did none of it). The other three are the
+adversary that matters --- commits that touch the \textbf{exact deliverable files the plan
+names} but ship nothing behind them (empty stubs; code that does not import; a lookalike
+filename). Both channels see the \emph{same} forgery-resistant evidence; the only asymmetry, stated up
+front so the fight is fair, is that the model judge \emph{also} reads the agent's narration. The
+floor is a \textbf{ladder} of three rungs: the commit \emph{subject} (forgeable, the author
+types it); \emph{which files the commit touched} (a commit cannot fake that, but it certifies
+presence, not behavior --- a stub passes); and the OS \emph{running the test and reading the exit
+code} (a \code{0} the agent cannot forge, because it did not run the process).
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{forge_frontier_floor}
+  \caption{\cref{fig:frontierfloor}. \textbf{The floor is a ladder, and its top rung still
+catches a frontier model's best forgery.} \textbf{Left:} on the
+8 not-shipped artifacts, the grep-the-subject rung is fooled
+7/8 and the presence rung
+2/8 (path-touching stubs), but the behavior rung ---
+the OS runs the test and reads the exit code --- holds at
+0/8. \textbf{Right:} on the one honest landing
+the same Fable judge abstains given narration or files-touched
+(0/1) but confirms it given the OS test
+result (1/1).}
+  \label{fig:frontierfloor}
+\end{figure*}
+
+The result is not ``the floor is perfect.'' The \emph{presence} rung --- what most
+people picture by ``check that the files landed'' --- is \textbf{fooled
+2 of 8} by the path-touching stubs, the honest
+ceiling of any file-counting check. What sits \emph{above} it is the point: the \textbf{behavior rung
+holds at 0 of 8} and still confirms the one real
+landing, because it has the OS \emph{run the code} and reads an exit code the agent cannot author (the
+forgeable subject rung is fooled on 7 of 8). The lesson is
+not ``determinism wins'' but \textbf{which non-forgeable byte you condition belief on, and that
+the rung you must stand on rises with the forger's sophistication.}
+
+The judge-side result is the more surprising one: the learned judge is \emph{exactly as good as the
+evidence the kernel computes for it}. Given only narration, Fable abstains on the honest landing
+(0/1); given only which files were touched it
+\emph{still} abstains (0/1) --- it
+will not certify presence as completion. But given the OS test result --- the byte the behavior rung
+reads --- the \emph{same model} confirms the work
+(1/1) and disagrees with every forgery
+(0/8). Left to its own reading the judge yields no value
+--- gamed if forced to answer (35.2\% false-accepts elsewhere), inert if allowed to abstain.
+\textbf{The floor's value is that it \emph{computes} the non-forgeable witness --- including
+running the code --- for free, every time, lifting both the deterministic verdict and the learned
+one.} The stronger the model, the more the value concentrates in the byte it cannot author.
+(Full grid: docs/272.)
+
+\subsection{D.3 The payoff compounds: one block at the root keeps the whole downstream fleet clean}\label{sec:appendixd-cascade}
+
+$\Delta$B priced a \emph{single} phantom propagating \emph{one} hop. A real fleet is neither
+single nor shallow --- a phantom is inherited again by the next agent, and a fleet
+\emph{branches} --- so the true quantity the gate protects is the whole set of downstream agents a
+root corruption reaches. We measured that set live, down a chain and across a fan-out tree, on the same
+tau2 airline witness with two arms (\emph{believe}: each agent inherits the corrupt state;
+\emph{adjudicate}: the gate blocked the root, so each inherits the gold state). The root corruption is
+one reservation~R wrongly cancelled (injected; every \emph{downstream} node runs live), and the
+witness is exact: \textbf{is R still cancelled when this agent finishes?}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{cascade_depth_live}
+  \caption{\cref{fig:cascade}. The cascade, run live, down a chain. Under
+\textbf{believe} all D$-$1 downstream agents inherit the cancelled reservation and are
+left corrupt (rising 1--2--3 with depth); under \textbf{adjudicate} the one root
+block keeps every node on the gold database (flat at zero). The believe agents \emph{did not heal
+it} --- a corrupt \emph{state} is not second-guessed away the way a narrated claim is,
+which is why $\Delta$B was near zero to a self-recovering peer.}
+  \label{fig:cascade}
+\end{figure*}
+
+Down a single chain the result is linear: under \emph{believe} a depth-D chain leaves all
+\textbf{D$-$1} downstream nodes corrupt, under \emph{adjudicate} zero (the gate prevents
+1, 2, and 3 corrupt nodes at depths 2, 3, 4). The believe agents are
+instructive: each, handed a cancelled reservation, simply could not do its task and gave up --- none
+restored R. So a capable peer re-checks and heals a \emph{narrated} phantom (hence
+$\Delta$B~$\approx$~0) but cannot re-check away a corrupt \emph{starting world}; the state
+handoff is the one that compounds.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{cascade_fanout_live}
+  \caption{\cref{fig:cascadetree}. The same cascade across a fan-out tree
+(F~=~2). \textbf{Left:} the chain's linear D$-$1 payoff (1, 2) against
+the tree's F$^{D}$ (4, 8). Branching makes
+the payoff super-linear in depth. \textbf{Right:} the depth-3 tree --- under
+\emph{believe} all 8 leaves are corrupt; under \emph{adjudicate} the one block at the root keeps
+all 8 clean.}
+  \label{fig:cascadetree}
+\end{figure*}
+
+A chain understates a fleet, because fleets branch. A depth-D, fan-out-F dependency \emph{tree} has
+F$^{D}$ leaves, all downstream of the root corruption. Under \emph{believe} every leaf is corrupt
+(\textbf{4 of 4} at depth~2, \textbf{8 of 8} at depth~3, F~=~2);
+under \emph{adjudicate} the single root block keeps every leaf clean. So the prevented-corruption
+payoff is \textbf{F$^{D}$} --- 4 at depth~2,
+8 at depth~3 --- against the chain's linear D$-$1. F$^{D}$
+here is \textbf{breadth} (F$^{D}$ agents each \emph{blocked} by the one shared poison,
+not one corrupt value mutating into many): a poisoned shared resource fails every agent that depends on
+it, and that set grows F$^{D}$ as the fleet branches. This is the \emph{depth} term $\Delta$B
+pinned to one, now measured live. (Caveats: the root is injected, not waited for, and each node
+re-inherits the same root state rather than chaining onto the previous node's output; it is an
+existence result for the compounding \emph{shape} --- one model, F~=~2, depths 2--4
+--- not a calibrated constant. The fleet-of-one floor holds: at depth~0 the payoff is zero.)

@@ -1,0 +1,34 @@
+Independent ground-truth anchors for the world-state-witness exploration (docs/178).
+Computed offline over the 203 gemini-3-pro-preview Toolathlon confirmed-fails + DOS code.
+
+ANCHOR 1 — the action-ack vs goal gap (the crack):
+  env in-trace write-acks are SUCCESS-SHAPED on 41% of FAILED writes and 52% of PASSED writes.
+  Nearly indistinguishable => the env ACTION-ACK (W1) witnesses ACCEPTANCE, not GOAL-achievement.
+  Examples (on FAILED tasks):
+    filesystem-write_file  -> "Successfully wrote to ref.bib"           (write landed, task failed)
+    canvas-submit_grade    -> {"grade":"0","score":0}                   (submit OK, 0 was WRONG grade)
+    canvas-submit_quiz     -> {"workflow_state":"complete"}             (submitted, answers wrong)
+
+ANCHOR 2 — readback independence (class B is ~empty on the frontier):
+  0% of the 162 FAILED-and-wrote frontier runs issued a READ after their last WRITE.
+  The frontier model writes and WALKS AWAY; it does NOT self-verify. So "class B: self-consistent
+  readback but wrong" (the where_broke carving's est 27) is essentially EMPTY by the strict measure
+  — the failure is "didn't check at all", not "checked and the check agreed". (A readback witness
+  would have NOTHING to read here; the agent never generates one.)
+
+ANCHOR 3 — DOS verify() is itself a 2-rung ladder (src/dos/oracle.py):
+  RUNG A (registry): reads execution-state.yaml `recently_completed`, written by the AGENT'S OWN
+    dispatch loop at ship time. Agent-ADJACENT — the oracle's docstring explicitly calls it the
+    load-bearing source BUT it is written by the dispatch mechanism, not tamper-evident.
+  RUNG B (grep/git-ancestry fallback): greps git log for the ship-stamp `· SHIPPED <date> <sha>`
+    + checks ancestry (git_delta: `git log start..HEAD`). Git is APPEND-ONLY + CONTENT-ADDRESSED +
+    CRYPTOGRAPHICALLY-CHAINED (tamper-evident) and INDEPENDENTLY-READ (verifier reads ancestry,
+    not the agent's claim).
+  => The TAMPER-EVIDENT rung is the FALLBACK, not the primary. The primary registry rung is the
+     weaker, agent-adjacent one. This is a real seam to flag: verify()'s soundness rests on the
+     git rung, and the registry rung is a convenience that trusts the dispatch writer.
+
+HYPOTHESIS to test in synthesis: world-state soundness REDUCES TO
+  (tamper-evident store) AND (independently-read) AND (gold/expected authored by not-the-agent).
+  git satisfies all three; a filesystem/SaaS-DB the agent can overwrite satisfies only the middle;
+  an agent-authored expected-state satisfies none (consistency-not-grounding one level up).

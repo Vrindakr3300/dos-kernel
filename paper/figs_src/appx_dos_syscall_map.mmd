@@ -1,0 +1,27 @@
+flowchart TB
+    K["THE DOS KERNEL<br/>'the part that does not believe the agents'<br/>every call is a kind of NO, decided from evidence the agent did not author"]
+
+    K --> V["verify( )<br/>DID it ship?<br/>read git, not the agent's 'done'"]
+    K --> L["liveness( )<br/>is it MOVING or just spinning?<br/>read the git/tool stream, not 'making progress'"]
+    K --> A["arbitrate( )<br/>may two agents WRITE here at once?<br/>hand out region-locks, never double-book"]
+    K --> R["refuse( )<br/>say NO with a REASON<br/>a fixed, checkable vocabulary"]
+    K --> RS["resume( )<br/>a run died — how far did the FOSSILS get?<br/>re-enter from durable facts, not its last claim"]
+
+    subgraph ladder["The trust ladder — ask the cheapest trustworthy judge first"]
+        direction LR
+        O["1. ORACLE<br/>a deterministic check.<br/>git says it shipped, or it didn't.<br/>cannot be argued with"]
+        --> J["2. JUDGE<br/>a model, only on what the oracle<br/>could not settle. ADVISORY,<br/>fails to 'abstain', never to 'yes'"]
+        --> H["3. HUMAN<br/>the irreducible seed —<br/>only the part no machine<br/>can ground"]
+    end
+
+    K -.the kernel IS the oracle rung.-> ladder
+
+    style K fill:#1e293b,stroke:#0f172a,color:#ffffff
+    style O fill:#dcfce7,stroke:#16a34a
+    style J fill:#fef9c3,stroke:#ca8a04
+    style H fill:#fee2e2,stroke:#dc2626
+    style V fill:#dbeafe,stroke:#2563eb
+    style L fill:#dbeafe,stroke:#2563eb
+    style A fill:#dbeafe,stroke:#2563eb
+    style R fill:#dbeafe,stroke:#2563eb
+    style RS fill:#dbeafe,stroke:#2563eb

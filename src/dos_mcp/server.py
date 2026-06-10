@@ -1,0 +1,779 @@
+"""The FastMCP server — DOS syscalls as MCP tools.
+
+Run it as ``dos-mcp`` (the console script) or ``python -m dos_mcp.server``. It
+serves over stdio by default, which is what an MCP host (Claude Desktop, Cursor,
+Cline, …) launches and talks to. See the package docstring for the design fence:
+this consumes `dos`, the kernel never imports it.
+"""
+
+from __future__ import annotations
+
+import functools
+import os
+import sys
+import threading
+from typing import Any
+from urllib.parse import unquote
+
+# Force UTF-8 on the streams, matching the spine modules' discipline — a verdict
+# summary / man line may carry an em-dash or middot, and a host on a cp1252
+# console must not crash the server on it. (The MCP transport is JSON, but be
+# defensive about any stray stderr logging too.)
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ModuleNotFoundError as e:  # pragma: no cover - install-hint path
+    raise SystemExit(
+        "dos-mcp requires the MCP server framework, which is an optional extra.\n"
+        "Install it with:  pip install 'dos-kernel[mcp]'   (or:  pip install mcp)\n"
+        f"(original import error: {e})"
+    )
+
+import dos  # noqa: E402 — intentionally after the MCP-framework import guard above
+from dos import config as _config  # noqa: E402 — (so a missing [mcp] extra fails with a hint)
+from dos import interpret as _interpret  # noqa: E402 — shared with the CLI's --explain
+
+
+# ---------------------------------------------------------------------------
+# Workspace config — the `dos` CLI's four-table dos.toml readback, shared.
+#
+# The readback (generic base + [reasons]/[stamp]/[lanes]/[paths]) lives in ONE
+# place, `config.load_workspace_config`, which the CLI also calls — so the two
+# surfaces can't drift. The server's only divergence from the CLI is what it
+# does with the result: the CLI `set_active`s it (correct for a one-shot
+# process); the server passes it EXPLICITLY into each syscall
+# (`oracle.is_shipped(cfg=...)`, `arbiter.arbitrate(config=...)`) — the
+# "explicit SubstrateConfig in code" rung — because a long-lived server fields
+# concurrent calls against different workspaces and must never mutate a
+# process-global. A malformed table is routed to stderr as a server log line
+# (MCP hosts capture stderr), never crashing a tool that doesn't touch that axis.
+# ---------------------------------------------------------------------------
+def _load_workspace_config(workspace: str | None) -> "_config.SubstrateConfig":
+    """Build the config for ``workspace`` (None/"." → cwd), folding in dos.toml.
+
+    Thin adapter over `config.load_workspace_config`; see that function for the
+    layering + asymmetry contract. A workspace with no ``dos.toml`` is
+    byte-identical to the generic built-in default.
+    """
+    def _warn(label: str, message: str) -> None:
+        print(f"[dos-mcp] ignoring malformed [{label}] in "
+              f"{workspace or '.'}/dos.toml: {message}", file=sys.stderr)
+
+    # `gather_env=False`: NONE of this server's tools read `cfg.env` (the runtime
+    # EnvPrint — kernel version/SHA/platform/tools), so probing it on every tool
+    # call wasted a `git rev-parse` subprocess + (first call) a WMI platform query
+    # — ~tens of ms per call for a field thrown away. Skipping it leaves `env=None`
+    # (the documented "not recorded" state every consumer already handles). If a
+    # future tool needs the print, build that one call's config with the default
+    # (gather_env=True) — the gatherer memoizes per process, so the cost is paid
+    # at most once for the server's lifetime.
+    return _config.load_workspace_config(workspace, gather_env=False, warn=_warn)
+
+
+# ---------------------------------------------------------------------------
+# Agent-facing interpretation — turn a kernel verdict into one line of "what
+# this means for your NEXT action."
+#
+# The functions themselves live in `dos.interpret` (the kernel-side presentation
+# seam, beside `dos.render`), NOT here — so the `dos` CLI's `--explain` flag and
+# these MCP tools call the SAME code and can never drift (the parity is
+# structural, pinned by tests/test_interpret_parity.py). They are PURE
+# PRESENTATION, added to a tool's return as an `interpretation` field ALONGSIDE
+# the kernel's own verbatim verdict fields — never replacing them. This honors
+# the renderer invariant (HACKING.md Axis 4 / docs/76): the hint is strictly
+# downstream of an already-decided verdict, so it can never leak policy back into
+# the adjudication. The worst a wrong hint can do is read awkwardly; it cannot
+# mis-verify a ship or mis-admit a lease. The point is Claude-friendliness: a
+# model acts better on "treat as NOT done; do not rely on a worker's claim" than
+# on a bare `{"shipped": false}`.
+# ---------------------------------------------------------------------------
+# The tool-call deadline — the kernel's STALLED verdict, applied to this server.
+#
+# A tool body that never returns is the server narrating "I'm working" while
+# making NO forward progress — exactly `liveness.Verdict.STALLED` ("no fresh
+# heartbeat, no commits — dead/hung"). The kernel preaches that distrust for a
+# WORKER run; we apply it to our own MCP surface: a tool call is a mini-run, so
+# bound it with a wall-clock deadline and, on expiry, return a TYPED STALLED
+# envelope from the closed verdict vocabulary instead of hanging the host.
+#
+# This matters most on a hot, multi-session tree: a peer's `git commit` holds
+# `.git/index.lock`, and a syscall that shells `git show HEAD` / `git diff`
+# blocks on it. The CLI computing the SAME verdict in ~300 ms is the
+# ground-truth witness that the kernel logic is healthy — the stall is the
+# TRANSPORT, so the envelope says "fall back to the CLI," and (docs/99) it is
+# advisory: surface, do NOT auto-retry (a retry on a held lock just stalls
+# again — the poll-loop antipattern). See docs/282.
+#
+# The budget is POLICY: env `DOS_MCP_TOOL_DEADLINE_MS` (default 5000); 0/blank
+# disables the wrapper entirely (byte-identical to the pre-deadline server, so
+# a host that wants the old unbounded behavior opts out). Mechanism only — no
+# `src/dos/` leaf is touched; the one-way arrow (dos_mcp imports dos) holds.
+# ---------------------------------------------------------------------------
+def _tool_deadline_ms() -> int:
+    """The per-tool wall-clock budget in ms (env-driven policy; 0 disables)."""
+    raw = os.environ.get("DOS_MCP_TOOL_DEADLINE_MS", "5000").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 5000
+
+
+def _with_deadline(fn: Any, budget_ms: int) -> Any:
+    """Race ``fn`` against ``budget_ms``; on expiry return a typed STALLED dict.
+
+    The tool bodies are synchronous (they shell git / read files), so a blocked
+    call would hang the event loop. We run the body in a daemon thread and join
+    with the budget: if it is still alive past the deadline, the call returns a
+    STALLED verdict promptly and the zombie thread is left to drain when the OS
+    resource frees (a daemon thread can't be force-killed in CPython — acceptable
+    for a stall escape hatch; the point is the *call* returns, not that the work
+    is reaped). The fast path (body returns in time) passes through byte-identical.
+    """
+    if budget_ms <= 0:
+        return fn
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        box: dict[str, Any] = {}
+
+        def _run() -> None:
+            try:
+                box["result"] = fn(*args, **kwargs)
+            except BaseException as exc:  # noqa: BLE001 — re-raised on the caller thread
+                box["error"] = exc
+
+        worker = threading.Thread(target=_run, name=f"dos-mcp:{fn.__name__}",
+                                  daemon=True)
+        worker.start()
+        worker.join(budget_ms / 1000.0)
+        if worker.is_alive():
+            return {
+                "verdict": "STALLED",
+                "reason": (
+                    f"tool {fn.__name__!r} exceeded its {budget_ms} ms deadline — "
+                    "the server or a shared OS resource (e.g. the git index lock on "
+                    "a hot tree) is blocked; the call did not return."
+                ),
+                "fallback": (
+                    "The kernel verdict is reachable on the CLI (which is healthy "
+                    f"even when this transport stalls): run the matching `dos` verb "
+                    "for this tool. This stall is the TRANSPORT, not the syscall."
+                ),
+                "advice": (
+                    "Advisory (do not auto-retry a held lock — it will stall again). "
+                    "Surface this and either use the CLI or wait for the lock holder "
+                    "to finish."
+                ),
+            }
+        if "error" in box:
+            raise box["error"]
+        return box.get("result")
+
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Server construction
+# ---------------------------------------------------------------------------
+def build_server() -> FastMCP:
+    """Construct the FastMCP server with the DOS syscall tools registered.
+
+    Factored out of `main()` so a test can build the server and introspect /
+    call the tools without starting the stdio transport.
+    """
+    mcp = FastMCP(
+        "dos",
+        instructions=(
+            "DOS — the domain-free trust substrate for fleets of autonomous "
+            "agents. The kernel is the part that doesn't believe the agents. "
+            "Use `dos_verify` to confirm a claim landed from git evidence rather "
+            "than a worker's self-report; `dos_arbitrate` to decide whether two "
+            "workers may run concurrently without colliding on the same files; "
+            "and `dos_refuse_reasons` / `dos_check_reason` to refuse with a "
+            "structured, verifiable reason from a closed vocabulary instead of "
+            "free-text. All tools take an optional `workspace` (a repo path); it "
+            "defaults to the server's working directory."
+        ),
+    )
+
+    # Install the tool-call deadline transparently: wrap `mcp.tool` so every
+    # `@mcp.tool()` registration below races its body against the wall-clock
+    # budget and returns a typed STALLED verdict on expiry instead of hanging
+    # (docs/282). `functools.wraps` in `_with_deadline` preserves the function
+    # name, docstring, and signature, so FastMCP's schema introspection of each
+    # tool is unchanged — the deadline is invisible to the wire contract. When
+    # the budget is 0 (env opt-out) `_with_deadline` returns the body untouched,
+    # so this is byte-identical to the pre-deadline server.
+    _budget_ms = _tool_deadline_ms()
+    _raw_tool = mcp.tool
+
+    def _tool(*d_args: Any, **d_kwargs: Any):
+        _register = _raw_tool(*d_args, **d_kwargs)
+
+        def _decorate(fn: Any) -> Any:
+            return _register(_with_deadline(fn, _budget_ms))
+
+        return _decorate
+
+    mcp.tool = _tool  # type: ignore[method-assign]
+
+    @mcp.tool()
+    def dos_verify(plan: str, phase: str, workspace: str = ".") -> dict[str, Any]:
+        """Did (plan, phase) actually ship? — the truth syscall.
+
+        USE THIS WHEN: another agent (or the user) *claims* a task/phase/feature
+        is done, and you want to confirm it from real evidence before relying on
+        it or building on top of it. This is the antidote to a self-narrating
+        worker: it answers from artifacts, never from anyone's word.
+
+        It checks, in order: a run-registry row (status=done), then a git-log
+        grep over the workspace's ship-commit grammar, then an honest
+        `source="none"` when there is no positive evidence. Works against a plain
+        git repo with **no plan and no registry** — point it at any repo.
+
+        Args:
+            plan: the plan / series id (e.g. "AUTH", "RS").
+            phase: the phase id within that plan (e.g. "AUTH2", "RS1").
+            workspace: the repo root to verify against (default: cwd). Its
+                `dos.toml [stamp]` grammar is honored if present.
+
+        Returns {plan, phase, shipped, source, sha?, summary?, interpretation}.
+        `shipped` is the closed binary judgment; `source` names which authority
+        answered ("registry" | "grep" | "none") — a thin answer can never
+        masquerade as a strong one. `interpretation` (added by this server) tells
+        you in one line what the verdict means for your next action.
+        """
+        from dos import oracle
+        cfg = _load_workspace_config(workspace)
+        verdict = oracle.is_shipped(plan, phase, cfg=cfg).to_dict()
+        verdict["interpretation"] = _interpret.verify(verdict)
+        return verdict
+
+    @mcp.tool()
+    def dos_commit_audit(ref: str = "HEAD", workspace: str = ".") -> dict[str, Any]:
+        """Does a commit's CLAIM match what its DIFF actually did? — author-neutral.
+
+        USE THIS WHEN: you (or a worker) are about to report a commit as "done," OR
+        you are reviewing someone's commit and want to know whether its message can
+        be trusted. It is the plan-free form of the truth syscall: a commit subject
+        is forgeable (whoever wrote the message authored it), the files it touched
+        are not (git did). So it catches a `fix: ...` that touched only a README, an
+        `--allow-empty "shipped"`, or a "tests pass" that deleted the assertions —
+        the SAME way whether a human or an agent wrote the commit.
+
+        Needs no plan, no phase, no config — point it at any commit in any git repo.
+        It grades did-the-diff-do-the-KIND-of-thing-claimed, NEVER whether the code
+        is correct (run the tests for that).
+
+        Args:
+            ref: a commit ref (default "HEAD"). A `A..B` range is NOT supported by
+                this tool — call it per-commit so each verdict is its own object.
+            workspace: the repo root the commit lives in (default: cwd).
+
+        Returns {sha, verdict ("OK"|"CLAIM_UNWITNESSED"|"ABSTAIN"), claim_kind,
+        witness ("diff-witnessed"|"subject-only"|"abstain"), reason, source_files,
+        test_files, interpretation}. `witness` is the forgeability rung:
+        `diff-witnessed` is non-forgeable evidence; `subject-only` means the claim
+        rests on the message text alone. `interpretation` (added by this server)
+        tells you in one line what to do next.
+        """
+        from dos import commit_audit as _ca
+        cfg = _load_workspace_config(workspace)
+        v = _ca.audit_commit(ref, root=cfg.paths.root)
+        if v is None:
+            out = {
+                "sha": "", "verdict": "ABSTAIN", "claim_kind": "none",
+                "witness": "abstain",
+                "reason": f"cannot read commit '{ref}' (not a git repo, or bad ref)",
+                "source_files": [], "test_files": [],
+            }
+            out["interpretation"] = (
+                "UNREADABLE — the ref could not be read; there is no commit to audit "
+                "here. Check the ref and the workspace path.")
+            return out
+        out = v.to_dict()
+        out["interpretation"] = _interpret.commit_audit(out)
+        return out
+
+    @mcp.tool()
+    def dos_arbitrate(
+        lane: str = "",
+        kind: str = "",
+        tree: list[str] | None = None,
+        live_leases: list[dict[str, Any]] | None = None,
+        force: bool = False,
+        workspace: str = ".",
+    ) -> dict[str, Any]:
+        """May a worker take this lane right now? — the pure admission kernel.
+
+        USE THIS WHEN: you are about to start work that touches a set of files
+        (or dispatch a sub-agent to), and other agents may be working in the same
+        repo concurrently. Call this FIRST to find out whether your file-tree
+        collides with work already in flight. It is the mechanism that stops two
+        agents editing the same files at once.
+
+        State in, decision out, no I/O. Decides whether a new worker may acquire
+        `lane` given the `live_leases` already held, using the workspace's lane
+        taxonomy and a tree-disjointness rule (two workers may run concurrently
+        iff their file trees don't overlap beyond a small threshold).
+
+        Args:
+            lane: the requested lane ("" = a bare auto-pick request — the arbiter
+                walks the workspace's autopick ladder for a free, disjoint lane).
+            kind: "cluster" | "keyword" | "global" | "" (bare → auto-pick).
+            tree: the requested file tree as repo-relative globs. If omitted and
+                a `lane` is named, the lane's canonical tree from `dos.toml` is
+                used.
+            live_leases: the leases currently held — a list of dicts each with at
+                least {lane, lane_kind, tree}. Empty/omitted = nothing live.
+            force: operator override — honor an explicit `lane` literally, skip
+                the disjointness refuse (still respects a live exclusive lane).
+            workspace: the repo root whose lane taxonomy to arbitrate over
+                (default: cwd). Its `dos.toml [lanes]` is honored if present.
+
+        Returns {outcome ("acquire"|"refuse"), lane, lane_kind, tree,
+        auto_picked, reason, free_clusters, pick_count, interpretation}. On a
+        refuse, `reason` explains why and `free_clusters` lists lanes you could
+        take instead. `interpretation` (added by this server) is a one-line
+        GO/STOP verdict for your next action.
+
+        Note: unlike `dos arbitrate --force` on the CLI, this tool never persists
+        a decision — it is a pure adjudication. An MCP tool decides; it does not
+        write to the workspace.
+        """
+        from dos import arbiter
+        from dos.admission import built_in_predicates
+        cfg = _load_workspace_config(workspace)
+        req_tree = list(tree or [])
+        if not req_tree and lane:
+            req_tree = cfg.lanes.tree_for(lane)
+        # Scope the SELF_MODIFY guard to the kernel-source files that actually
+        # exist under the SERVED workspace: a foreign repo's `**/*` lane cannot
+        # edit a `src/dos/` file that isn't there, so it must not trip the guard.
+        # We pass `config=cfg` so the guard reads the CACHED `cfg.workspace` facts
+        # `_load_workspace_config` already gathered — no second disk probe per
+        # tool call, which matters for a long-lived server fielding concurrent
+        # workspaces (the explicit-config / no-global-mutation discipline). These
+        # are the workspace-scoped BUILT-INS only (no `dos.predicates` plugin
+        # discovery — this tool stays plugin-free, matching its prior behavior).
+        decision = arbiter.arbitrate(
+            requested_lane=lane or "",
+            requested_kind=kind or "",
+            requested_tree=req_tree,
+            live_leases=list(live_leases or []),
+            config=cfg,
+            force=force,
+            predicates=built_in_predicates(config=cfg),
+        ).to_dict()
+        decision["interpretation"] = _interpret.arbitrate(decision)
+        return decision
+
+    @mcp.tool()
+    def dos_refuse_reasons(workspace: str = ".") -> dict[str, Any]:
+        """The closed structured-refusal vocabulary for this workspace.
+
+        USE THIS WHEN: you need to decline / refuse / report-blocked and want to
+        do it with a *structured* reason the system can verify, instead of
+        free-text prose. Browse this list, pick the token that fits, and emit
+        THAT (verify it first with `dos_check_reason`).
+
+        DOS refuses with a *reason from a closed set* — every reason is
+        simultaneously **emittable** (a producer may stamp it), **verifiable** (an
+        oracle can check the condition it names), and **refusable** (the loop
+        knows to route it to a replan). That is what makes "no" a first-class,
+        auditable value rather than a dead end.
+
+        Args:
+            workspace: the repo root (default: cwd). Reasons declared in its
+                `dos.toml [reasons]` table are included alongside the built-ins.
+
+        Returns {workspace, count, reasons: [{token, category, refusal, summary,
+        fix, see_also}, ...]}. `category` is the coarse class the reason rolls up
+        to (TRUE_DRAIN | OPERATOR_GATE | STALE_CLAIM | MISROUTE | UNCLASSIFIED);
+        `refusal` is whether carrying it blocks (vs advisory-only).
+        """
+        cfg = _load_workspace_config(workspace)
+        reg = cfg.reasons
+        return {
+            "workspace": str(cfg.paths.root),
+            "count": len(reg.specs),
+            "reasons": [
+                {
+                    "token": s.key,
+                    "category": s.category,
+                    "refusal": s.refusal,
+                    "summary": s.summary,
+                    "fix": s.fix,
+                    "see_also": list(s.see_also),
+                }
+                for s in reg.specs
+            ],
+        }
+
+    @mcp.tool()
+    def dos_check_reason(reason_class: str, workspace: str = ".") -> dict[str, Any]:
+        """Is `reason_class` a member of the closed refusal vocabulary?
+
+        USE THIS WHEN: you have a reason token in mind for a refusal and want to
+        confirm it is real BEFORE emitting it. The companion to
+        `dos_refuse_reasons`: emit only a reason this returns `known=true` for.
+        An unknown token is the `UNCLASSIFIED` prose-drift the kernel exists to
+        kill — this tool surfaces it as a bug to declare, not tolerate.
+
+        Args:
+            reason_class: the reason token to check (case-insensitive, e.g.
+                "LANE_DRAINED").
+            workspace: the repo root (default: cwd); its declared reasons count.
+
+        Returns {reason_class, known, category, refusal, summary?, fix?,
+        interpretation}. When `known` is false, `category` is "UNCLASSIFIED" and
+        `refusal` is true (an unrecognised refusal is refused conservatively);
+        `interpretation` tells you whether it is safe to emit.
+        """
+        cfg = _load_workspace_config(workspace)
+        reg = cfg.reasons
+        spec = reg.get(reason_class)
+        out: dict[str, Any] = {
+            "reason_class": reason_class,
+            "known": spec is not None,
+            "category": reg.category_for(reason_class),
+            "refusal": reg.is_refusal(reason_class),
+        }
+        if spec is not None:
+            out["summary"] = spec.summary
+            out["fix"] = spec.fix
+            out["see_also"] = list(spec.see_also)
+        out["interpretation"] = _interpret.check_reason(out)
+        return out
+
+    @mcp.tool()
+    def dos_recall(name: str, workspace: str = ".", store: str = "") -> dict[str, Any]:
+        """Is this recalled memory still TRUE? — re-verify a memory at read time.
+
+        USE THIS WHEN: a saved memory / note is about to be injected as context and
+        it NAMES a concrete artifact (a commit SHA, an import/flag, a file path).
+        A memory is a frozen self-report from a past session — the least
+        trustworthy signal in the stack, yet recall hands it to you wearing the
+        authority of a fact. Call this to re-check its claims against git + the
+        working tree NOW, instead of trusting the body. This is `dos_verify`'s
+        discipline (evidence, not self-report) aimed at the agent's own memory
+        (docs/103).
+
+        It parses the memory's frontmatter (trusted structure), extracts the
+        checkable claims in its body + the polarity each asserts (is this code
+        claimed PRESENT? this commit SHIPPED?), and re-probes each against ground
+        truth: a comment-aware working-tree grep for a code token, git
+        merge-base ancestry for a SHA, git history for a path. Returns a closed
+        recall verdict; on anything but RECALL_FRESH, present the memory hedged or
+        withhold it — never inject its raw content as confirmed.
+
+        Args:
+            name: the memory's frontmatter `name` / slug (resolved against the
+                store) or a direct path to the `.md` file.
+            workspace: the repo root whose git/working-tree is ground truth
+                (default: cwd).
+            store: the agent-memory directory (default: the documented
+                `~/.claude/projects/<workspace>/memory` layout). Pass it explicitly
+                when the memory store is elsewhere.
+
+        Returns {memory, verdict, type, culprit, claims, interpretation}.
+        `verdict` is one of RECALL_FRESH / RECALL_STALE / RECALL_UNVERIFIABLE;
+        `culprit` (on STALE) is the deciding claim + the git evidence behind it;
+        `interpretation` (added here) tells you in one line what to do next. The
+        driver is resolved by name — the kernel never imports it.
+        """
+        import importlib
+        cfg = _load_workspace_config(workspace)
+        mr = importlib.import_module("dos.drivers.memory_recall")
+        verdict = mr.recall_one(name, cfg=cfg, store=store or None).to_dict()
+        verdict["interpretation"] = mr.interpret(verdict)  # gloss single-sourced in the DRIVER
+        return verdict
+
+    @mcp.tool()
+    def dos_doctor(workspace: str = ".") -> dict[str, Any]:
+        """The machine-readable workspace report — paths, lanes, stamp grammar.
+
+        What an agent reads once to discover a workspace's layout instead of
+        hardcoding it: where plans live, the lane taxonomy `dos_arbitrate` will
+        use, the ship-stamp grammar `dos_verify` recognizes, and whether the root
+        is a git repo. Read-only — resolves everything without creating `.dos/`.
+
+        Args:
+            workspace: the repo root to report on (default: cwd).
+
+        Returns {dos_version, workspace, git, paths, lanes, stamp}.
+        """
+        cfg = _load_workspace_config(workspace)
+        return {
+            "dos_version": dos.__version__,
+            "workspace": str(cfg.paths.root),
+            "git": (cfg.paths.root / ".git").exists(),
+            "paths": {
+                "root": str(cfg.paths.root),
+                "execution_state": str(cfg.paths.execution_state),
+                "plans_glob": cfg.paths.plans_glob,
+                "style": cfg.paths.style,
+            },
+            "lanes": {
+                "concurrent": list(cfg.lanes.concurrent),
+                "exclusive": list(cfg.lanes.exclusive),
+                "autopick": list(cfg.lanes.autopick),
+                "trees": {k: list(v) for k, v in cfg.lanes.trees.items()},
+            },
+            "stamp": cfg.stamp.to_dict(),
+        }
+
+    @mcp.tool()
+    def dos_status(
+        run_id: str,
+        start_sha: str = "",
+        lane: str = "",
+        loop_ts: str = "",
+        stopped: bool = False,
+        live: bool = False,
+        now_ms: int | None = None,
+        workspace: str = ".",
+    ) -> dict[str, Any]:
+        """One folded, fail-closed status fact for a run — liveness · progress · region · resume.
+
+        USE THIS WHEN: you want a single A2A-shaped answer to "what is the state of
+        run X right now?" without trusting any worker's self-report. It folds FOUR
+        adjudicated kernel verdicts into one record — liveness (is it moving?),
+        ledger-VERIFIED progress (never the agent's claim), the run's held-lease
+        region, and the resume plan (only once the run has stopped). It is the
+        legible, peer-readable form of `dos_verify`'s distrust discipline aimed at a
+        whole run instead of one phase.
+
+        The load-bearing property (docs/120 §3): the digest has **no `claimed`
+        field** by construction. A peer reading this result structurally cannot pick
+        up a self-report it is never handed — `progress` is built from the kernel's
+        VERIFIED rung only. Fail-closed everywhere: a run with no intent ledger is a
+        valid zero-progress fact (not an error); a run holding no lease has an empty
+        `region`; the resume verdict is null while the run is live.
+
+        Args:
+            run_id: the run-id (RID-…) the digest is keyed on.
+            start_sha: the run's start commit (commits since = the liveness forward
+                delta). Default: the run's declared start_sha off its intent ledger,
+                else empty (a conservative 0-commit floor).
+            lane / loop_ts: this run's lease identity; together they scope the
+                liveness journal rungs to THIS lease. Omit ⇒ the commit rung decides.
+            stopped / live: override the automatic stopped-predicate (which is
+                `ledger SUSPENDed OR liveness STALLED`). `stopped` forces the resume
+                read; `live` skips it. The resume read runs the expensive ancestry
+                re-adjudication, so it is gated — never run on a live run.
+            now_ms: wall-clock epoch-ms (default: now). Injectable for determinism.
+            workspace: the repo root the run lives under (default: cwd).
+
+        Returns the digest dict {schema, run_id, liveness, progress, region, resume}
+        — and deliberately NO `claimed` key (the fail-closed A2A contract). On a bad
+        run-id, returns an {error, run_id} dict rather than raising.
+        """
+        import time
+        from dos import (git_delta, intent_ledger, journal_delta, lane_journal,
+                         liveness as _lvn, resume as _resume, resume_evidence,
+                         run_id as _rid, status as _status)
+
+        cfg = _load_workspace_config(workspace)
+        started_ms = _rid.ts_ms_of(run_id)
+        if started_ms is None:
+            return {"error": f"{run_id!r} is not a valid run-id token "
+                             f"(expected an RID-… minted by `dos run-id mint`)",
+                    "run_id": run_id}
+        now = now_ms if now_ms is not None else int(time.time() * 1000)
+
+        # Read A — the intent ledger (first: it sources start_sha + the stopped
+        # predicate). Fail-closed: no ledger → a zero LedgerState, never a raise.
+        entries = intent_ledger.read_all(run_id, cfg=cfg)
+        ledger_state = (intent_ledger.replay(entries) if entries
+                        else intent_ledger.LedgerState(run_id=run_id))
+        resolved_start = (start_sha or "").strip() or ledger_state.start_sha
+
+        # Read B — liveness. The clock/git/journal reads happen HERE at the boundary
+        # (the explicit-cfg discipline: every read takes cfg / root=cfg.paths.root),
+        # then the PURE classifier folds them.
+        commits = git_delta.count_commits_since(resolved_start, root=cfg.paths.root)
+        lease_key = (str(loop_ts), str(lane)) if lane and loop_ts else None
+        try:
+            j_entries = lane_journal.read_all(path=cfg.paths.lane_journal)
+        except Exception:  # noqa: BLE001 — a bad journal must not crash the verdict
+            j_entries = []
+        jd = journal_delta.fold_since(j_entries, run_started_ms=started_ms,
+                                      now_ms=now, lease_key=lease_key)
+        liveness_verdict = _lvn.classify(_lvn.ProgressEvidence(
+            run_started_ms=started_ms, now_ms=now,
+            commits_since_start=commits,
+            journal_events_since=jd.events_since_start,
+            last_heartbeat_age_ms=jd.newest_heartbeat_age_ms,
+        ))
+
+        # Read C — the held-lease region (the spine join: lease.run_id == run_id),
+        # reusing the already-read journal entries. `.get()` so an old un-stamped
+        # ACQUIRE simply doesn't match (region () — backward-compat, never a raise).
+        live_region: tuple[str, ...] = ()
+        for lease in lane_journal.replay(j_entries):
+            if str(lease.get("run_id") or "") == run_id:
+                tree = lease.get("tree")
+                live_region = (tuple(str(g) for g in tree)
+                               if isinstance(tree, (list, tuple)) else ())
+                break
+
+        # Read D — resume, CONDITIONAL on the stopped predicate (skips the expensive
+        # ancestry re-adjudication on a live run). stopped/live override the auto rule.
+        is_stopped = bool(ledger_state.suspended
+                          or liveness_verdict.verdict is _lvn.Liveness.STALLED)
+        if stopped:
+            is_stopped = True
+        if live:
+            is_stopped = False
+        resume_plan = None
+        if is_stopped and ledger_state.has_intent:
+            anc = resume_evidence.gather_ancestry(ledger_state, cfg=cfg)
+            resume_plan = _resume.resume_plan(ledger_state, anc)
+
+        digest = _status.status_digest(
+            run_id=run_id, ledger_state=ledger_state,
+            liveness_verdict=liveness_verdict,
+            live_region=live_region, resume_plan=resume_plan,
+        )
+        return digest.to_dict()      # the same no-`claimed` shape as the CLI --json
+
+    # -----------------------------------------------------------------------
+    # Resources — browsable context, not just callable tools. A host (and the
+    # user) can READ these to load the workspace's refusal vocabulary and lane
+    # taxonomy as context, e.g. before deciding how to refuse or which lane to
+    # take. URIs are addressable; the `{workspace}`-templated variants let a host
+    # browse a specific repo. Read-only, like the tools they mirror.
+    # -----------------------------------------------------------------------
+    def _reasons_markdown(workspace: str) -> str:
+        cfg = _load_workspace_config(workspace)
+        lines = [f"# DOS refusal vocabulary — {cfg.paths.root}",
+                 "",
+                 "The closed set of reasons a blocked/no-pick verdict may carry. "
+                 "Emit only a token listed here (it is simultaneously emittable, "
+                 "verifiable, and refusable).", ""]
+        for s in cfg.reasons.specs:
+            lines.append(f"## `{s.key}`  ({s.category}"
+                         + ("" if s.refusal else ", advisory-only") + ")")
+            if s.summary:
+                lines.append(s.summary)
+            if s.fix:
+                lines.append(f"- **fix:** {s.fix}")
+            lines.append("")
+        return "\n".join(lines)
+
+    def _lanes_markdown(workspace: str) -> str:
+        cfg = _load_workspace_config(workspace)
+        lanes = cfg.lanes
+        lines = [f"# DOS lane taxonomy — {cfg.paths.root}",
+                 "",
+                 "Concurrent lanes run in parallel iff their file trees are "
+                 "disjoint; exclusive lanes run alone. `dos_arbitrate` decides "
+                 "admission over these.", "",
+                 f"- **concurrent:** {', '.join(lanes.concurrent) or '(none)'}",
+                 f"- **exclusive:** {', '.join(lanes.exclusive) or '(none)'}",
+                 f"- **autopick order:** {', '.join(lanes.autopick) or '(none)'}",
+                 "", "## Trees", ""]
+        for name in sorted(set(lanes.concurrent) | set(lanes.exclusive)
+                           | set(lanes.trees)):
+            tree = ", ".join(lanes.tree_for(name)) or "(no tree declared)"
+            lines.append(f"- `{name}`: {tree}")
+        return "\n".join(lines)
+
+    @mcp.resource("dos://reasons", mime_type="text/markdown")
+    def reasons_resource() -> str:
+        """The refusal vocabulary for the server's default workspace (cwd)."""
+        return _reasons_markdown(".")
+
+    @mcp.resource("dos://reasons/{workspace}", mime_type="text/markdown")
+    def reasons_resource_ws(workspace: str) -> str:
+        """The refusal vocabulary for a specific workspace path.
+
+        The `{workspace}` URI segment is a single path segment (FastMCP matches
+        it as `[^/]+`), so a workspace path is carried percent-encoded — an
+        absolute POSIX root like `/srv/ws` would otherwise inject a bare slash
+        and make the URI unroutable (the Windows path `C:\\ws` has none, which is
+        why this only bit Linux). Decode it back to the real path here.
+        """
+        return _reasons_markdown(unquote(workspace))
+
+    @mcp.resource("dos://lanes", mime_type="text/markdown")
+    def lanes_resource() -> str:
+        """The lane taxonomy for the server's default workspace (cwd)."""
+        return _lanes_markdown(".")
+
+    @mcp.resource("dos://lanes/{workspace}", mime_type="text/markdown")
+    def lanes_resource_ws(workspace: str) -> str:
+        """The lane taxonomy for a specific workspace path.
+
+        See `reasons_resource_ws` — the `{workspace}` segment is percent-encoded
+        so an absolute path survives FastMCP's `[^/]+` segment match; decode it.
+        """
+        return _lanes_markdown(unquote(workspace))
+
+    # -----------------------------------------------------------------------
+    # Prompts — user-invokable entry points. These surface in the host UI (e.g.
+    # as slash-commands in Claude Desktop) so a USER can drive DOS directly,
+    # without knowing the tool names. Each returns a short instruction that
+    # teaches the agent the right tool + sequence — the "use it directly with
+    # Claude" path the README describes.
+    # -----------------------------------------------------------------------
+    @mcp.prompt(title="Verify a claim actually shipped")
+    def verify_a_claim(plan: str, phase: str, workspace: str = ".") -> str:
+        """Confirm a (plan, phase) really shipped, from evidence not self-report."""
+        return (
+            f"Use the `dos_verify` tool with plan={plan!r}, phase={phase!r}, "
+            f"workspace={workspace!r}. Then tell me plainly whether it shipped, "
+            f"citing the `source` (registry / git commit / no evidence) and the "
+            f"sha if there is one. Do NOT take anyone's word that it shipped — "
+            f"rely only on what `dos_verify` returns."
+        )
+
+    @mcp.prompt(title="Can I safely take this lane?")
+    def can_i_take_this_lane(lane: str, tree: str = "",
+                             workspace: str = ".") -> str:
+        """Check whether starting work on a lane/file-tree collides with live work."""
+        tree_note = (f" Its file tree is: {tree} (pass as the `tree` argument, "
+                     f"split into a list of globs).") if tree else ""
+        return (
+            f"Use the `dos_arbitrate` tool to decide whether I may take lane "
+            f"{lane!r} in workspace {workspace!r} right now.{tree_note} If you "
+            f"know what leases are currently live, pass them as `live_leases`. "
+            f"Then give me a clear GO or STOP, and if STOP, list any free lanes I "
+            f"could take instead."
+        )
+
+    @mcp.prompt(title="Refuse with a structured reason")
+    def refuse_with_a_reason(situation: str, workspace: str = ".") -> str:
+        """Pick a verifiable refusal reason for a situation, instead of free text."""
+        return (
+            f"I need to refuse / report-blocked for this situation: {situation}\n\n"
+            f"First call `dos_refuse_reasons` (workspace={workspace!r}) to see the "
+            f"closed vocabulary. Pick the single token that best fits, confirm it "
+            f"with `dos_check_reason`, then refuse using THAT token (not free-text "
+            f"prose). If nothing fits, say so and suggest a new reason to declare "
+            f"in dos.toml [reasons]."
+        )
+
+    return mcp
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Console-script entrypoint — build the server and serve over stdio.
+
+    `argv` is accepted for symmetry with the `dos` CLI and to keep the signature
+    test-friendly; the stdio transport takes no arguments today.
+    """
+    server = build_server()
+    server.run()  # stdio transport — what an MCP host launches and speaks to
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

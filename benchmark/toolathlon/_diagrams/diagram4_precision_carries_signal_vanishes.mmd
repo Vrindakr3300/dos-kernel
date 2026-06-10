@@ -1,0 +1,11 @@
+flowchart TD
+    W["WEAK model fails LOUDLY"] --> W1["narrates: 'I still need to...'<br/>→ dangling_intent sees it"]
+    W --> W2["loops on same read 17% of runs<br/>→ tool_stream sees it"]
+    W1 --> WIN["detector FIRES, is right<br/>(minimax-m2, gemini-2.5-flash)"]
+    W2 --> WIN
+    St["STRONG model fails QUIETLY"] --> S1["no narrated obligation<br/>(just stops)"]
+    St --> S2["no identical-byte loop<br/>(fails in a novel way)"]
+    S1 --> LOSE["detector sees NOTHING<br/>fire-rate → 0<br/>(claude-4.5-sonnet, gpt-5.1, gemini-3-pro)"]
+    S2 --> LOSE
+    style WIN fill:#dcfce7,stroke:#16a34a
+    style LOSE fill:#fee2e2,stroke:#dc2626

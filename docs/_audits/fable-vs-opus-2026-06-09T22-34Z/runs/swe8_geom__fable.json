@@ -1,0 +1,43 @@
+{
+  "task": "swe8_geom",
+  "family": "swe",
+  "note": "cross-file logic",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.19s",
+  "cli_returncode": 0,
+  "wall_s": 34.7,
+  "total_cost_usd": 0.2732345,
+  "num_turns": 6,
+  "duration_ms": 33756,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 498,
+      "outputTokens": 19,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000593,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 1985,
+      "outputTokens": 929,
+      "cacheReadInputTokens": 125779,
+      "cacheCreationInputTokens": 6445,
+      "webSearchRequests": 0,
+      "costUSD": 0.2726415,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "5be8cfe",
+  "head_subject": "Fix circle_area to square the radius",
+  "n_commits_total": "2"
+}

@@ -1,0 +1,24 @@
+# The root .gitignore blanket-ignores *.html (scraped research-scratch HTML).
+# This paper's HTML is authored SOURCE, not scratch — re-include it here.
+!paper.html
+!sections/
+!sections/*.html
+
+# Chrome-render QA scratch (regenerable screenshots)
+_qa_*.png
+
+# Appendix figure-source: track the durable sources + renders, ignore local render
+# tooling (the headless-Chrome screenshot audit, the puppeteer config, node_modules).
+figs_src/_audit/
+figs_src/_audit_render.py
+figs_src/pup.json
+figs_src/node_modules/
+# the root .gitignore blanket-ignores *.html; re-include the figs_src sources we DO track
+!figs_src/*.mmd
+!figs_src/*.py
+!figs_src/*.png
+!figs_src/README.md
+# …but NOT the local render tooling: the `!figs_src/*.py` line above re-includes
+# every .py, so re-exclude the audit-render script HERE (a later pattern wins) —
+# otherwise the line-13 ignore is silently overridden and the scratch tracks.
+figs_src/_audit_render.py

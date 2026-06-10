@@ -1,0 +1,43 @@
+# intervention_cases.jsonl — the docs/143 §13 "⚑ KEY DATA POINT" shape, as a seed corpus.
+#
+# Ground truth from the live EnterpriseOps-Gym run (RESULTS.md, gemini-3-flash): the
+# detector CAUGHT 64/73 injected mints (88 %), yet the default SKIP/DEFER nudge cost
+# −9 pp success because MOST of those catches were true-but-IRRELEVANT — a real mint the
+# hidden SQL verifier never checked — so spending the turn on them bought nothing
+# (RESULTS.md lines 103-123). A turn-PRESERVING BLOCK (return a synthetic "id unresolved"
+# result, keep the turn) recovers the loss; the turn-SPENDING DEFER (skip + re-prompt) is the
+# −9 pp posture.
+#
+# NOTE on the `recovered_if_*` labels: these encode the VERIFIER-FLIP outcome (did acting on
+# the catch move a hidden SQL check pass↔fail), NOT the live "issued a follow-up tool call"
+# rate (~75 %, 48/64, RESULTS.md line 104) — RESULTS.md itself distinguishes the two: a
+# follow-up was issued 75 % of the time, but on the real harness DEFER still NET-derailed the
+# task (6 tasks pass→fail vs 1 fail→pass, line 107). So `recovered_if_deferred` is mostly
+# False here (a re-prompt that derailed a DIFFERENT step is NOT a recovery of the task), while
+# `recovered_if_blocked` is higher (the turn was preserved). That asymmetry — not a tuned
+# magnitude — is what makes BLOCK beat DEFER; it is the load-bearing real-world premise.
+#
+# Each line carries a COMPACT verdict (`confidence` HIGH/LOW/NONE + `unsupported` names; the
+# loader SYNTHESIZES the minimal ProvenanceVerdict whose real assess_confidence yields that
+# rung) and the ground-truth labels from the EXECUTED A/B arms. The distribution encodes the
+# §13.3 FIX: confidence-gating shields the majority true-but-irrelevant catches as LOW→WARN
+# (informed, still dispatched, zero waste), so the DEFAULT policy is net-POSITIVE — while
+# `--ceiling DEFER` (turn-spending on every HIGH mint) flips it NET-HARMFUL on the same corpus.
+#
+# --- true-RELEVANT HIGH mints: the FK fed the hidden verifier; preventing the write flips a check ---
+{"confidence": "HIGH", "unsupported": ["incident_id"], "truly_minted": true, "mattered_to_score": true, "recovered_if_blocked": true, "recovered_if_deferred": true, "label": "rel-recover-both"}
+{"confidence": "HIGH", "unsupported": ["change_request"], "truly_minted": true, "mattered_to_score": true, "recovered_if_blocked": true, "recovered_if_deferred": false, "label": "rel-block-recovers-defer-derails-1"}
+{"confidence": "HIGH", "unsupported": ["problem_id"], "truly_minted": true, "mattered_to_score": true, "recovered_if_blocked": true, "recovered_if_deferred": false, "label": "rel-block-recovers-defer-derails-2"}
+{"confidence": "HIGH", "unsupported": ["request_item"], "truly_minted": true, "mattered_to_score": true, "recovered_if_blocked": true, "recovered_if_deferred": false, "label": "rel-block-recovers-defer-derails-3"}
+# --- true-but-IRRELEVANT LOW mints: a real catch the verifier never checked (the -9pp cell) ---
+# LOW confidence (a composite/partial mint) → the default maps these to WARN: informed, still
+# dispatched, no turn spent. This is the §13.3 shield — disrupting on them is what cost the run.
+{"confidence": "LOW", "unsupported": ["cmdb_ci"], "truly_minted": true, "mattered_to_score": false, "recovered_if_blocked": true, "recovered_if_deferred": false, "label": "irrel-1"}
+{"confidence": "LOW", "unsupported": ["assigned_to"], "truly_minted": true, "mattered_to_score": false, "recovered_if_blocked": false, "recovered_if_deferred": false, "label": "irrel-2"}
+{"confidence": "LOW", "unsupported": ["sys_user_group"], "truly_minted": true, "mattered_to_score": false, "recovered_if_blocked": true, "recovered_if_deferred": false, "label": "irrel-3"}
+{"confidence": "LOW", "unsupported": ["caller_id"], "truly_minted": true, "mattered_to_score": false, "recovered_if_blocked": false, "recovered_if_deferred": false, "label": "irrel-4"}
+{"confidence": "LOW", "unsupported": ["location"], "truly_minted": true, "mattered_to_score": false, "recovered_if_blocked": false, "recovered_if_deferred": false, "label": "irrel-5"}
+# --- false-flag LOW: a legit resolved/derived id the detector mis-scored (disrupting = pure waste) ---
+{"confidence": "LOW", "unsupported": ["category"], "truly_minted": false, "mattered_to_score": false, "recovered_if_blocked": true, "recovered_if_deferred": true, "label": "false-flag"}
+# --- clean call: nothing minted → OBSERVE only, never disrupts ---
+{"confidence": "NONE", "unsupported": [], "truly_minted": false, "mattered_to_score": false, "recovered_if_blocked": false, "recovered_if_deferred": false, "label": "clean-no-mint"}

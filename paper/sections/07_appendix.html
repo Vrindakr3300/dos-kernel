@@ -1,0 +1,137 @@
+<h2 id="appendix">Appendix A. DOS in plain words — the Vaseline test</h2>
+
+<p>The body defines its terms as it goes. This appendix is for a reader who wants the one idea underneath all of them — <em>do not trust the narrator</em> — in the plainest language, plus two reference tables: a key to every symbol (Table A1) and a plain-language glossary (Table A2). It is self-contained, built around one running picture: a smear of Vaseline on a mirror.</p>
+
+<h3 id="appx-one-idea">A.1 The one idea, and the Vaseline picture</h3>
+
+<p>An AI agent doing a long task also authors the story about it — the actions <em>and</em> the closing summary, and the summary is the problem. It can end with a confident <em>"All customers have now received their surveys!"</em> while the inbox shows zero emails sent: nothing crashed, nothing in the transcript contradicts the happy ending. This is a <strong>silent failure</strong>, a wrong result in the costume of a right one (on the hard benchmark here three runs in four fail, and nearly every failure is this quiet kind). So the obvious move — read what the agent says about itself — is the <strong>mirror-verifier</strong> trap: you measure the <em>story</em>, not the <em>world</em>, and training against it just teaches the agent to stop saying the give-away phrase.</p>
+
+<p>The picture: the real state of the world — the inbox, the database row, the file — is a mirror, and the agent's narration is a <strong>smear of Vaseline</strong> wiped across it. Vaseline changes only what you <em>see</em>, and the smear re-applies for free (the agent can always produce a smoother sentence) — that is what <em>forgeable</em> means. The fix is to read only what the narration cannot coat: the <strong>tool results the environment sent back</strong> (an error envelope, the identical "pending" returned three times, the absent row) and a <strong>third-party judge</strong> that re-reads the live world. The agent authored none of those bytes. A check that reads <em>only</em> bytes the judged agent did not author is <strong>byte-clean</strong>; the test is one question — <em>could the agent have written these bytes?</em> If yes, Vaseline; if no, ground truth.</p>
+
+<figure class="wide">
+<img src="figs/appx_vaseline_mirror.png" alt="A diagram contrasting two ways to check an agent. At the top, the agent's confident narration ('All customers have now received their surveys!') is shown as a smear of Vaseline over the real world; a checker that reads the narration sees a clean mirror and is labelled FORGEABLE — it measures the story, not the world, and the agent can just stop saying the give-away phrase. At the bottom, the real world (inbox 0 emails sent, Notion row missing, file wrong contents) is read directly by a byte-clean check that looks only at bytes the agent did not write — the SMTP error envelope, the missing row, the identical repeated result — and is labelled GROUNDED: the agent cannot forge these."/>
+<figcaption>Figure A1. The Vaseline test. The agent's narration is a smear over the real state of the world: it changes only what a careless checker sees. Reading <em>through</em> the smear (the agent's words) is <strong>forgeable</strong>; reading <em>around</em> it (the environment's tool results, a third-party oracle) is <strong>byte-clean</strong> and grounded. Every DOS check lives on the bottom path.</figcaption>
+</figure>
+
+<h3 id="appx-what-dos-is">A.2 What DOS actually is — a referee made of "no"</h3>
+
+<p>DOS — <strong>Dispatch Operating System</strong> — sits between many AI agents and the one shared world they are all changing, the way a computer's OS sits between many programs and one machine, and plays <strong>referee</strong>. Its motto is blunt: <em>the kernel is the part that does not believe the agents.</em> A referee mostly says one word, <strong>no</strong>, and DOS is a handful of careful ways to say it — each the same move, a refusal backed by evidence the agent could not forge, pointed at a different question (the map below).</p>
+
+<figure class="wide">
+<img src="figs/appx_dos_syscall_map.png" alt="A map of the DOS kernel. At the center is THE DOS KERNEL ('the part that does not believe the agents'; every call is a kind of NO decided from evidence the agent did not author). Five calls branch from it: verify() — did it ship? read git, not the agent's 'done'; liveness() — is it moving or just spinning? read the git/tool stream, not 'making progress'; arbitrate() — may two agents write here at once? hand out region-locks, never double-book; refuse() — say no with a reason from a fixed checkable vocabulary; resume() — a run died, how far did the fossils get? re-enter from durable facts, not its last claim. Below sits the trust ladder: 1. ORACLE (a deterministic check that cannot be argued with) leads to 2. JUDGE (a model, only on what the oracle could not settle; advisory, fails to abstain, never to yes) leads to 3. HUMAN (the irreducible seed only a person can ground). A dotted line notes the kernel IS the oracle rung."/>
+<figcaption>Figure A2. The DOS kernel is a small set of grounded refusals — <code>verify</code>, <code>liveness</code>, <code>arbitrate</code>, <code>refuse</code>, <code>resume</code> — each answering one question from bytes the agent did not author (git history, not the agent's "done"). Below, the <strong>trust ladder</strong>: a deterministic <strong>oracle</strong> settles what it can; a model-based <strong>judge</strong> rules only on the leftovers, as advice that fails safe to "abstain"; a <strong>human</strong> is the last resort for what no machine can ground.</figcaption>
+</figure>
+
+<p>Two features keep the referee honest. <strong>The oracle goes first and cannot be argued with</strong> — "did this phase ship?" is answered from git history, a record the agent cannot rewrite to flatter itself. <strong>The model-judge is on a short leash</strong> — used only on what the oracle could not settle, only as advice (it never blocks alone), and when unsure it must say <strong>"abstain,"</strong> never "looks fine," because a model checking a model is still two things on the smeared side of the glass.</p>
+
+<h3 id="appx-three-detectors">A.3 The three detectors, lift vs. recall, and the punchline</h3>
+
+<p>This paper measures three of those refusals as <strong>detectors</strong> (defined in Table A2), each firing on a byte-clean fingerprint of failure: <code>dangling_intent</code>, <code>tool_stream</code>, <code>terminal_error</code>. They produce one triumphant number and one dismal one, both true: <strong>when they fire they are right 88–98% of the time</strong> (a <em>lift</em> of up to +22 points above the 76% base fail rate), but they <strong>catch only ~2% of failures</strong> each. Picture a smoke alarm that is 98% accurate but goes off in two of every hundred real fires: run when it sounds, but keep your other alarms. And it sharpens on the frontier — the strongest models fail <em>quietly</em> (a polished, wrong summary, no trace), so the fire-rate drifts toward zero exactly where the leaderboard lives. Quality carries; coverage shrinks.</p>
+
+<p>The punchline is <strong>detect, don't fix.</strong> In a separate live program every <em>active</em> fix came up empty or worse — <strong>warn</strong> (flat, +0.2 points), <strong>rewind</strong> (zero conversions), <strong>cure</strong> with the environment's own correction (net-negative). The harm is the intervention <em>existing in the loop at all</em>, not its content. The one survivor is the <strong>negative</strong> action, <strong>give up correctly</strong>: it fires on a repeated <em>environment-authored error</em> and, across two benchmarks and 1,600+ winners, halted <strong>zero</strong> winners while saving ~11% of compute. (A naive version that halts on any <em>repeat</em> kills six winners — one model harmlessly polling. Repeating is normal; repeating an error is the doomed signal.)</p>
+
+<figure class="wide">
+<img src="figs/appx_fix_bakeoff.png" alt="Two-panel figure. Left panel: a horizontal bar chart of the change in task-success for three active fixes — WARN re-surface (+0.20pp, flat), rewind/subtract (0, zero conversions and flips), and an injected byte-clean cure (minus 5 successes, net-negative, p=0.016) — all in red; below them, separated, a green star marks 'give up correctly' with the note '0 winners halted (K>=3), about 11% of fleet tokens saved'. Right panel: false-abandons (winners wrongly halted) versus K, the number of consecutive same-tool errors needed to halt. The naive 'repeat to halt' gate (red) falls from 18 at K=2 to 3 at K=5 but never reaches zero; the error-gated 'repeat ERROR to halt' gate (green) sits at zero for all K of 3 or more on both benchmarks, with a lone winner at K=2."/>
+<figcaption>Figure A3. The bake-off: steering a doomed loop fails, stopping it works. <strong>Left:</strong> every <em>active</em> fix runs flat (warn) to nothing (rewind) to negative (the injected cure), because each authors a turn and a turn perturbs a fragile run; only the <em>negative</em> action (green star), give up, authors nothing. <strong>Right:</strong> the error-gated halt wrongly stops <strong>zero</strong> winners at <em>K</em>&ge;3 while a naive halt-on-any-repeat never reaches zero. (From EnterpriseOps-Gym and Toolathlon, kept apart from the main detection tables.)</figcaption>
+</figure>
+
+<p>Telling a doomed loop to stop is robust; steering it to succeed is not. So the substrate detects, withholds compute when it is sure, and hands the rest to a human, rather than pretending it can fix what it can only see.</p>
+
+<h3 id="appx-where-it-ends">A.4 Where the substrate ends and a verifier begins</h3>
+
+<p>The failure that beats every detector here has no fingerprint at all: the agent runs cleanly, hits no error, contradicts nothing, and ends with a confident, polished, <em>wrong</em> summary, because it never re-read the state it claims to have changed. No byte already in the transcript reveals it; the only honest catch is to <strong>go re-read the world</strong> after the run. That is the job of the benchmark's own final judge, and the line this paper draws on purpose: an in-flight byte-clean substrate reads the evidence the environment already wrote; a <strong>final-state verifier</strong> re-reads the world to settle what no in-trace evidence can. The gap is not a flaw to hide — it <em>is</em> the boundary, where reading around the Vaseline runs out and going behind the mirror begins.</p>
+
+<h3 id="appx-notation">A.5 Notation — the symbols, decoded</h3>
+
+<p>Every symbol in one place. The body leans on <strong>J</strong> on nearly every page of the headline result and glosses it only briefly at first use; this is its full key.</p>
+
+<figure class="wide">
+<table class="wide glossary">
+  <caption>Table A1. Every symbol and short code in this paper.</caption>
+  <thead><tr><th>Symbol</th><th>Reads as</th><th>What it means, plainly</th></tr></thead>
+  <tbody>
+    <tr><td><strong>J</strong></td><td>the prevention count</td><td>An integer count of <em>real corruptions the referee caught and blocked at the root</em> — phantom writes a peer would have inherited, or overwrites a race would have caused. Not a rate, and <em>not</em> a downstream-outcome delta (that quantity is &Delta;B, Appendix&nbsp;D). "J&nbsp;=&nbsp;10" = ten real failures stopped; the whole &sect;{{sec:payoff}} result is in J. J is experiment-local &mdash; a blocked over-claim and a prevented clobber are different events &mdash; so compare J within one experiment, never across them.</td></tr>
+    <tr><td><strong>K</strong></td><td>the halt threshold</td><td>How many times the <em>same</em> tool must error <em>in a row</em> before the give-up gate proposes a stop. We use K&nbsp;=&nbsp;3 (latest still failing) — the smallest value that never killed a winner across 22 models.</td></tr>
+    <tr><td><strong>pp</strong></td><td>percentage points</td><td>The plain <em>difference</em> between two percentages: 76% to 92% is "+16&nbsp;pp", not "+21%" (the relative change). Lift is always in pp.</td></tr>
+    <tr><td><strong>db_match</strong></td><td>"database matches"</td><td>The unforgeable witness in &sect;{{sec:payoff}}: the benchmark hashes the task's database and compares it to the <em>gold</em> hash. <code>True</code> = world correct; <code>False</code> = not; absent = no database to check. The agent writes none of these bytes.</td></tr>
+    <tr><td><strong>W0&ndash;W3</strong></td><td>witness rungs</td><td>Four grades of evidence (&sect;{{sec:boundary}}): <strong>W0</strong> the agent's narration (forgeable); <strong>W1</strong> the environment acknowledged a write; <strong>W2</strong> the change <em>persisted</em> (DOS's git rung — <em>presence</em>); <strong>W3</strong> a full comparison to the correct answer (<em>correctness</em>, what <code>db_match</code> does). Only W3 settles whether the work was <em>right</em>.</td></tr>
+    <tr><td><strong>tp / fp / fn</strong></td><td>true-positive / false-positive / false-negative</td><td>A fire is a <em>true-positive</em> (run really failed) or <em>false-positive</em> (run passed — the costly false alarm); silence on a failing run is a <em>false-negative</em> (the missed silent failure). With true-negative they form the confusion grid.</td></tr>
+    <tr><td><strong>Wilson-95</strong></td><td>"Wilson 95% upper bound"</td><td>A conservative ceiling on a rate measured as zero: "Wilson-95 upper 0.0023" means the <em>true</em> rate is almost certainly below 0.23% — a guard against reading "0 out of N" as stronger than the sample supports.</td></tr>
+  </tbody>
+</table>
+</figure>
+
+<h3 id="appx-glossary">A.6 Glossary — every term, in plain words</h3>
+
+<p>Grouped by the kind of thing each is; every entry is self-contained.</p>
+
+<figure class="wide">
+<table class="wide glossary">
+  <caption>Table A2. The terms used in this paper, in plain language, grouped by topic.</caption>
+  <thead><tr><th>Term</th><th>What it means, plainly</th></tr></thead>
+  <tbody>
+    <tr><th colspan="2">The one idea, and its vocabulary</th></tr>
+    <tr><td><strong>silent failure</strong></td><td>A run that ends "successfully" by its own account but left the world wrong — no crash, no contradiction, just a confident false "done." Three runs in four fail on the hard benchmark here, nearly all of them this quietly.</td></tr>
+    <tr><td><strong>byte-clean</strong></td><td>A check that reads <em>only</em> bytes the judged agent did not write (the environment's tool results, a third-party judge) — the thing its narration cannot smear. The single rule under everything DOS does.</td></tr>
+    <tr><td><strong>byte-author</strong></td><td>Whoever produced the bytes a check reads. A check is trustworthy only when its byte-author is <em>not</em> the agent being judged.</td></tr>
+    <tr><td><strong>forgeable</strong></td><td>The opposite of byte-clean: a signal the agent <em>can</em> author and therefore wipe away (its narration is forgeable; an error envelope the mail server wrote is not).</td></tr>
+    <tr><td><strong>the Vaseline test</strong></td><td>The one-question check: <em>could the agent have written these bytes?</em> If yes, the smear (forgeable); if no, the mirror (byte-clean).</td></tr>
+    <tr><td><strong>mirror-verifier trap</strong></td><td>Checking an agent by asking it how it looks — measuring consistency (does the story hang together?), not truth (does it match the world?).</td></tr>
+    <tr><td><strong>consistency ≠ grounding</strong></td><td>Re-deriving an author's <em>own</em> bytes proves consistency; checking against a <em>different</em> author's bytes proves grounding. Only grounding crosses the trust floor.</td></tr>
+
+    <tr><th colspan="2">The referee — DOS and its parts</th></tr>
+    <tr><td><strong>DOS</strong></td><td>Dispatch Operating System: the small trusted referee between many agents and the one shared world they change; it believes none of their self-reports.</td></tr>
+    <tr><td><strong>kernel</strong></td><td>The small trusted core — the referee itself — as opposed to the agents it watches. "The part that does not believe the agents."</td></tr>
+    <tr><td><strong>oracle</strong></td><td>A deterministic check that cannot be argued with (git history says a phase shipped, or it didn't). Always tried first.</td></tr>
+    <tr><td><strong>third-party oracle</strong></td><td>The benchmark's own pass/fail judge, authored by the benchmark not DOS — a verdict DOS cannot fake. Every detector here is scored against one.</td></tr>
+    <tr><td><strong>judge</strong></td><td>A model-based check, used only on what the oracle could not settle. Advisory; says "abstain" when unsure; never blocks on its own.</td></tr>
+    <tr><td><strong>ORACLE → JUDGE → HUMAN</strong></td><td>The trust ladder: a deterministic oracle settles what it can, a model-judge rules only on the leftovers as advice that fails safe to "abstain", a human is the last resort.</td></tr>
+    <tr><td><strong>abstain</strong></td><td>The safe non-answer: when evidence is missing, a check says "abstain" rather than guess. It can refuse on proof but never <em>affirms</em> without it; abstain always means admit.</td></tr>
+    <tr><td><strong>advisory</strong></td><td>A check that <em>reports</em> a verdict but does not <em>enforce</em> it. Everything measured here is advisory; nothing kills a run on its own.</td></tr>
+    <tr><td><strong>detector / fire</strong></td><td>A check that "fires" on a byte-clean fingerprint of failure; fire-rate = how often it flags, as a fraction of all runs.</td></tr>
+    <tr><td><strong>structured error envelope</strong></td><td>The specific <em>shape</em> of an environment-authored failure (a crash, a 5xx, a permission-denied) that <code>terminal_error</code> matches — not merely the <em>word</em> "error" in a result. Matching the shape keeps false alarms near zero.</td></tr>
+
+    <tr><th colspan="2">Where you spend the verdict</th></tr>
+    <tr><td><strong>in-loop</strong></td><td>Spending a verdict <em>back on the agent that earned it</em> (warn, rewind, correct). Flat-to-harmful here, because adding any turn disturbs a run that might have passed.</td></tr>
+    <tr><td><strong>out-of-loop</strong></td><td>Spending the <em>same</em> verdict on <em>anyone but</em> that agent — a peer, the operator, a training set. Where it pays: correcting a peer's input injects nothing back.</td></tr>
+    <tr><td><strong>claim (failure)</strong></td><td>The first way a fleet fails: one agent announces a write that did not land, and a peer inherits that false "done" as truth.</td></tr>
+    <tr><td><strong>race (failure)</strong></td><td>The second way a fleet fails: two agents touch the same state at once and one silently overwrites the other. No one lied; the state is wrong anyway.</td></tr>
+    <tr><td><strong>write-admission gate</strong></td><td>The out-of-loop referee for a <em>claim</em>: it checks A's announcement against a byte A could not author before a peer inherits it — admitting a real write, blocking a phantom.</td></tr>
+    <tr><td><strong>over-claim / phantom write</strong></td><td>An agent announcing a successful change the world's own record says did not land. What the write-admission gate catches.</td></tr>
+    <tr><td><strong>clobber / lost update</strong></td><td>What a race causes: a second agent's write lands on top of a first's, erasing it, because the second never saw the first. What the arbiter prevents.</td></tr>
+    <tr><td><strong>lease / region / lane</strong></td><td>A <em>region</em> is a named patch of shared state (e.g. <code>reservations/&lt;id&gt;</code>); a <em>lease</em> is a temporary exclusive hold. Two agents wanting overlapping regions cannot both hold one.</td></tr>
+    <tr><td><strong>arbiter / arbitrate</strong></td><td>The referee for a <em>race</em>: it hands out region leases and refuses a second agent's lease while a first holds an overlapping one, so the writes <em>serialize</em>.</td></tr>
+    <tr><td><strong>serialize</strong></td><td>To force two would-be-simultaneous writes into a strict order, so the second acts on the first's result instead of clobbering it.</td></tr>
+    <tr><td><strong>half-plane</strong></td><td>One of the two distinct ways a fleet fails (a claim and a race); the paper's symmetry is one referee covering both off the same witness.</td></tr>
+    <tr><td><strong>existence result</strong></td><td>A claim stated no wider than "this happens and we caught it N times," not "X% everywhere." &sect;{{sec:payoff}} proves the gate catches real over-claims live, not that 8.3% is universal.</td></tr>
+
+    <tr><th colspan="2">The give-up result</th></tr>
+    <tr><td><strong>DETECT vs FIX</strong></td><td>Spotting a failure vs repairing it. This paper measures DETECT only. The one FIX-adjacent action that helped was the negative one — give up correctly.</td></tr>
+    <tr><td><strong>give up correctly</strong></td><td>Stop a doomed run and re-spend its token budget elsewhere. Authors no new turn, so it perturbs nothing — the only in-loop action that paid off.</td></tr>
+    <tr><td><strong>false-abandon</strong></td><td>The give-up gate's one costly mistake: halting a run that <em>would</em> have succeeded. The number that has to be zero — and is, at K&nbsp;=&nbsp;3.</td></tr>
+    <tr><td><strong>specificity vs sensitivity</strong></td><td><em>Specificity</em>: when it fires, it never halts a winner (the half we have, across 22 models). <em>Sensitivity</em>: it fires often enough to catch most doomed runs (the half we do not — quiet on silent failures).</td></tr>
+    <tr><td><strong>circuit breaker / SPRT / CUSUM</strong></td><td>Three classic "stop after repeated trouble" mechanisms — a circuit breaker (trip a failing component after too many faults), SPRT (decide as evidence arrives), CUSUM (watch a running tally for a change). The give-up gate is a corner of each; only its byte-clean <em>grounding</em> and measured threshold are new.</td></tr>
+
+    <tr><th colspan="2">Measuring a detector</th></tr>
+    <tr><td><strong>precision / recall / lift</strong></td><td>When it fires, how often it is right (ours: 88–98%); of all failures, how many it caught (ours: ~2% each, ~6% combined); and lift = precision − the 76.2% base fail rate, the "better than guessing" part we read throughout instead of raw precision.</td></tr>
+    <tr><td><strong>false-alarm rate</strong></td><td>Of all the runs that actually <em>passed</em>, how often the detector wrongly flagged one — the costly mistake (cry wolf and an operator stops listening). Ours: near zero.</td></tr>
+    <tr><td><strong>net-new / additivity</strong></td><td>A catch a detector makes that the others did <em>not</em>, so adding it raises coverage instead of re-finding the same failures. <code>terminal_error</code> is 99% net-new.</td></tr>
+    <tr><td><strong>union (pair / trio)</strong></td><td>Treating a <em>set</em> of detectors as one (caught if <em>any</em> fires): the <em>pair</em> is the first two, the <em>trio</em> all three.</td></tr>
+    <tr><td><strong>operating point</strong></td><td>A classifier's dial setting trading eagerness-to-fire against false alarms. A trained classifier has no setting that both fires usefully <em>and</em> stays trustworthy on a task it was not trained for.</td></tr>
+
+    <tr><th colspan="2">Systems and benchmarks named in the body</th></tr>
+    <tr><td><strong>Toolathlon</strong></td><td>The hard benchmark behind the offline replay study (every section except &sect;{{sec:payoff}}): long tasks over 600+ real tools across 32 apps, with its own pass/fail oracle re-reading the real app state. DOS replays its published recordings.</td></tr>
+    <tr><td><strong>trajectory / replay</strong></td><td>A <em>trajectory</em> is one agent's recorded transcript on one task; <em>replay</em> is running the detectors over those frozen recordings offline ($0) — which is why the study measures DETECT, never FIX.</td></tr>
+    <tr><td><strong>tau2-bench</strong></td><td>The live benchmark in &sect;{{sec:payoff}} (airline/retail customer service), the right target because it ships <code>db_match</code> — the database-hash witness the agent cannot author.</td></tr>
+    <tr><td><strong>EnterpriseOps-Gym</strong></td><td>The live benchmark for the &sect;{{sec:giveup.activefix}} bake-off (a ServiceNow gym with hidden database checks), used because an active fix can only be measured by replaying it into a <em>live</em> agent.</td></tr>
+    <tr><td><strong>Gemini (flash / pro)</strong>, <strong>grok-4</strong></td><td>The models run live in &sect;{{sec:payoff}} (<code>gemini-2.5-flash</code> mid, <code>gemini-2.5-pro</code> stronger) and the one that exposed the naive gate's flaw by harmlessly polling (grok-4).</td></tr>
+    <tr><td><strong>SMTP / 5xx / API error</strong></td><td>Ordinary failure shapes the environment reports (a mail-server "no", a server-side HTTP error, a transient call failure) — all environment-authored bytes the agent cannot talk away.</td></tr>
+
+    <tr><th colspan="2">The boundary and beyond</th></tr>
+    <tr><td><strong>final-state verifier</strong></td><td>A check that re-reads the live world after a run to catch the confident-but-wrong ending no in-trace evidence reveals. The boundary where an in-flight detector ends and &sect;{{sec:payoff}}'s out-of-loop re-read begins.</td></tr>
+    <tr><td><strong>RLVR / poison reward label</strong></td><td>RLVR = Reinforcement Learning from Verifiable Rewards. A <em>poison reward label</em> is an over-claim a self-judged loop banks as a <em>win</em>, teaching the model to over-claim more; &sect;{{sec:payoff.scope}}'s gate purges them off ground truth.</td></tr>
+  </tbody>
+</table>
+</figure>
+
+<p>The companion engineering write-up for this appendix — with the same diagrams and the "why doesn't the lift carry over?" walk-through — lives at <code>benchmark/toolathlon/EXPLAINER.md</code> and <code>GLOSSARY.md</code> in the DOS repository.</p>

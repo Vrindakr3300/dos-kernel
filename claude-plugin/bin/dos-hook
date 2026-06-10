@@ -1,0 +1,63 @@
+#!/bin/sh
+# dos-hook — the POSIX launcher for the native DOS hook fast-path (docs/125 GHF4).
+#
+# The plugin's hooks.json calls THIS (via ${CLAUDE_PLUGIN_ROOT}/bin/dos-hook) on
+# every tool call. It picks the right per-arch binary bundled alongside it and execs
+# it; if no binary is present for this OS/arch (or the build was skipped), it falls
+# through to the always-available Python verb — the docs/100 fallback discipline, so
+# no machine is ever blocked. A static no-cgo Go binary serves the decision in ~10 ms
+# vs ~0.3-0.8 s of Python interpreter cold-start.
+#
+# The FIRST arg is the hook verb (pretool|posttool|stop); the rest are flags
+# (--workspace ., etc.) passed through unchanged. The binary itself owns the
+# fallback for a verb it does not serve natively (it exits 3=DELEGATE and the
+# hooks.json `|| python -m dos.cli hook ...` runs Python), so this launcher only has
+# to find a binary for THIS arch — it does not need to know which verbs are native.
+
+# Resolve the directory this launcher lives in (the plugin's bin/), POSIX-portable.
+SELF_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+os=$(uname -s 2>/dev/null || echo unknown)
+arch=$(uname -m 2>/dev/null || echo unknown)
+
+# Map uname's OS to the GOOS token the build_hook_binary.py matrix emits. Claude
+# Code runs a `shell: bash` hook through Git Bash on Windows, where `uname -s` is
+# `MINGW64_NT-…` (or `MSYS_NT-…`/`CYGWIN_NT-…`) — so the Windows case MUST be
+# recognised here, else the launcher misses the bundled `dos-hook-windows-amd64.exe`
+# and falls back to Python, defeating the whole native fast-path on Windows.
+case "$os" in
+  Linux)              goos=linux ;;
+  Darwin)             goos=darwin ;;
+  MINGW*|MSYS*|CYGWIN*) goos=windows ;;
+  *)                  goos=unknown ;;
+esac
+case "$arch" in
+  x86_64|amd64)  goarch=amd64 ;;
+  arm64|aarch64) goarch=arm64 ;;
+  *)             goarch=unknown ;;
+esac
+
+# Windows binaries carry the .exe suffix the build matrix gives them; POSIX do not.
+ext=""
+[ "$goos" = windows ] && ext=".exe"
+bin="$SELF_DIR/dos-hook-$goos-$goarch$ext"
+
+if [ -x "$bin" ]; then
+  exec "$bin" "$@"
+fi
+
+# No native binary for this arch (or not built) — fall back to the Python verb.
+# `exec` so the hook's exit code is Python's. The first arg is the verb; the rest
+# are the flags. A missing `python` makes `exec` fail, which the hooks.json `||`
+# would normally catch — but this launcher is itself behind that `||` only when it
+# is ABSENT (exit 127); when it is PRESENT it owns the fallback, so try python here
+# and, if THAT is missing too, exit 0 (the hook fail-safe: never break a turn).
+verb=$1
+[ $# -gt 0 ] && shift
+if command -v python >/dev/null 2>&1; then
+  exec python -m dos.cli hook "$verb" "$@"
+elif command -v python3 >/dev/null 2>&1; then
+  exec python3 -m dos.cli hook "$verb" "$@"
+fi
+# Neither a native binary nor Python — emit nothing, exit 0 (fail-safe).
+exit 0

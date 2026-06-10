@@ -1,0 +1,223 @@
+<h2 data-sec="payoff">An out-of-loop referee, run live, that pays on both fleet failures</h2>
+
+<p>Take a verdict the agent cannot forge and spend it <strong>out of the producing agent&rsquo;s
+loop</strong>, on a consumer that is <em>not</em> the agent that earned it &mdash; one whose input you may correct, because correcting it injects nothing
+back &mdash; and it stops being overhead and prevents real damage. We built two such consumers
+and ran them live, against the two ways a fleet fails: a single agent&rsquo;s <strong>claim</strong>
+(&sect;{{sec:payoff.witness}}&ndash;{{sec:payoff.secondmodel}}) and two agents&rsquo;
+<strong>race</strong> (&sect;{{sec:payoff.race}}). Both read the same non-forgeable byte, both are
+refusals, neither touches the judged agent. The value is not in <em>finding</em> more &mdash; it is in
+<em>where you spend what you find</em>.</p>
+
+<p>The first consumer is a <strong>write-admission gate</strong>. Agent&nbsp;A announces
+&ldquo;done&rdquo;; a downstream peer&nbsp;B is about to build on whatever A changed. Naively B
+<em>believes</em> A and compounds any error. The gate sits between them: before B inherits A&rsquo;s
+write, it checks A&rsquo;s claim against a byte A could not author, and admits or blocks. Blocking
+B&rsquo;s <em>input</em> writes nothing into A&rsquo;s loop, so the in-loop harm of
+&sect;{{sec:giveup.activefix}} is structurally absent &mdash; the whole reason to choose this
+consumer.</p>
+
+<h3 data-sec="payoff.witness">The target and the witness</h3>
+
+<p>We run on <strong>tau2-bench</strong> (the airline / retail customer-service benchmark from
+sierra-research), driving the agent and user-simulator with <code>gemini-2.5-flash</code>. tau2 ships
+the byte we need: after a run the harness compares a hash of the task's database against the gold hash
+(<code>db_match = gold.get_db_hash() == predicted.get_db_hash()</code>). The database is mutated only
+through the environment's tool executor and the hash is computed by the evaluator, so the agent authors
+<strong>zero</strong> bytes of it. And it grades correctness, not just presence: a reservation booked
+<em>successfully</em> but <em>wrong</em> still fails <code>db_match</code> &mdash; the W3-grade witness
+(the top rung of the W0&ndash;W3 evidence ladder, &sect;{{sec:boundary}}) an in-flight detector can
+never reach.</p>
+
+<p>The gate's logic is small and byte-clean: extract whether A's final message <em>claims a successful
+write</em> (the forgeable self-report), read <code>db_match</code> (the unforgeable witness), and admit
+unless the claim is confident <em>and</em> the witness refutes it. With no witness, the gate
+<strong>abstains</strong> &mdash; admits rather than invents a verdict, the same fail-to-abstain
+discipline as the ORACLE&rarr;JUDGE&rarr;HUMAN ladder. We score with one integer, <strong>J</strong>:
+real corruptions the referee blocks off ground truth (over-claims the hash refutes, or clobbers the
+arbiter prevents). It never counts an honest write or a witness-less task.</p>
+
+<h3 data-sec="payoff.noshow">A frozen over-claim slice catches nothing through a live policy</h3>
+
+<p>Replaying the over-claim slice the offline study already sized &mdash; a frozen 13.6% of tau2-style
+runs where a previous policy claimed a write ground truth refuted &mdash; through the live gate caught
+nothing: <strong>J&nbsp;=&nbsp;0.</strong> Those over-claims were a property of <em>whatever policy
+produced that recording</em>, not of the task. A capable model on a fresh rollout does not reproduce
+those specific mistakes-with-confidence, and the slice was dominated by &ldquo;refuse a disallowed
+action&rdquo; tasks where the correct behaviour is to write <strong>nothing</strong>. The live policy
+still <em>failed</em> a third of them, but failed <em>honestly</em>, never claiming a success it did
+not earn. A frozen over-claim slice replayed through a capable policy yields no payoff because the
+over-claims evaporate &mdash; the exact dual of the silent-failure ceiling in &sect;{{sec:boundary}}:
+there a capable model leaves no byte to catch; here it leaves no over-claim to catch, on a distribution
+that does not demand a write.</p>
+
+<h3 data-sec="payoff.writes">The result, on a distribution that actually writes</h3>
+
+<p>So we drew a <strong>fresh, write-heavy natural sample</strong>: the first 25 tasks of each domain,
+run live, where real cancellations and exchanges happen and a fumble shows up as a wrong database. Of
+50 tasks, 43 ran clean (7 long retail dialogues hit transient API 5xx errors and are dropped from the
+denominator, never counted as passes).</p>
+
+<figure class="wide" data-fig="writeadmit">
+  <img src="figs/payoff_writeadmit_live.png"
+       alt="Two panels. Left: two bars comparing the payoff J. Run A — the frozen 13.6% over-claim slice replayed through the live policy — is J=0; a caption notes the over-claims evaporate because a capable policy on refusal-heavy tasks makes no confident wrong write. Run B — a fresh write-heavy natural sample — is J=5, the real payoff, five over-claims blocked off the environment database hash. Left caption: same gate, same witness, same model, opposite J; the difference is the task distribution. Right: Run B's ledger — a stacked bar of 14 confident writes splits into 9 correct writes (db_match true) that were admitted in green and 5 over-claims (db_match false) that were blocked in red, the 5 being J. Beside it the per-domain over-claim rate: airline 4 of 25 = 16.0%, retail 1 of 18 = 5.6%, combined 11.6%, with a note that the frozen-slice estimate was 13.6% — live is close to frozen but now causal.">
+  <figcaption>Figure&nbsp;{{fig:writeadmit}}. The live write-admission result. <strong>Left:</strong>
+  same gate and witness, opposite J by task distribution &mdash; the frozen refusal-heavy slice
+  (Run&nbsp;A) catches nothing, a fresh write-heavy sample (Run&nbsp;B) blocks five real over-claims.
+  <strong>Right:</strong> sound both ways &mdash; of 14 confident writes, all 9 correct admitted and all
+  5 phantoms blocked, at an 11.6% natural rate (offline estimate: 13.6%).</figcaption>
+</figure>
+
+<p>On that sample the live policy produced 14 confident write-claims: nine correct
+(<code>db_match</code> true, all <strong>admitted</strong>), five over-claims (<code>db_match</code>
+false, all <strong>blocked</strong>). <strong>J&nbsp;=&nbsp;5</strong> &mdash; each a phantom write a
+peer would inherit as truth under <em>believe</em> but never under <em>adjudicate</em>. A representative
+one, verbatim:</p>
+
+<blockquote><em>&ldquo;Your reservation M05KNL has been successfully updated &hellip;&rdquo;</em>
+&nbsp;&mdash;&nbsp; <code>db_match = False</code> &nbsp;&rarr;&nbsp; <strong>blocked.</strong> The
+database hash says the update did not land; the gate refuses to let that &ldquo;success&rdquo;
+propagate.</blockquote>
+
+<p>The natural over-claim rate is 16.0% on airline (4 of 25) and 5.6% on retail (1 of 18) &mdash; one
+real retail over-claim, so the effect is not airline-only &mdash; combined 11.6% (5 of 43), right next
+to the 13.6% the offline study sized but now <em>live and causal</em>: writes a real policy over-claimed
+and the gate blocked, not a rate re-scored off a log.</p>
+
+<h3 data-sec="payoff.secondmodel">A second model: the over-claim does not shrink at the stronger tier</h3>
+
+<p>The obvious objection: maybe only a weak policy over-claims and a capable one gets these tasks right
+(the same silent-failure ceiling of &sect;{{sec:boundary}}). So we ran the <em>identical</em> gate,
+witness, and sample on a stronger model (<code>gemini-2.5-pro</code>). To compare the tiers evenly we
+drew a fresh, fuller sample for both: the first <strong>30</strong> tasks of each domain (60 per
+model), run clean end-to-end, and
+<strong>both ran 60 of 60 with zero API errors.</strong> (This is why flash here reads
+J&nbsp;=&nbsp;5 of 60 = 8.3% rather than &sect;{{sec:payoff.writes}}&rsquo;s 5 of 43 = 11.6%: a fresh
+run over a wider, cleaner denominator. J lands at five again, but only two of the five blocked tasks
+recur &mdash; the over-claim is a stable <em>rate</em>, not a fixed set of tasks,
+&sect;{{sec:payoff.scope}}.)</p>
+
+<figure class="wide" data-fig="crossmodel">
+  <img src="figs/payoff_writeadmit_crossmodel.png"
+       alt="A grouped bar chart comparing two models on the same write-admission task. For gemini-2.5-flash: 9 confident writes, 5 blocked over-claims (J=5), over-claim rate 8.3%. For gemini-2.5-pro: 17 confident writes, 5 blocked over-claims (J=5), over-claim rate 8.3% — identical to flash. A combined bar shows J=10 over 120 clean tasks, 9 of 9 confirmed honest writes admitted on both models, over-claim rate 8.3%. An annotation marks one task — airline 1 — that fails the witness on BOTH models and is blocked on both (the most reproducible signal in the set).">
+  <figcaption>Figure&nbsp;{{fig:crossmodel}}. The same gate on two models. The over-claim rate is
+  <strong>identical across the capability step &mdash; 8.3% on both flash and pro</strong> (5 of 60
+  each), combined J&nbsp;=&nbsp;10 over 120 tasks. The stronger model makes nearly twice the confident
+  writes (17 vs 9) yet still over-claims on five; airline&nbsp;1 fails on <em>both</em> models.</figcaption>
+</figure>
+
+<p>The result: <strong>J&nbsp;=&nbsp;10 over 120 clean tasks</strong> (five blocked over-claims on
+each model), with <strong>all nine confirmed honest writes admitted</strong> (three on flash, six on
+pro). And the number that answers the objection directly is the over-claim rate, which comes out
+identical across the two tiers: <strong>8.3% on flash and 8.3% on pro</strong> &mdash; 5 of 60 each.
+An exact tie is small-sample luck; what the data support is the direction: the rate does <em>not</em>
+shrink as the model gets stronger. The stronger policy is genuinely more capable &mdash; nearly twice the confident writes,
+more of them correct &mdash; yet it still over-claims on five, and the gate blocks all five off the
+same witness. One task (airline&nbsp;1) fails on <em>both</em> models, blocked on both. This is the
+dual of &sect;{{sec:boundary}} holding the <em>other</em> way: where a stronger model erases the
+<em>in-loop</em> detector&rsquo;s signal, it does <em>not</em> erase the <em>out-of-loop</em>
+over-claim the world-byte refutes. Re-deriving each cached verdict from the stored message recovered a
+pro over-claim that a naive sum of the cached bits had missed &mdash; a stored result reads as clean
+unless you re-derive it from the byte you cannot forge, the same principle turned on our own
+pipeline.</p>
+
+<p>Three further results in <strong>Appendix&nbsp;D</strong> strengthen this existence claim: the
+identical gate on a richer witness (Agent-Diff&rsquo;s structured state-diff) reproduces the detection
+result and gives the first &Delta;B measurement (D.1); a frontier model in the verifier&rsquo;s seat
+against a <em>ladder</em> of non-forgeable rungs is fooled by a path-touching stub at the file-counting
+rung but held at zero by the rung that has the OS run the code (D.2); and the payoff compounds
+F<sup>D</sup> across a live fan-out fleet (D.3).</p>
+
+<h3 data-sec="payoff.race">The other half-plane: a referee <em>between</em> two agents</h3>
+
+<p>Everything so far distrusts a <em>claim</em>. The second place a fleet needs a referee distrusts a
+<em>race</em>: two agents touch the same state concurrently, the second's write lands on top of the
+first's without seeing it, and an update is silently lost &mdash; no one lied, yet the shared state is
+wrong. The offline study could only measure this as a <em>rate</em> (how often two writes collide);
+here we measure the <em>payoff</em> (how many corruptions a referee prevents) on the same witness.</p>
+
+<p>We build the smallest honest instance on the tau2 airline database: two live agents pinned to the
+<em>same reservation</em>&nbsp;R, A1 to cancel and A2 to add a bag. (One trap caught before spending:
+each task's user identity must be R's <em>real owner</em>, or a correct agent rightly refuses to touch a
+stranger's booking and the conflict never fires.) <strong>Naively</strong> both writes apply against the
+original database &mdash; A2, never having seen the cancel, adds a bag to a now-cancelled reservation,
+leaving it incoherent. <strong>Serialized</strong>, A2 is re-run <em>after</em> A1 commits, sees R
+already cancelled, and does nothing. The policy is one line: a reservation is a region
+<code>reservations/&lt;id&gt;</code>, and the arbiter refuses the second lease on it until the first
+releases.</p>
+
+<figure class="wide" data-fig="coord">
+  <img src="figs/coord_payoff_live.png"
+       alt="Two panels. Left: the eight-conflict-pair ledger. A stacked bar shows 6 clobbers PREVENTED by the arbiter in green (this is J) plus 2 honest non-clobbers in grey. A note explains a canonical clobber: A1 cancels reservation R, A2 (never saw the cancel) adds a bag to R so the naive compose corrupts the database, A2 re-run after A1 does nothing so it stays coherent, and the arbiter refusing A2's lease on reservations/R means the clobber never lands. The two honest J=0 cases are VAAOXJ where the agent declined, and 1OWO6T which was run-to-run variance the directional-J fix excludes (the live run took J from 7 to an honest 6). The arbiter serialized 8 of 8 pairs. Right: the symmetric pair — both DOS value half-planes now measured live off the same database hash: referee-over-claims at J=5 per model, and referee-between-agents at J=6 here. Both are a payoff, not a rate; both refuse rather than author; both read a byte the agent cannot write.">
+  <figcaption>Figure&nbsp;{{fig:coord}}. The coordination payoff, run live. <strong>Left:</strong>
+  over eight conflict pairs the arbiter prevented <strong>six</strong> real lost-update clobbers and
+  serialized all 8, each witnessed by the database hash; two pairs are honest non-clobbers (one agent
+  declined the bag, the other was run-to-run variance a <em>directional</em> definition excludes).
+  <strong>Right:</strong> the two value half-planes off the <em>same</em> witness &mdash; over-claim
+  (J&nbsp;=&nbsp;5) and race (J&nbsp;=&nbsp;6).</figcaption>
+</figure>
+
+<p>Over eight conflict pairs the arbiter prevented <strong>six</strong> real clobbers
+(<strong>J&nbsp;=&nbsp;6</strong>) and serialized all eight. The two non-clobbers are the honest part
+of the result. In one (VAAOXJ) the live agent <em>declined</em> to add the bag, so there was no stale
+write to clobber. The other (1OWO6T) exposed our own measurement bug: our first clobber definition
+(&ldquo;naive and serialized hashes differ&rdquo;) fired on that pair only because the serialized agent
+mutated <em>more</em> &mdash; run-to-run variance, not a lost update. We tightened it to be
+<em>directional</em> (the second agent must apply, in the naive arrangement, a stale write the
+serialized agent did not), dropping that pair to zero. <strong>The live run took the headline from a
+reported 7 to an honest 6</strong> &mdash; the same discipline turned on our own number. (A later run
+reproduces the effect: J&nbsp;=&nbsp;9 across 10 fresh pairs.)</p>
+
+<p>This and the over-claim gate are the <em>same</em> move &mdash; an out-of-loop referee reading a
+byte the agent cannot author &mdash; aimed at the two different things a fleet gets wrong: a single
+agent&rsquo;s <em>claim</em> and two agents&rsquo; <em>race</em>. The offline collision study and this
+one report different quantities: rate says how often two agents collide in real traffic, payoff says
+how many corruptions the referee prevents when it acts. Both come off ground truth.</p>
+
+<h3 data-sec="payoff.scope">What this is, and what it is not</h3>
+
+<p>This is a measured <em>existence</em> result, stated no wider than the evidence. Across <strong>two
+models on 120 clean tasks</strong> (zero API errors), an out-of-loop write-admission gate blocked
+<strong>ten</strong> genuine live over-claims off a non-forgeable witness while admitting every one of
+the nine correct writes, at an identical 8.3% rate across the capability step. The honest edges:</p>
+
+<ul>
+  <li><strong>Existence result, not a calibrated rate.</strong> The matching 8.3% is one capability
+  step within one model family, and each leg is 5 of 60 (Wilson-95 interval 3.6%&ndash;18.1%) &mdash;
+  evidence the rate does <em>not shrink</em> at the stronger tier, not that 8.3% travels to every
+  frontier model. (A saturation sweep over the whole tau2 universe, {{fact:saturation_tasks}} clean
+  tasks, finds J&nbsp;=&nbsp;{{fact:j_saturation}} and a lower whole-distribution rate of
+  {{fact:saturation_rate}}: the over-claim concentrates where writes are confidently botched, not
+  uniformly.)</li>
+  <li><strong>The witness is sound, not complete.</strong> <code>db_match</code> catches a wrong
+  end-state but not a goal with no database footprint &mdash; the W3 residue of &sect;{{sec:boundary}};
+  where there is no witness the gate abstains.</li>
+  <li><strong>Run-to-run, not per-task.</strong> The user-simulator drives different dialogues each
+  time, so J is a property of a <em>distribution of rollouts</em>, not a fixed label &mdash; airline&nbsp;1
+  the stable exception recurring across both models.</li>
+  <li><strong>The downstream &Delta;B is a fragile floor.</strong> The Agent-Diff measurement
+  (Appendix&nbsp;D) is positive on flash and zero on pro &mdash; the predicted behaviour of a one-hop
+  cost against a self-recovering peer, which is why we score the gate with J (corruptions blocked), not
+  &Delta;B (the marginal rescue).</li>
+  <li><strong>A third consumer is a training lab.</strong> The same witness, claim-extractor, and
+  abstaining floor re-aim at a reward-set admission filter: each of those five over-claims is
+  a <em>poison reward label</em> a self-judged reward loop banks as a win, teaching the model to
+  over-claim <em>more</em>. Scoring the reward against the database hash instead &mdash; the
+  verifiable-reward discipline &mdash; purges all five (accepted-label purity
+  60%&nbsp;&rarr;&nbsp;100% on the 15 confident write-bids the two live runs of
+  &sect;{{sec:payoff.noshow}}&ndash;{{sec:payoff.writes}} produced, de-duplicated) &mdash; a model can still earn an accepted
+  label by making the write land, but cannot <em>narrate</em> its way to one. The trained-behaviour
+  delta is left reproducibly set up but not measured to a weight update.</li>
+  <li><strong>The coordination result is a constructed conflict with live agents.</strong> The
+  contention is designed (both agents pinned to the same reservation), but <em>how</em> each acts is the
+  live policy&rsquo;s decision, and J counts state corruption, not wasted effort. Like the over-claim
+  arm it is an existence result.</li>
+</ul>
+
+<p>&sect;{{sec:giveup.activefix}} shows that spending a verdict <em>inside</em> the producing loop is
+harmful regardless of how clean the correcting byte is; this section shows the dual: spend the
+<em>same</em> verdict <em>outside</em> that loop and it pays. The kernel earns one action in-loop (give
+up, &sect;{{sec:giveup}}) and two out-of-loop &mdash; refuse to inherit a phantom write
+(&sect;{{sec:payoff.witness}}&ndash;{{sec:payoff.secondmodel}}) and refuse to let a race clobber shared
+state (&sect;{{sec:payoff.race}}) &mdash; both settled by the same non-forgeable witness, aimed at the
+two different things a fleet gets wrong. That symmetry is the result.</p>

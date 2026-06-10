@@ -1,0 +1,68 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/03_boundary.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{The boundary that forces it: why the same verdict is harmful in-loop}\label{sec:boundary}
+
+\cref{sec:payoff} spent the verdict \emph{out} of the producing loop because the alternative does
+not work: handed \emph{back} in, the same verdict is flat-to-harmful. By ``in-loop'' we mean
+\emph{where the verdict is spent}, not how it was measured. To measure it honestly we ran a live A/B
+(EnterpriseOps-Gym, real Gemini against the gym's hidden database verifiers) --- you cannot replay
+an intervention into a recording and watch the agent react. \cref{sec:giveup-activefix} reports that
+bake-off: every active fix that writes a turn back into the judged loop (warn, rewind, feed the
+environment's own correction) came back flat or net-negative. So ``detect, not fix
+\emph{in-loop}'' is a finding we measured, not a feature we ran out of time to build; the one
+in-loop action that paid off was the negative one (\cref{sec:giveup}).
+
+Why an active fix is so hard shows in what slips past the detectors. The dominant residual failure
+is \emph{confidently-wrong content}: the agent finishes with no error and no loop, having never
+re-read the state it claims to have changed --- it says ``done'' about a world it never
+checked, and nothing inside the trajectory gives it away. To catch that you need a byte the agent did
+not write: you have to go look at the real world again after the fact. That is exactly the rung
+Toolathlon's own \code{evaluation/main.py} oracle occupies --- which is why the work
+splits into two tiers. \textbf{Tier~A} is cheap in-loop detection (the three detectors,
+read offline off the recording), supporting one safe action, the give-up of \cref{sec:giveup}
+(whose payoff is measured live, because a withheld turn changes what the run spends).
+\textbf{Tier~B} is the live, paid, out-of-loop re-read against a fresh third-party byte
+--- the headline of \cref{sec:payoff}, spent on a downstream consumer's input rather than
+back in the judged loop. Three benchmarks appear, each chosen for the one thing it can witness;
+\cref{tab:benchmarks} is the map.
+
+\begin{table}[t]
+  \centering
+  \caption{\cref{tab:benchmarks}. Which benchmark carries which claim, and why
+that one. A frozen corpus can be re-scored offline (\$0) but can only give a detection
+\emph{rate}; a live API run gives an intervention \emph{payoff} but costs money and
+varies run-to-run. The claim dictates the target.}
+  \label{tab:benchmarks}
+  \begin{tabular}{llll}
+    \toprule
+    Benchmark & Mode & The witness it owns & Claim it carries \\
+    \midrule
+    \textbf{Toolathlon} & frozen replay, \$0 & a third-party oracle (\code{evaluation/main.py}) over 22 models & detection precision/recall + the in-loop ceiling (\cref{sec:bench}--\cref{sec:result}); the give-up specificity (\cref{sec:giveup}) \\
+    \textbf{EnterpriseOps\&\#8209;Gym} & live A/B, paid & the gym's own hidden database verifiers, with the agent live to react & the in-loop bake-off --- every active fix flat-to-harmful (\cref{sec:giveup-activefix}); the give-up token saving \\
+    \textbf{tau2-bench} & live, paid & a gold-vs-actual database hash (W3: correctness, not presence; agent authors zero bytes) & the out-of-loop payoff --- over-claims blocked + races serialized (\cref{sec:payoff}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+There is a reason we cannot do this on one benchmark. A detection \emph{rate} needs a large
+frozen corpus you can score for free, but an intervention \emph{payoff} (in-loop or out) can only
+be measured by changing a live run and watching what happens, which a recording physically cannot
+show. So Toolathlon sizes the ceiling, and the two live benchmarks measure what acting on a verdict
+is worth on each side of the loop.
+
+One refinement makes the ceiling sharper. A verifier's rung is \emph{graded}: the weakest witness
+is the agent's narration (W0), then the environment acknowledging a write (W1), then a check the change
+\emph{persisted} (W2), then a full diff against the gold answer (W3). DOS's own check --- ``did the
+change show up in git?'' --- is W2: it confirms presence, not correctness. And about 38\% of frontier
+\emph{goals} reach \emph{no} sound witness at any rung --- their correct end-state leaves no
+checkable invariant, so short of a human no fresh byte settles whether the agent was right. That floor,
+below even Tier~B, marks the honest edge of how far any detector can reach.
+
+Detection in-loop is cheap, precise, and bounded, yet every attempt to \emph{act} on it in-loop
+is flat-to-harmful. Both facts push the same way: take the verdict the agent cannot forge and spend it
+\emph{out} of that agent's loop, where acting on it costs the producing run nothing. The next
+two sections supply the evidence: the one in-loop action that survives (\cref{sec:giveup}), and the
+byte-clean detector whose precise, narrow signal makes the ceiling measurable (\cref{sec:bench}).

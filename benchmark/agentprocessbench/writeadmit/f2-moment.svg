@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" role="img" aria-label="The DOS coordination payoff: a stale write clobbering a cancellation, then prevented. Two live agents act on one shared reservation NM1VX1, each having planned its tool-calls against the same original state, neither aware of the other. A1 cancels the reservation and the DB-hash moves to a3f1…afterA1. Under NAIVE replay, A2's add-bag — computed on the original active state — blindly re-activates the reservation and adds a bag, silently overwriting A1's cancellation; the composed hash 77c2…naive is a real lost update. Under the ARBITER, dos.arbiter leases the region reservations/NM1VX1 to A1, refuses A2's overlapping lease until A1 releases, and A2 re-plans against the post-A1 cancelled state and correctly declines — the DB-hash matches the serialized-correct value a3f1…serial and no update is lost. Across six natural conflict pairs drawn from the real task distribution, J = 4 of 6 clobbers were structurally prevented off the DB-hash.">
+  <title>The coordination payoff — a stale write clobbers a cancellation under naive, prevented by the arbiter</title>
+  <desc>Two agents on shared reservation NM1VX1 planned against the same original state. A1 cancels (hash a3f1…afterA1). Naive: A2's stale add-bag re-activates the reservation and clobbers the cancel (hash 77c2…naive — a real lost update). Arbiter: A2's overlapping lease on reservations/NM1VX1 is refused; A2 re-plans on the cancelled state and declines; hash matches serialized-correct a3f1…serial. J=4/6 clobbers prevented, conflicts drawn from the real 2.35% natural pairwise rate.</desc>
+
+  <style>
+    .canvas { fill:#0a0a0f; }
+    .panel  { fill:#101019; stroke:#23232e; }
+    .panel2 { fill:#0d0d14; stroke:#23232e; }
+    .ink    { fill:#eef1f6; } .dim { fill:#8b93a7; } .faint { fill:#5b6478; }
+    .claim  { fill:#ffc24d; }
+    .bad    { fill:#ff4d57; }   /* hot-red — naive clobber / lost update */
+    .good   { fill:#2bff88; }   /* acid-green — arbiter serialized */
+    .git    { fill:#b78cff; }   /* violet — the DB-hash witness */
+    .accent { fill:#36e0ff; }
+    .stamp  { font-family:"Arial Black","Helvetica Neue",Arial,sans-serif; font-weight:900; letter-spacing:.5px; }
+    .h2     { font-size:13px; letter-spacing:1.2px; font-weight:700; }
+    .seq { opacity:1; animation:rise .6s ease-out forwards; }
+    @keyframes rise { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+    .dA{animation-delay:0s}.dB{animation-delay:.12s}.dC{animation-delay:.24s}.dD{animation-delay:.36s}.dE{animation-delay:.46s}
+    @media (prefers-reduced-motion: reduce){ .seq{animation:none} }
+  </style>
+
+  <rect class="canvas" width="1200" height="600"/>
+
+  <!-- brand -->
+  <text x="40" y="44" class="ink stamp" font-size="22">DOS</text>
+  <text x="92" y="44" class="dim" font-size="13">— the coordination payoff: a stale write, clobbering then prevented</text>
+  <text x="40" y="74" class="ink" font-size="17" font-weight="700">Two live agents act on one shared reservation. Neither knows the other exists.</text>
+  <text x="40" y="96" class="dim" font-size="13">Both planned their tool-calls against the same original state. Watch what happens when their effects land on one DB — naive, then under the arbiter.</text>
+
+  <!-- ============ the two agents ============ -->
+  <g class="seq dA">
+    <rect class="panel" x="40" y="120" width="540" height="150" rx="12"/>
+    <text x="62" y="150" class="dim h2">TWO AGENTS, ONE RESERVATION NM1VX1</text>
+    <rect x="62" y="164" width="496" height="42" rx="8" fill="#15121b" stroke="#34344a"/>
+    <text x="76" y="182" class="accent mono" font-size="12" font-weight="700">A1</text>
+    <text x="104" y="182" class="ink" font-size="13">Task: cancel reservation NM1VX1.</text>
+    <text x="104" y="199" class="faint mono" font-size="11">computed against the ORIGINAL DB</text>
+    <rect x="62" y="212" width="496" height="42" rx="8" fill="#15121b" stroke="#34344a"/>
+    <text x="76" y="230" class="claim mono" font-size="12" font-weight="700">A2</text>
+    <text x="104" y="230" class="ink" font-size="13">Task: add a checked bag to NM1VX1.</text>
+    <text x="104" y="247" class="faint mono" font-size="11">also computed against the ORIGINAL DB — it never saw A1</text>
+  </g>
+
+  <!-- ============ the shared DB ============ -->
+  <g class="seq dB">
+    <rect class="panel" x="620" y="120" width="540" height="150" rx="12"/>
+    <text x="642" y="150" class="dim h2">SHARED DB — reservation NM1VX1 (after A1 cancels)</text>
+    <text x="642" y="180" class="dim mono" font-size="12.5">status</text>
+    <text x="1010" y="180" class="bad mono" font-size="12.5" font-weight="600">cancelled</text>
+    <text x="642" y="202" class="dim mono" font-size="12.5">total_baggages</text>
+    <text x="1010" y="202" class="ink mono" font-size="12.5">0</text>
+    <text x="642" y="224" class="dim mono" font-size="12.5">payment_history</text>
+    <text x="940" y="224" class="ink mono" font-size="12">[gift_card +183, −183]</text>
+    <line x1="642" y1="236" x2="1138" y2="236" stroke="#30363d" stroke-dasharray="3 3"/>
+    <text x="642" y="258" class="git mono" font-size="12.5" font-weight="600">DB-hash (the unforgeable witness):  a3f1…afterA1</text>
+  </g>
+
+  <!-- ============ NAIVE: clobber ============ -->
+  <g class="seq dC">
+    <rect class="panel2" x="40" y="292" width="540" height="158" rx="12" stroke="#ff4d57"/>
+    <rect x="40" y="292" width="540" height="158" rx="12" fill="#ff4d570d"/>
+    <text x="62" y="322" class="bad stamp" font-size="15">NAIVE</text>
+    <text x="150" y="322" class="ink" font-size="14" font-weight="700">A2's stale write clobbers A1</text>
+    <text x="62" y="350" class="dim" font-size="12">A2's add-bag was computed on the ORIGINAL (active) state, so a</text>
+    <text x="62" y="368" class="dim" font-size="12">blind replay RE-ACTIVATES the reservation and adds a bag —</text>
+    <text x="62" y="386" class="dim" font-size="12">silently overwriting A1's cancellation.</text>
+    <rect x="62" y="400" width="496" height="34" rx="6" fill="#0a0a0f" stroke="#ff4d5744"/>
+    <text x="74" y="421" class="bad mono" font-size="12">hash 77c2…naive  ≠  serialized-correct  ·  a real lost update</text>
+  </g>
+
+  <!-- ============ ARBITER: serialized ============ -->
+  <g class="seq dD">
+    <rect class="panel2" x="620" y="292" width="540" height="158" rx="12" stroke="#2bff88"/>
+    <rect x="620" y="292" width="540" height="158" rx="12" fill="#2bff880d"/>
+    <text x="642" y="322" class="good stamp" font-size="15">ARBITER</text>
+    <text x="742" y="322" class="ink" font-size="14" font-weight="700">serialized — both effects coherent</text>
+    <text x="642" y="350" class="dim" font-size="12">dos.arbiter leases reservations/NM1VX1 to A1. A2's concurrent</text>
+    <text x="642" y="368" class="dim" font-size="12">lease on the SAME region OVERLAPS → refused until A1 releases.</text>
+    <text x="642" y="386" class="dim" font-size="12">A2 re-plans on the cancelled state and correctly declines.</text>
+    <rect x="642" y="400" width="496" height="34" rx="6" fill="#0a0a0f" stroke="#2bff8844"/>
+    <text x="654" y="421" class="good mono" font-size="12">hash a3f1…serial ✓  ·  no lost update  ·  J += 1</text>
+  </g>
+
+  <!-- ============ the whole fleet result ============ -->
+  <g class="seq dE">
+    <text x="40" y="486" class="ink" font-size="13" font-weight="700">The whole fleet result — 6 natural conflict pairs, live, J off the DB-hash:</text>
+    <!-- pair strip -->
+    <g font-size="11.5" class="mono">
+      <rect x="40"  y="500" width="118" height="22" rx="5" fill="#ff4d5712" stroke="#ff4d5740"/><text x="50" y="515" class="bad">WUNA5K · clobber</text>
+      <rect x="166" y="500" width="110" height="22" rx="5" fill="#ff4d5712" stroke="#ff4d5740"/><text x="176" y="515" class="bad">H8Q05L · clobber</text>
+      <rect x="284" y="500" width="96"  height="22" rx="5" fill="#2bff8812" stroke="#2bff8840"/><text x="294" y="515" class="good">3RK2T9 · safe</text>
+      <rect x="388" y="500" width="110" height="22" rx="5" fill="#ff4d5712" stroke="#ff4d5740"/><text x="398" y="515" class="bad">4OG6T3 · clobber</text>
+      <rect x="506" y="500" width="96"  height="22" rx="5" fill="#2bff8812" stroke="#2bff8840"/><text x="516" y="515" class="good">S61CZX · safe</text>
+      <rect x="610" y="500" width="110" height="22" rx="5" fill="#ff4d5712" stroke="#ff4d5740"/><text x="620" y="515" class="bad">NM1VX1 · clobber</text>
+    </g>
+    <text x="40" y="546" class="good stamp" font-size="15">J = 4 / 6</text>
+    <text x="148" y="546" class="ink" font-size="12.5">clobbers structurally prevented — the arbiter refused the second lease on reservations/&lt;id&gt; each time.</text>
+    <text x="40" y="568" class="faint" font-size="11.5">Conflicts were DRAWN FROM the real task distribution (2.35% natural pairwise rate, 18 sites), not pinned — which kills the "constructed conflict" objection.</text>
+  </g>
+</svg>

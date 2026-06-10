@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 560" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" role="img" aria-label="The dos decisions queue: four pending arbiter refusals on the left, each routed to who can resolve it (ORACLE may auto-clear, JUDGE could rule, HUMAN your call), and on the right the selected SELF_MODIFY decision expanded with its meaning, evidence, typical fix, and runnable actions.">
+  <title>dos decisions — what is waiting on a human right now</title>
+  <desc>A designed view of the dos decisions operator queue. LEFT: four pending refusals (LANE_DRAINED, SELF_MODIFY, LANE_ALL_INFLIGHT_OR_DEFERRED, LANE_LEASE_HELD_BY_LIVE_DISPATCH_LOOP), each tagged by the resolver who can clear it — a deterministic ORACLE (may auto-clear), an LLM JUDGE (could rule before you spend attention), or a HUMAN (a genuine operator call). RIGHT: the selected SELF_MODIFY decision expanded — what it means, the journal evidence, the typical fix, and the exact shell commands to run. Read-only: a keypress prints the command and exits; the screen mutates nothing.</desc>
+
+  <style>
+    /* ---- signature DOS identity (matches docs/assets/loop-hero.svg) ---- */
+    .canvas { fill: #0a0a0f; }
+    .vignette { fill: url(#vg); }
+    .ink    { fill: #eef1f6; }
+    .dim    { fill: #8b93a7; }
+    .faint  { fill: #5b6478; }
+    .mono   { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    .stamp  { font-family: "Arial Black","Helvetica Neue",Arial,sans-serif; font-weight: 900; letter-spacing: .6px; }
+
+    .oracle { fill: #36e0ff; }   /* cyan — deterministic, may auto-clear */
+    .judge  { fill: #b78cff; }   /* violet — an LLM judge could rule */
+    .human  { fill: #ffc24d; }   /* amber — a genuine operator call */
+    .self   { fill: #ff4d57; }   /* hot-red — the SELF_MODIFY hazard */
+    .ship   { fill: #2bff88; }
+    .key    { fill: #ffc24d; }
+  </style>
+
+  <defs>
+    <radialGradient id="vg" cx="50%" cy="32%" r="80%">
+      <stop offset="0%"  stop-color="#13131c"/>
+      <stop offset="60%" stop-color="#0a0a0f"/>
+      <stop offset="100%" stop-color="#060609"/>
+    </radialGradient>
+    <marker id="route" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#5b6478"/>
+    </marker>
+  </defs>
+
+  <!-- backdrop -->
+  <rect class="canvas"   x="0" y="0" width="920" height="560" rx="14"/>
+  <rect class="vignette" x="0" y="0" width="920" height="560" rx="14"/>
+
+  <!-- ===================== HEADER ===================== -->
+  <text x="34" y="46" class="ink stamp" font-size="22">DOS</text>
+  <text x="94" y="46" class="dim" font-size="15">decisions — what is waiting on a human right now</text>
+  <text x="34" y="68" class="faint" font-size="12.5">A read-only projection over the four refusal sources, each row tagged by who can resolve it.</text>
+
+  <!-- pending count pill -->
+  <rect x="770" y="30" width="116" height="24" rx="12" fill="#06222b" stroke="#1c5a6b"/>
+  <text x="828" y="46" text-anchor="middle" class="oracle mono" font-size="12.5" font-weight="700">4 pending</text>
+
+  <!-- ============================================================ -->
+  <!-- ===================== LEFT: THE QUEUE ====================== -->
+  <!-- ============================================================ -->
+  <text x="34" y="100" class="faint stamp" font-size="11">THE QUEUE &#183; 4 REFUSALS, ROUTED BY RESOLVER</text>
+
+  <!-- card 1 — ORACLE / LANE_DRAINED -->
+  <g class="mono">
+    <rect x="34" y="110" width="430" height="48" rx="9" fill="#0d1117" stroke="#1c3a44"/>
+    <rect x="34" y="110" width="4" height="48" rx="2" fill="#36e0ff"/>
+    <text x="50" y="130" class="dim" font-size="11">#1 &#183; 51m &#183; lane <tspan class="ink">infra</tspan></text>
+    <text x="50" y="148" class="ink" font-size="13" font-weight="700">LANE_DRAINED</text>
+    <rect x="372" y="122" width="78" height="22" rx="11" fill="#06222b" stroke="#1c5a6b"/>
+    <text x="411" y="137" text-anchor="middle" class="oracle" font-size="11" font-weight="700">ORACLE</text>
+  </g>
+
+  <!-- card 2 — JUDGE / SELF_MODIFY  (selected) -->
+  <g class="mono">
+    <rect x="34" y="166" width="430" height="48" rx="9" fill="#16101f" stroke="#5a3f8c" stroke-width="1.5"/>
+    <rect x="34" y="166" width="4" height="48" rx="2" fill="#b78cff"/>
+    <text x="50" y="186" class="dim" font-size="11">#2 &#183; 26m &#183; lane <tspan class="ink">billing</tspan></text>
+    <text x="50" y="204" class="self" font-size="13" font-weight="700">SELF_MODIFY</text>
+    <rect x="372" y="178" width="78" height="22" rx="11" fill="#160e26" stroke="#5a3f8c"/>
+    <text x="411" y="193" text-anchor="middle" class="judge" font-size="11" font-weight="700">JUDGE</text>
+    <text x="448" y="190" class="judge" font-size="13" font-weight="700">&#9656;</text>
+  </g>
+
+  <!-- card 3 — ORACLE / LANE_ALL_INFLIGHT -->
+  <g class="mono">
+    <rect x="34" y="222" width="430" height="48" rx="9" fill="#0d1117" stroke="#1c3a44"/>
+    <rect x="34" y="222" width="4" height="48" rx="2" fill="#36e0ff"/>
+    <text x="50" y="242" class="dim" font-size="11">#3 &#183; 12m &#183; lane <tspan class="ink">search</tspan></text>
+    <text x="50" y="260" class="ink" font-size="12.5" font-weight="700">LANE_ALL_INFLIGHT_OR_DEFERRED</text>
+    <rect x="372" y="234" width="78" height="22" rx="11" fill="#06222b" stroke="#1c5a6b"/>
+    <text x="411" y="249" text-anchor="middle" class="oracle" font-size="11" font-weight="700">ORACLE</text>
+  </g>
+
+  <!-- card 4 — HUMAN / LANE_LEASE_HELD -->
+  <g class="mono">
+    <rect x="34" y="278" width="430" height="48" rx="9" fill="#0d1117" stroke="#4a3a1c"/>
+    <rect x="34" y="278" width="4" height="48" rx="2" fill="#ffc24d"/>
+    <text x="50" y="298" class="dim" font-size="11">#4 &#183; 4m &#183; lane <tspan class="ink">payments</tspan></text>
+    <text x="50" y="316" class="ink" font-size="11.5" font-weight="700">LANE_LEASE_HELD_BY_LIVE_DISPATCH_LOOP</text>
+    <rect x="372" y="290" width="78" height="22" rx="11" fill="#231a0a" stroke="#5a4a1c"/>
+    <text x="411" y="305" text-anchor="middle" class="human" font-size="11" font-weight="700">HUMAN</text>
+  </g>
+
+  <!-- routing legend: what each resolver means -->
+  <text x="34" y="356" class="faint stamp" font-size="11">WHO CAN CLEAR IT</text>
+  <g class="mono" font-size="11.5">
+    <circle cx="42" cy="376" r="5" fill="#36e0ff"/>
+    <text x="56" y="380" class="oracle" font-weight="700">ORACLE</text>
+    <text x="112" y="380" class="dim">deterministic &#8212; may auto-clear, no human needed</text>
+
+    <circle cx="42" cy="398" r="5" fill="#b78cff"/>
+    <text x="56" y="402" class="judge" font-weight="700">JUDGE</text>
+    <text x="112" y="402" class="dim">an LLM could rule before you spend attention</text>
+
+    <circle cx="42" cy="420" r="5" fill="#ffc24d"/>
+    <text x="56" y="424" class="human" font-weight="700">HUMAN</text>
+    <text x="112" y="424" class="dim">a genuine operator call &#8212; only this one needs you</text>
+  </g>
+
+  <!-- divider -->
+  <line x1="486" y1="96" x2="486" y2="500" stroke="#23232e" stroke-width="1" stroke-dasharray="2 6"/>
+
+  <!-- routing arrow from selected card to the detail -->
+  <path d="M464,190 C478,190 478,210 498,210" fill="none" stroke="#5b6478" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#route)"/>
+
+  <!-- ============================================================ -->
+  <!-- ============ RIGHT: THE SELF_MODIFY DETAIL ================= -->
+  <!-- ============================================================ -->
+  <text x="510" y="100" class="faint stamp" font-size="11">SELECTED &#183; THE DECISION, EXPANDED</text>
+
+  <rect x="510" y="110" width="376" height="306" rx="12" fill="#0d0d14" stroke="#3a1620" stroke-width="1.5"/>
+
+  <!-- reason header -->
+  <text x="532" y="146" class="self stamp" font-size="20">SELF_MODIFY</text>
+  <rect x="730" y="128" width="134" height="24" rx="11" fill="#160e26" stroke="#5a3f8c"/>
+  <text x="797" y="144" text-anchor="middle" class="judge mono" font-size="11" font-weight="700">resolver: JUDGE</text>
+  <text x="532" y="166" class="dim mono" font-size="11.5">kind ARBITER_REFUSE &#183; lane billing &#183; journal seq #3</text>
+
+  <line x1="532" y1="180" x2="864" y2="180" stroke="#23232e"/>
+
+  <!-- MEANS -->
+  <text x="532" y="202" class="faint mono" font-size="10.5">MEANS</text>
+  <text x="532" y="220" class="ink" font-size="12.5">The lease tree includes the orchestrator&#8217;s own running</text>
+  <text x="532" y="238" class="ink" font-size="12.5">code — a live loop must not rewrite the kernel that is</text>
+  <text x="532" y="256" class="ink" font-size="12.5">adjudicating it.</text>
+
+  <!-- TYPICAL FIX -->
+  <text x="532" y="284" class="faint mono" font-size="10.5">TYPICAL FIX</text>
+  <text x="532" y="302" class="dim" font-size="12">Edit kernel files outside a live loop, or pass <tspan class="key mono">--force</tspan>.</text>
+
+  <!-- ACTIONS as keycaps -->
+  <text x="532" y="332" class="faint mono" font-size="10.5">ACTIONS &#8212; press a key; it prints the command and exits</text>
+  <g class="mono" font-size="11">
+    <rect x="532" y="342" width="26" height="20" rx="5" fill="#231a0a" stroke="#5a4a1c"/>
+    <text x="545" y="356" text-anchor="middle" class="key" font-weight="700">f</text>
+    <text x="566" y="356" class="ink">dos arbitrate --lane billing --force</text>
+
+    <rect x="532" y="368" width="26" height="20" rx="5" fill="#160e26" stroke="#5a3f8c"/>
+    <text x="545" y="382" text-anchor="middle" class="judge" font-weight="700">j</text>
+    <text x="566" y="382" class="ink">python -m dos.drivers.llm_judge 1421-billing-9d2</text>
+
+    <rect x="532" y="394" width="26" height="20" rx="5" fill="#06222b" stroke="#1c5a6b"/>
+    <text x="545" y="408" text-anchor="middle" class="oracle" font-weight="700">m</text>
+    <text x="566" y="408" class="ink">dos man wedge SELF_MODIFY</text>
+  </g>
+
+  <!-- ===================== FOOTER ===================== -->
+  <rect x="34" y="510" width="852" height="34" rx="9" fill="#0d0d14" stroke="#23232e"/>
+  <text x="50" y="531" class="dim mono" font-size="11.5">
+    <tspan class="faint">&#8593;/&#8595;</tspan> move &#183; <tspan class="key">key</tspan> = action (prints &amp; exits) &#183; <tspan class="faint">R</tspan> refresh &#183; <tspan class="faint">q</tspan> quit</text>
+  <text x="870" y="531" text-anchor="end" class="faint" font-size="11">read-only &#183; this screen mutates nothing</text>
+</svg>

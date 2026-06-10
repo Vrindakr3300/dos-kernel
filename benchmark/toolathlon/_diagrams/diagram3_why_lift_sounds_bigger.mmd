@@ -1,0 +1,10 @@
+flowchart TD
+    Q["+22pp lift — sounds like a big win"] --> S1
+    S1["But 'lift' = precision − base<br/>= 'WHEN it fires, is it right?'"] --> S2
+    S2["It only FIRES on 1.5% of runs<br/>(fire-rate)"] --> S3
+    S3["So +22pp describes a verdict<br/>that almost never happens"]
+    Q --> R1["The number that says 'how much<br/>does it help overall?' is RECALL"]
+    R1 --> R2["Recall = of ALL failures,<br/>how many caught? = ~2%"]
+    R2 --> R3["98% of failures are INVISIBLE<br/>to it (silent, no byte trace)"]
+    style S3 fill:#fee2e2,stroke:#dc2626
+    style R3 fill:#fee2e2,stroke:#dc2626

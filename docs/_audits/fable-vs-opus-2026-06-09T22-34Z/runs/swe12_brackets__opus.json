@@ -1,0 +1,43 @@
+{
+  "task": "swe12_brackets",
+  "family": "swe",
+  "note": "stack matching",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.21s",
+  "cli_returncode": 0,
+  "wall_s": 36.9,
+  "total_cost_usd": 0.2044135,
+  "num_turns": 8,
+  "duration_ms": 35912,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 485,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.0005600000000000001,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 2120,
+      "outputTokens": 1994,
+      "cacheReadInputTokens": 201857,
+      "cacheCreationInputTokens": 6796,
+      "webSearchRequests": 0,
+      "costUSD": 0.2038535,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "b0036ae",
+  "head_subject": "Fix balanced() to verify closers match their openers",
+  "n_commits_total": "2"
+}

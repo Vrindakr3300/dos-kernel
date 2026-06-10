@@ -1,0 +1,43 @@
+{
+  "task": "swe1_daterange",
+  "family": "swe",
+  "note": "off-by-one fix",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": "..                                                                       [100%]\n2 passed in 0.19s",
+  "cli_returncode": 0,
+  "wall_s": 40.7,
+  "total_cost_usd": 0.245288,
+  "num_turns": 11,
+  "duration_ms": 39814,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 509,
+      "outputTokens": 18,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000599,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 2126,
+      "outputTokens": 2011,
+      "cacheReadInputTokens": 279743,
+      "cacheCreationInputTokens": 7026,
+      "webSearchRequests": 0,
+      "costUSD": 0.244689,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "befabe3",
+  "head_subject": "Fix days_between to include the end date",
+  "n_commits_total": "2"
+}

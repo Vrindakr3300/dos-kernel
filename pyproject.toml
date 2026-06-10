@@ -1,0 +1,359 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Distribution name is `dos-kernel`, NOT `dos`: the bare `dos` name on PyPI is an
+# unrelated package (a Flask/OpenAPI helper). The IMPORT name stays `import dos`
+# (set by [tool.setuptools.packages.find] discovering the `dos` package under
+# src/), and the console scripts stay `dos` / `dos-mcp` — only the pip-install /
+# dependency-pin name is `dos-kernel`. See SECURITY.md "Supply chain".
+name = "dos-kernel"
+version = "0.22.0"
+description = "Dispatch Operating System — the domain-free trust substrate for fleets of autonomous agents (verdict spine, ship oracle, structured refusal, lane arbiter, correlation spine)."
+# The PyPI project page renders this. Point it at the README so the page isn't
+# blank below the metadata (twine warns when it's missing). README.md embeds a
+# couple of relative image paths (docs/assets/*.svg) that don't resolve on PyPI,
+# but the prose + code blocks — what an installer reads to decide whether to
+# adopt — render fine as GitHub-Flavored Markdown.
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Anthony Chaudhary" }]
+keywords = [
+    "agents", "ai-agents", "llm", "multi-agent", "agent-orchestration",
+    "orchestration", "dispatch", "scheduler", "oracle", "leases",
+    "verification", "trust", "mcp",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
+]
+dependencies = [
+    # The kernel is deliberately near-stdlib. PyYAML is the one backing-service
+    # driver: the state plane (execution-state.yaml) is git-native YAML so the
+    # truth oracle can grep/diff/ancestry-check it (dispatch-os-vision §6 law 2).
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "build>=1.0",
+    # `wheel tags` re-tags the per-platform wheels (docs/286 / scripts/build_wheels.py):
+    # the native binary is a static Go executable, not a C-extension, so each wheel is
+    # built as `py3-none-any` then re-tagged to `py3-none-<platform>` so pip selects it
+    # only on the matching OS/arch. `build` vendors a wheel internally but does not
+    # expose the `tags` CLI, so it's a dev tool in its own right here.
+    "wheel>=0.43",
+    # The lint + type gate (run in CI — see .github/workflows/ci.yml). Pinned to
+    # the floors the [tool.ruff]/[tool.mypy] configs below were authored against.
+    "ruff>=0.13",
+    "mypy>=1.17",
+    # Property-based testing of the pure kernel verdicts (docs/272). The kernel is a
+    # pile of pure `classify(evidence, policy) -> verdict` functions with algebraic
+    # laws stated in their own docstrings; the `tests/test_prop_*.py` family pins
+    # those laws across thousands of generated inputs (the security cores — the
+    # overlap soundness floor + reward non-forgeability — are ∀-claims a handful of
+    # example points can't cover). Test-time ONLY: it never touches the near-stdlib
+    # kernel dependency set, and every test_prop_* module `pytest.importorskip`s it
+    # so a bare `pip install -e .` (no [dev]) still runs a green suite.
+    "hypothesis>=6.100",
+]
+# The MCP server surface (src/dos_mcp). Kept OUT of the core dependencies so the
+# kernel stays near-stdlib: `pip install dos-kernel` pulls only PyYAML, while
+# `pip install dos-kernel[mcp]` adds the server framework for hosts that want to
+# expose the syscalls over the Model Context Protocol. dos_mcp consumes dos;
+# nothing in dos imports dos_mcp (the one-way arrow the layering contract draws).
+mcp = [
+    "mcp>=1.2",
+]
+# The live `dos top` watchdog screen (src/dos/dispatch_top_tui). Kept OUT of the
+# core for the same reason as [mcp]: the kernel stays near-stdlib, so `pip install
+# dos-kernel` pulls only PyYAML. `dos top --once` / `--json` and any piped run
+# work with NO extra (the plain-text floor in dispatch_top.py); this extra adds
+# only the auto-refreshing rich skin. dispatch_top* consume dos; nothing in the
+# kernel imports rich at module scope (the lazy-import + plain-floor discipline).
+tui = [
+    "rich>=13",
+    # `dos top` needs only rich. `dos decisions`'s interactive list/drill-in is a
+    # curses TUI (src/dos/decisions_tui.py), and stock Windows Python ships no
+    # `curses` module — so on win32 the interactive path is unreachable without
+    # this shim and `dos decisions` silently degrades to the plain-text floor.
+    # Windows-gated so it is never pulled in on POSIX (which has curses in stdlib).
+    "windows-curses>=2.3; sys_platform == 'win32'",
+]
+# The Slack notification transport (src/dos/drivers/notify_slack). Kept OUT of the
+# core for the same reason as [mcp]/[tui]: the kernel stays near-stdlib, so `pip
+# install dos-kernel` pulls only PyYAML. `dos notify` works with NO extra (the
+# default `null` notifier + `--dry-run` render); this extra adds only the Slack
+# transport (`slack_helpers`, which pulls `requests`). The driver imports
+# slack_helpers LAZILY and degrades to a "not installed" NotifyResult when the
+# extra is absent — so even entry-point discovery of the driver never fails for
+# lack of it (the dos_mcp lazy-import discipline). The notifier seam (dos.notify)
+# names no transport and stays dependency-free; this is its first driver.
+notify-slack = [
+    "slack-helpers>=0.2",
+]
+# The OTLP verdict-exporter connector (src/dos/drivers/export_otlp). Kept OUT of the
+# core for the same reason as [mcp]/[tui]/[notify-slack]: the kernel stays near-stdlib,
+# so `pip install dos-kernel` pulls only PyYAML. `dos export --to file`/`statsd` work
+# with NO extra (stdlib-only drivers); this extra adds only the OpenTelemetry SDK + the
+# OTLP/HTTP log exporter for the native traces/logs path. The driver imports the SDK
+# LAZILY (inside the transport, never at module load) and degrades to a "not installed"
+# ExportResult when the extra is absent — so even entry-point discovery of the driver
+# never fails for lack of it (the dos_mcp / notify_slack lazy-import discipline). The
+# exporter seam (dos.exporter) names no transport and stays dependency-free.
+export-otlp = [
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-http>=1.20",
+]
+# The arXiv paper bundle tooling (paper/arxiv/make_bundle.py). NOT part of the
+# kernel â€” it operates on the paper, which itself only `import dos`-es nothing
+# (the paper is downstream of the code, the one-way arrow). Kept OUT of the core
+# for the same reason as every extra above: `pip install dos-kernel` stays
+# PyYAML-only. `arxiv-latex-cleaner` strips comments / aux files / unused images
+# from the staged LaTeX toward arXiv's upload limits; the bundle script degrades
+# gracefully (produces a correct, un-cleaned tarball) when it is absent, so this
+# extra is a convenience, never a hard dependency of building the bundle.
+paper = [
+    "arxiv-latex-cleaner>=1.0",
+]
+
+[project.scripts]
+dos = "dos.cli:main"
+# The MCP server entrypoint — what an MCP host (Claude Desktop, Cursor, Cline, …)
+# launches. Requires the `mcp` extra (`pip install dos-kernel[mcp]`); the import
+# of `mcp.server.fastmcp` fails loudly with an install hint if the extra is absent.
+dos-mcp = "dos_mcp.server:main"
+
+# The shipped LLM judge — the reference occupant of the JUDGE rung (`dos.judges`,
+# Axis 6). Registered as a discoverable judge (NOT a built-in: only `abstain` is
+# built-in/unshadowable, the same way only `text`/`json` renderers are built-in),
+# so `dos judge-eval --judge llm` resolves out of the box. It lives in a driver,
+# behind the `$DOS_LLM_JUDGE_CMD` provider seam, and ABSTAINS with no provider
+# wired — registering it adds no dependency and can never loosen distrust.
+[project.entry-points."dos.judges"]
+llm = "dos.drivers.llm_judge:LlmJudge"
+# The DISTANCE adjudicator — the "fuzzy / close-enough matching" the kernel verdict
+# deliberately refuses (a tunable threshold deciding truth is the forgeable knob the
+# kernel is built without; docs/76). It lives HERE, on the JUDGE rung, where a
+# threshold is allowed to be data: it scores a claim against the un-authored EVIDENCE
+# (never the agent's narration — that would be a mirror), is pure-stdlib by default
+# (zero new dependency; an embedding scorer is the opt-in `$DOS_SIMILARITY_CMD` seam),
+# and FAILS TO ABSTAIN — no evidence / any error never auto-clears a claim.
+similarity = "dos.drivers.similarity_judge:SimilarityJudge"
+# The operator-decision adjudicator — a host's open-decision queue (accept-
+# recommended / escalate / defer) ruling on the JUDGE rung. A thin binding: the
+# host runs the adjudication, this occupant maps its three-valued decision onto
+# the canonical JudgeVerdict so it is scored by `dos.judge_eval` like any judge.
+operator-decision = "dos.drivers.operator_judge:OperatorDecisionJudge"
+
+# The reference loop-STOP policy (`dos.stop_policy`, the scout halt-gate seam). The
+# kernel default is "an open decision is evidence-only, never a STOP"; this driver
+# lets a host OPT IN to halting the loop on an urgent decision class (default:
+# LIVENESS — a run hung NOW, burning budget), while WEDGE/soak/refuse stay
+# surface-only. It reads the live `dos.decisions` queue (I/O → a driver, not the
+# kernel) and is AND-ed under the kernel's `resource_blocked` floor, so it can only
+# ADD a halt, never remove one. The built-in `never` baseline (DEFER-everything) is
+# in the kernel and unshadowable; this is the discoverable opt-in occupant.
+[project.entry-points."dos.stop_policies"]
+decision-class = "dos.drivers.decision_stop:DecisionClassStopPolicy"
+
+# The cross-vendor hook-dialect renderers (docs/217). The kernel seam
+# (`dos.hook_dialect`) holds the neutral verdict + Protocol + resolver + the ONE
+# unshadowable `claude-code` default; every OTHER host renderer must name its vendor
+# as code (a `GeminiDialect` is inherently Gemini-specific), which the vendor-blindness
+# litmus forbids in a kernel module — so they live in a DRIVER and register here, the
+# same kernel/driver split as `dos.judges` / `dos.overlap_policies`.
+# `resolve_dialect("gemini")` discovers them by name; the kernel imports none of them.
+[project.entry-points."dos.hook_dialects"]
+codex = "dos.drivers.hook_dialects:CodexDialect"
+gemini = "dos.drivers.hook_dialects:GeminiDialect"
+cursor = "dos.drivers.hook_dialects:CursorDialect"
+antigravity = "dos.drivers.hook_dialects:AntigravityDialect"
+# Hermes Agent (Nous Research) — its `pre_tool_call` SHELL hook is a real
+# stdout-JSON deny surface (`{"decision":"block","reason":…}`), docs/278. (OpenClaw's
+# real hook is an in-process TS return, not stdout — no renderer consumer; SwarmClaw
+# documents no pre-tool veto — so neither gets a dialect.) No install_spec yet:
+# Hermes' config is YAML (`cli-config.yaml`), which `hook_install.ConfigFormat`
+# (JSON/TOML) does not encode — wiring it is a separate kernel lift; the dialect
+# renderer (the high-value, kernel-clean half) ships now.
+hermes = "dos.drivers.hook_dialects:HermesDialect"
+
+# The notification-spine transports (docs/225). The kernel seam (`dos.notify`)
+# holds the transport-neutral `Notification` + `Notifier` Protocol + resolver + the
+# ONE unshadowable `null` sink; every real transport names its vendor as code (a
+# `SlackNotifier` is inherently Slack-specific), which the kernel forbids in a
+# kernel module — so it lives in a DRIVER and registers here, the same kernel/driver
+# split as `dos.judges` / `dos.hook_dialects`. `resolve_notifier("slack")` discovers
+# it by name; the kernel imports none of them. The `slack` transport needs the
+# `[notify-slack]` extra; its lazy import means discovering it here never fails when
+# the extra is absent (it resolves, and reports "not installed" only on send).
+[project.entry-points."dos.notifiers"]
+slack = "dos.drivers.notify_slack:SlackNotifier"
+# A generic HTTP-POST transport (docs/267): renders a Notification to a portable JSON
+# body and POSTs it to a configured URL — reaching Teams / Discord / PagerDuty /
+# Opsgenie / Zapier / any homegrown endpoint with one driver. Stdlib-only (urllib),
+# so it needs NO extra and ships in the core (unlike `slack`, which needs
+# [notify-slack]). `resolve_notifier("webhook")` finds it by name; the kernel imports
+# none. The "PagerDuty / email / a webhook are later drivers" gap notify.py names.
+webhook = "dos.drivers.notify_webhook:WebhookNotifier"
+
+# The verdict-EXPORTER transports (docs/266) — the delivery-side sibling of the
+# notifiers above, on a new axis: the verdict STREAM (verdict_journal), drained outward
+# to where dashboards/alerts live. The kernel seam (`dos.exporter`) holds the
+# transport-neutral `ExportResult` + `Exporter` Protocol + resolver + the ONE
+# unshadowable `null` sink; every real connector names its transport as code (an OTLP
+# shipper is inherently OTLP-specific), which the kernel forbids in a kernel module — so
+# it lives in a DRIVER and registers here, the same kernel/driver split as
+# `dos.notifiers` / `dos.judges`. `resolve_exporter("file")` discovers it by name; the
+# kernel imports none. `file` + `statsd` are stdlib-only and ship in the core; `otlp`
+# needs the `[export-otlp]` extra (its lazy import means discovering it here never fails
+# when the extra is absent — it resolves, and reports "not installed" only on export).
+[project.entry-points."dos.exporters"]
+# The keystone: append each VerdictEvent as one JSONL line to an operator-chosen path a
+# log shipper already tails (Datadog agent / Vector / Fluent Bit / Promtail / logger(1)).
+# Stdlib-only (pathlib + json), so NO extra — `pip install dos-kernel` can already drain.
+file = "dos.drivers.export_file:FileExporter"
+# The native metrics path: one StatsD/DogStatsD counter per (syscall, verdict) over UDP
+# (`dos.verdict:N|c|#syscall:…,verdict:…`) — what Datadog/Telegraf/Vector/statsd_exporter
+# ingest. Stdlib-only (socket), so NO extra, the same as `file`.
+statsd = "dos.drivers.export_statsd:StatsdExporter"
+# The native traces/logs path: each VerdictEvent → an OTLP log record (run_id as a
+# correlated attribute, byte-clean detail counts as attributes), shipped to an
+# OpenTelemetry collector over OTLP/HTTP (Honeycomb / Grafana / Datadog OTLP intake /
+# Jaeger). Needs the [export-otlp] extra — its lazy import (inside the transport, never
+# at module load) means discovering it here NEVER fails when the extra is absent; it
+# resolves, and reports the install hint only on export. The `mcp`/`notify-slack` precedent.
+otlp = "dos.drivers.export_otlp:OtlpExporter"
+
+# The non-git evidence-source witnesses (docs/109/265). The kernel seam
+# (`dos.evidence`) holds the EvidenceSource Protocol + believe_under_floor + the
+# by-name resolver (`active_evidence_sources`, `resolve_evidence_source`) + the ONE
+# unshadowable `null` baseline; every provider-specific witness (a CI poller is
+# inherently GitHub/GitLab-specific; an acceptance command runs the host's process)
+# lives in a DRIVER and registers here — the same kernel/driver split as
+# `dos.judges` / `dos.notifiers` / `dos.hook_dialects`. Registering the group turns
+# `active_evidence_sources()` from "built-ins only" into "discovers these three";
+# `verify`'s consumption of the CI rung is wired separately (`[verify] non_git_oracle`).
+[project.entry-points."dos.evidence_sources"]
+ci_status = "dos.drivers.ci_status:CiStatusSource"          # GREEN/RED/PENDING/NO_SIGNAL CI rung (THIRD_PARTY)
+os_acceptance = "dos.drivers.os_acceptance:OsAcceptanceEvidenceSource"  # the acceptance-command exit code (OS_RECORDED)
+paste_log = "dos.drivers.paste_log:PasteLogSource"          # operator-pasted text — the AGENT_AUTHORED floor (a JUDGE hint)
+citation_resolve = "dos.drivers.citation_resolve:CitationResolveSource"  # legal cite resolves in a reporter (THIRD_PARTY, docs/277/279)
+
+# The cross-vendor hook INSTALL specs (docs/221) — the install-side sibling of the
+# dialect renderers above: where/how `dos init --hooks <host>` wires the DOS hooks
+# into each runtime's OWN config file (path, format, event names). They live in the
+# same DRIVER and register here for the same reason (a spec names its vendor + config
+# path as code, which the vendor-blindness litmus forbids in a kernel module). The
+# kernel (`dos.hook_install`) holds only the pure machinery + the `claude-code`
+# default; `host_spec("cursor")` discovers these by name. Kernel imports none of them.
+[project.entry-points."dos.hook_installs"]
+codex = "dos.drivers.hook_dialects:codex_install_spec"
+gemini = "dos.drivers.hook_dialects:gemini_install_spec"
+cursor = "dos.drivers.hook_dialects:cursor_install_spec"
+antigravity = "dos.drivers.hook_dialects:antigravity_install_spec"
+
+[project.urls]
+Homepage = "https://github.com/anthony-chaudhary/dos-kernel"
+Documentation = "https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/QUICKSTART.md"
+Repository = "https://github.com/anthony-chaudhary/dos-kernel"
+Issues = "https://github.com/anthony-chaudhary/dos-kernel/issues"
+Changelog = "https://github.com/anthony-chaudhary/dos-kernel/tree/master/docs/releases"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Ship the generic skill pack (SKP, docs/74) INSIDE the wheel. The SKILL.md
+# screenplays under src/dos/skills/<name>/ are DATA, not a package — find-packages
+# discovers only the `dos` package (skills/ has no __init__.py, deliberately), so
+# this stanza is what carries the .md/.toml files into the installed `dos`. The
+# glob is relative to the package dir (src/dos), and the recursive `**` is
+# required to reach the nested per-skill subdir. A consumer copies these into
+# their own .claude/skills/ (or runs them in place); nothing under src/dos/
+# imports them — the same one-way arrow as the .claude/ dev tooling.
+[tool.setuptools.package-data]
+# `py.typed` is the PEP 561 marker (this package ships inline types — the
+# `Typing :: Typed` classifier above promises it; without the marker, downstream
+# type checkers ignore the annotations). The skill pack (.md/.toml) is shipped
+# DATA, see the note above.
+#
+# `_bin/dos-hook*` carries the NATIVE hook fast-path binary into a per-platform wheel
+# (docs/286): the per-platform wheel build (`scripts/build_wheels.py`) drops exactly
+# ONE `dos-hook[.exe]` for the wheel's OS/arch into `src/dos/_bin/` before `python -m
+# build`, and this glob ships it so `dos.hook_binary.native_hook_binary()` can find it
+# in the installed package. On a clean checkout the dir holds only its `.gitignore` (the
+# binary is a built release artifact, NOT committed — unlike the PLUGIN's binaries),
+# so a bare `pip install -e .` / sdist ships no binary and falls through to the Python
+# verb (the docs/100 fallback). The glob matching nothing is harmless.
+dos = ["py.typed", "skills/**/*.md", "skills/**/*.toml", "_bin/dos-hook", "_bin/dos-hook.exe"]
+dos_mcp = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# ---------------------------------------------------------------------------
+# Lint + type gate (run in CI — see .github/workflows/ci.yml). The point is to
+# catch real regressions (unused imports/vars that signal dead or half-deleted
+# code, undefined names, broken imports) WITHOUT bikeshedding style, so the rule
+# set is deliberately narrow: the pyflakes (`F`) bug-catchers plus the import-
+# placement / statement-shape (`E4`/`E7`) and syntax (`E9`) subsets. Pure-style
+# rules the codebase intentionally diverges from are left off (notably E741 —
+# `l` is used throughout for "lease"/"line" in tight loops; renaming 15 call
+# sites would be churn with no correctness gain).
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["F", "E4", "E7", "E9"]
+ignore = [
+    "E741",  # ambiguous name (`l`/`I`/`O`) — `l` = lease/line by convention here
+]
+
+[tool.ruff.lint.per-file-ignores]
+# decisions.py carries 4 pyflakes findings (3 unused imports + 1 dead `cfg`) that
+# belong to the IN-FLIGHT watchdog/liveness-halt feature still landing in the
+# working tree (the LIVENESS DecisionKind + OP_HALT reader). They are deferred to
+# that feature's lane to avoid two lanes editing one file; remove this entry when
+# that work lands and the imports/locals are cleaned up.
+"src/dos/decisions.py" = ["F401", "F841"]
+
+# ---------------------------------------------------------------------------
+# mypy — the type gate. Run ADVISORY (non-blocking) in CI today: the kernel
+# already type-checks cleanly in the modules that matter most, but ~30 findings
+# remain across the package (genuine tightening opportunities — `union-attr`,
+# `arg-type`, a few `attr-defined`) plus several are blocked behind in-flight
+# files. So CI surfaces mypy as visible feedback (`continue-on-error: true`) and
+# the rule is a RATCHET: pay the findings down, then flip the CI step to blocking
+# and add `disallow_untyped_defs` here. `py.typed` (shipped, see package-data)
+# means these annotations reach downstream consumers regardless.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+files = ["src/dos", "src/dos_mcp"]
+# PyYAML / the optional `contracts` sidecar / `mcp` ship no stubs we depend on;
+# don't let "no stub" noise drown the real findings.
+ignore_missing_imports = true
+# Conservative starter set — warn on the cheap, high-signal categories without
+# the full `strict` firehose. Ratchet `disallow_untyped_defs = true` on later.
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true

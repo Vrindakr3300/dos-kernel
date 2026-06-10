@@ -1,0 +1,310 @@
+/* Toolathlon $0-replay paper — print-grade stylesheet (Chrome headless → PDF) */
+
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm 16mm;
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-family: "Georgia", serif;
+    font-size: 8.5pt;
+    color: #555;
+  }
+}
+
+:root {
+  --ink: #16181d;
+  --muted: #555a63;
+  --rule: #c9ccd2;
+  --accent: #1f3a5f;
+  --accent-soft: #eef2f7;
+  --code-bg: #f4f5f7;
+  --good: #16703a;
+  --bad: #b32318;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 10.2pt; }
+
+body {
+  font-family: "Charter", "Georgia", "Times New Roman", serif;
+  color: var(--ink);
+  line-height: 1.42;
+  margin: 0;
+  padding: 0;
+  text-rendering: optimizeLegibility;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---- Title block ---- */
+.titleblock {
+  text-align: center;
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+.titleblock h1 {
+  font-size: 19pt;
+  line-height: 1.2;
+  margin: 0 0 8px 0;
+  color: var(--accent);
+  letter-spacing: -0.2px;
+}
+.titleblock .subtitle {
+  font-size: 11.3pt;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.4;
+  /* hold the subtitle to a readable measure instead of the full A4 width — a
+     centred ~38em block reads far better than one long edge-to-edge line. */
+  max-width: 40em;
+  margin: 0 auto 12px auto;
+  text-wrap: balance;
+}
+.titleblock .subtitle strong { color: var(--accent); font-style: normal; }
+.titleblock .subtitle em { color: var(--ink); }
+.titleblock .byline {
+  font-size: 10pt;
+  margin: 4px 0;
+}
+.titleblock .meta {
+  font-size: 8.8pt;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.titleblock .meta code { background: none; }
+
+/* ---- Two-column body ---- */
+.paper-body {
+  column-count: 2;
+  column-gap: 7mm;
+  column-rule: 0.5px solid #e3e5ea;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* The abstract spans both columns */
+.abstract-wrap {
+  column-span: all;
+  background: var(--accent-soft);
+  border: 0.5px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  padding: 10px 16px;
+  margin: 0 0 16px 0;
+  border-radius: 2px;
+}
+.abstract-wrap h2 {
+  font-size: 11pt;
+  margin: 0 0 6px 0;
+  border: none;
+  padding: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+}
+/* Space the four beats apart so the abstract reads as an argument with steps, not
+   one justified grey wall (the paragraphs previously had margin:0 and ran together).
+   The last paragraph drops its trailing margin so the box stays tight. */
+.abstract-wrap p { margin: 0 0 6px 0; font-size: 9.6pt; line-height: 1.43; }
+.abstract-wrap p:last-child { margin-bottom: 0; }
+/* The payoff numbers (J=10, J=6, 60→100%) are the abstract's headline — let the
+   bolded runs carry the accent so the eye lands on the result, not the prose. */
+.abstract-wrap strong { color: var(--accent); }
+
+/* Headings */
+h2 {
+  font-size: 12pt;
+  color: var(--accent);
+  margin: 14px 0 6px 0;
+  padding-bottom: 2px;
+  border-bottom: 0.5px solid var(--rule);
+  break-after: avoid;
+  -webkit-column-break-after: avoid;
+}
+h3 {
+  font-size: 10.6pt;
+  margin: 10px 0 3px 0;
+  color: var(--ink);
+  break-after: avoid;
+}
+h2 + p, h3 + p { margin-top: 0; }
+
+p { margin: 0 0 7px 0; }
+
+ul, ol { margin: 4px 0 8px 0; padding-left: 18px; }
+li { margin-bottom: 3px; }
+
+strong { font-weight: 700; }
+em { font-style: italic; }
+
+code, pre {
+  font-family: "DejaVu Sans Mono", "Consolas", monospace;
+  font-size: 8.4pt;
+}
+code {
+  background: var(--code-bg);
+  padding: 0.5px 3px;
+  border-radius: 2px;
+}
+pre {
+  background: var(--code-bg);
+  border: 0.5px solid var(--rule);
+  border-radius: 3px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+pre code { background: none; padding: 0; }
+
+blockquote {
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-left: 3px solid #d9a441;
+  background: #fdf8ee;
+  font-size: 9.3pt;
+  color: #4a4434;
+}
+blockquote p { margin: 0; }
+
+/* ---- Figures ---- */
+figure {
+  margin: 10px 0;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  text-align: center;
+}
+figure img {
+  width: 100%;
+  height: auto;
+  border: 0.5px solid var(--rule);
+  border-radius: 2px;
+}
+figcaption {
+  font-size: 8.5pt;
+  color: var(--muted);
+  text-align: left;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+figcaption strong { color: var(--ink); }
+
+/* Wide figures span both columns */
+figure.wide {
+  column-span: all;
+  margin: 12px 0;
+}
+
+/* ---- Tables ---- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.4pt;
+  margin: 8px 0 10px 0;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+}
+table.wide { column-span: all; }
+thead th {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+  padding: 4px 6px;
+  border: 0.5px solid var(--accent);
+}
+tbody td, tbody th {
+  padding: 3px 6px;
+  border: 0.5px solid var(--rule);
+  vertical-align: top;
+}
+tbody th { background: var(--accent-soft); text-align: left; font-weight: 600; }
+tbody tr:nth-child(even) td { background: #fafbfc; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* keystone row highlight */
+tbody tr.keystone td { background: #eaf6ee !important; font-weight: 600; }
+
+/* ---- Glossary / notation tables (Appendix A) ----
+   Long reference tables: let them break across columns and pages (a 50-row
+   glossary must not be held on one column), give the term column a fixed width
+   so the plain-language column has room, and make the grouped section-header
+   rows unmistakable rather than looking like a broken data row. */
+table.glossary {
+  break-inside: auto;
+  -webkit-column-break-inside: auto;
+  font-size: 8.2pt;
+}
+table.glossary caption {
+  caption-side: top;
+  text-align: left;
+  font-size: 8.4pt;
+  font-style: italic;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+/* first column (the term/symbol) holds its width; the gloss column gets the rest */
+table.glossary td:first-child,
+table.glossary th:first-child { width: 22%; }
+table.glossary thead { display: table-header-group; }   /* repeat header on page break */
+table.glossary tbody tr { break-inside: avoid; }          /* never split a single entry */
+/* a grouped section-header row inside the body: a banded sub-heading spanning the table */
+table.glossary tbody th[colspan] {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 8.5pt;
+  letter-spacing: 0.3px;
+  padding: 4px 6px;
+  border: 0.5px solid var(--accent);
+  break-after: avoid;
+}
+/* the zebra stripe counts grouped headers too, which desyncs the data rows;
+   turn striping off for the glossary and rely on the rules between rows. */
+table.glossary tbody tr:nth-child(even) td { background: #fff; }
+
+/* footer note */
+.endnote {
+  column-span: all;
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--rule);
+  font-size: 8.2pt;
+  color: var(--muted);
+}
+
+/* inline citation: a small superscript [N] link to the References list */
+sup.cite {
+  font-size: 0.72em;
+  line-height: 0;
+  white-space: nowrap;
+}
+sup.cite a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* References list — flows in the two columns like body text; each entry hangs its [N] */
+.references h2 { break-before: auto; }
+ol.reflist {
+  list-style: none;
+  margin: 4px 0 0 0;
+  padding: 0;
+  font-size: 8.6pt;
+  line-height: 1.4;
+  color: var(--ink);
+}
+ol.reflist li {
+  margin: 0 0 4px 0;
+  padding-left: 1.8em;
+  text-indent: -1.8em;          /* hanging indent: the [N] sits in the gutter */
+  break-inside: avoid;
+}
+ol.reflist .ref-n {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.35em;
+}
+ol.reflist a { color: var(--accent); text-decoration: none; }

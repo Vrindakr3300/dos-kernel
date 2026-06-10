@@ -1,0 +1,31 @@
+# gravel — an infrastructure / platform monorepo (anonymized archetype).
+#
+# Shape: Terraform + k8s manifests + CI pipelines. Blast radius is real — a bad
+# apply takes down a cluster — so almost everything here is EXCLUSIVE. The point
+# of this fixture: the refusals that keep a fleet from detonating shared state
+# (exclusive lanes, the self-modify guard, operator-gated BLOCKED).
+#
+# See ../../playbooks/05_infra-monorepo.md for the walkthrough.
+workspace = "."
+
+# Only the docs/modules lanes are concurrent-safe. The live-state lanes
+# (terraform apply, cluster manifests) are exclusive: one change at a time, full
+# stop. autopick deliberately offers only the safe concurrent lanes.
+[lanes]
+concurrent = ["modules", "docs"]
+exclusive  = ["tfstate", "cluster"]
+autopick   = ["modules", "docs"]
+
+[lanes.trees]
+modules = ["modules/**"]                 # reusable TF modules — pure code, safe
+docs    = ["docs/**", "runbooks/**"]
+tfstate = ["live/**", "terraform/**"]     # touches real cloud state → exclusive
+cluster = ["k8s/**", "helm/**"]           # touches a live cluster → exclusive
+
+[paths]
+plans_glob = "docs/changes/*.md"
+
+# gravel scopes ship commits under their area: "modules/NET: NET3 — ship VPC peering".
+[stamp]
+style        = "grep"
+subject_dirs = ["modules", "live", "k8s", "docs"]

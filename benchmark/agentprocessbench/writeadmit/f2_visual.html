@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F2 — the natural-collision coordination payoff, stepped through</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --dim:#8b949e; --line:#30363d;
+    --a1:#58a6ff; --a2:#d29922; --bad:#f85149; --good:#3fb950; --hash:#bc8cff;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 22px 70px;}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.2px}
+  .sub{color:var(--dim);margin:0 0 22px;font-size:14px}
+  .sub b{color:var(--ink);font-weight:600}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);
+            margin:0 0 12px;font-weight:600}
+  .agent{display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;padding:9px 11px;
+         border-radius:8px;border:1px solid var(--line);background:#0d111733;opacity:.35;
+         transition:opacity .25s,border-color .25s,background .25s}
+  .agent.live{opacity:1}
+  .agent.a1.live{border-color:var(--a1);background:#58a6ff14}
+  .agent.a2.live{border-color:var(--a2);background:#d2992214}
+  .tag{font:600 11px var(--mono);padding:2px 7px;border-radius:5px;white-space:nowrap;margin-top:1px}
+  .tag.a1{color:var(--a1);background:#58a6ff1f}
+  .tag.a2{color:var(--a2);background:#d299221f}
+  .agent .body{font-size:13.5px}
+  .agent .call{font:12px var(--mono);color:var(--dim);margin-top:3px}
+  .db{font:12.5px var(--mono);}
+  .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #30363d66}
+  .row:last-child{border-bottom:0}
+  .row .k{color:var(--dim)}
+  .row .v{color:var(--ink)}
+  .row.changed .v{color:var(--a2);font-weight:600}
+  .row.cancelled .v{color:var(--bad);font-weight:600}
+  .hashbar{margin-top:13px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);
+           font:12px var(--mono);background:#0d1117}
+  .hashbar .lbl{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .hashbar .h{color:var(--hash);word-break:break-all;font-size:13px;margin-top:2px}
+  .verdict{margin-top:18px;border-radius:10px;padding:15px 18px;border:1px solid var(--line);
+           background:var(--panel);min-height:64px}
+  .verdict .head{font-weight:700;font-size:15px;margin-bottom:4px}
+  .verdict.bad{border-color:var(--bad);background:#f8514910}
+  .verdict.good{border-color:var(--good);background:#3fb95010}
+  .verdict.bad .head{color:var(--bad)} .verdict.good .head{color:var(--good)}
+  .verdict .why{color:var(--dim);font-size:13.5px}
+  .controls{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}
+  button{font:600 14px inherit;color:var(--ink);background:#21262d;border:1px solid var(--line);
+         border-radius:8px;padding:9px 16px;cursor:pointer}
+  button:hover{background:#30363d} button:disabled{opacity:.4;cursor:default}
+  .step-ind{display:flex;gap:6px;margin-left:4px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+  .dot.on{background:var(--a1)}
+  .caption{margin-top:16px;padding:13px 16px;border-left:3px solid var(--a1);background:#161b22;
+           border-radius:0 8px 8px 0;font-size:14px}
+  .caption b{color:var(--ink)}
+  .meta{margin-top:30px;color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+  .meta code{font:12px var(--mono);color:#c9d1d9;background:#161b22;padding:1px 5px;border-radius:4px}
+  .pairstrip{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{font:600 11px var(--mono);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+  .chip.clob{color:var(--bad);background:#f8514912}
+  .chip.ok{color:var(--good);background:#3fb95012}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>F2 — the coordination payoff, stepped through</h1>
+  <p class="sub">Two live agents, one shared <b>tau2</b> airline DB, a <b>natural</b> contention site
+     (reservation <b>NM1VX1</b> — three real tasks target it). The naive flow lets the second agent
+     clobber the first; <b>dos.arbiter</b> serializes them. The witness is the <b>DB-hash</b> — a byte
+     neither agent wrote. <span style="color:var(--dim)">docs/255 · live run 2026-06-08</span></p>
+
+  <div class="stage">
+    <!-- LEFT: the two agents acting -->
+    <div class="panel">
+      <h2>The two concurrent agents</h2>
+      <div class="agent a1" id="ag1">
+        <span class="tag a1">A1</span>
+        <div class="body" id="ag1b">Task: <i>cancel reservation NM1VX1</i>.
+          <div class="call" id="ag1c">computed against the ORIGINAL DB</div></div>
+      </div>
+      <div class="agent a2" id="ag2">
+        <span class="tag a2">A2</span>
+        <div class="body" id="ag2b">Task: <i>add a checked bag to NM1VX1</i>.
+          <div class="call" id="ag2c">also computed against the ORIGINAL DB — it never saw A1</div></div>
+      </div>
+      <div class="caption" id="cap">
+        Both agents planned their tool-calls against the <b>same starting state</b>. Neither
+        knows the other exists. Step through to see what happens when their effects land on
+        one shared DB.
+      </div>
+    </div>
+
+    <!-- RIGHT: the DB state + hash -->
+    <div class="panel">
+      <h2>Shared DB — reservation NM1VX1</h2>
+      <div class="db" id="db">
+        <div class="row" id="r-status"><span class="k">status</span><span class="v">active</span></div>
+        <div class="row" id="r-bags"><span class="k">total_baggages</span><span class="v">0</span></div>
+        <div class="row" id="r-nonfree"><span class="k">nonfree_baggages</span><span class="v">0</span></div>
+        <div class="row" id="r-pay"><span class="k">payment_history</span><span class="v">[gift_card +183]</span></div>
+      </div>
+      <div class="hashbar">
+        <div class="lbl">DB-hash (the unforgeable witness)</div>
+        <div class="h" id="hash">d41e…orig</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict">
+    <div class="head" id="vhead">Ready</div>
+    <div class="why" id="vwhy">Press <b>Step ▶</b> to walk through the conflict.</div>
+  </div>
+
+  <div class="controls">
+    <button id="prev" disabled>◀ Back</button>
+    <button id="next">Step ▶</button>
+    <button id="reset">↺ Reset</button>
+    <div class="step-ind" id="dots"></div>
+  </div>
+
+  <div class="meta">
+    <b>The whole fleet result (6 natural conflict pairs, live, J off the DB-hash):</b>
+    <div class="pairstrip">
+      <span class="chip clob">WUNA5K · clobber</span>
+      <span class="chip clob">H8Q05L · clobber</span>
+      <span class="chip ok">3RK2T9 · safe</span>
+      <span class="chip clob">4OG6T3 · clobber</span>
+      <span class="chip ok">S61CZX · safe</span>
+      <span class="chip clob">NM1VX1 · clobber</span>
+    </div>
+    <p style="margin:10px 0 0"><b style="color:var(--good)">J = 4 / 6</b> — four of the six
+    natural conflict pairs produced a real clobber under naive; the arbiter prevented all four
+    by refusing the second lease on <code>reservations/&lt;id&gt;</code>. The two "safe" pairs are
+    the honest tail (a natural conflict need not compose destructively on every run). Conflicts
+    were <b>drawn from the real task distribution</b> (2.35% natural pairwise rate, 18 sites),
+    not pinned — which is what kills the "constructed conflict" objection.</p>
+  </div>
+</div>
+
+<script>
+const steps = [
+  { // 0 — start
+    a1:false,a2:false,
+    db:{status:'active',bags:'0',nonfree:'0',pay:'[gift_card +183]'},
+    rstate:'',hash:'d41e…orig',
+    vclass:'',vhead:'Starting state',
+    vwhy:'One reservation NM1VX1: active, 0 bags. Both agents planned against THIS state.',
+    cap:'Both agents planned their tool-calls against the <b>same starting state</b>. Neither knows the other exists.'
+  },
+  { // 1 — A1 acts
+    a1:true,a2:false,
+    db:{status:'cancelled',bags:'0',nonfree:'0',pay:'[gift_card +183, gift_card −183]'},
+    rstate:'cancelled',hash:'a3f1…afterA1',
+    vclass:'',vhead:'A1 lands: reservation cancelled',
+    vwhy:'A1’s cancel applies first. The DB now says status=cancelled and refunds the fare. The DB-hash moves.',
+    cap:'<b>A1 ran.</b> NM1VX1 is now <span style="color:var(--bad)">cancelled</span> and refunded. But A2 still holds tool-calls it computed BEFORE this — A2 thinks the reservation is active.'
+  },
+  { // 2 — A2 naive (stale)
+    a1:true,a2:true,naive:true,
+    db:{status:'active',bags:'1',nonfree:'1',pay:'[gift_card +183, credit_card +50]'},
+    rstate:'',rchanged:true,hash:'77c2…naive',
+    vclass:'bad',vhead:'NAIVE: A2’s stale write clobbers A1',
+    vwhy:'A2’s add-bag was computed on the ORIGINAL (active) state, so a blind replay RE-ACTIVATES the reservation and adds a bag — silently overwriting A1’s cancellation. The composed DB-hash (77c2…naive) ≠ the serialized-correct hash. A real lost update.',
+    cap:'<b>A2 replayed naively.</b> Its stale add-bag overwrote A1’s cancel — the reservation is "active" again with a bag, as if A1 never ran. <span style="color:var(--bad)">The cancellation was lost.</span>'
+  },
+  { // 3 — arbiter
+    a1:true,a2:true,naive:false,
+    db:{status:'cancelled',bags:'0',nonfree:'0',pay:'[gift_card +183, gift_card −183]'},
+    rstate:'cancelled',hash:'a3f1…serial ✓',
+    vclass:'good',vhead:'ARBITER: serialized — both effects coherent',
+    vwhy:'dos.arbiter leases the region reservations/NM1VX1 to A1. A2’s concurrent lease on the SAME region OVERLAPS → refused until A1 releases. A2 then re-plans against the post-A1 (cancelled) state and correctly declines to bag a cancelled reservation. The DB-hash matches the serialized-correct value. J += 1: a clobber structurally prevented, off the hash.',
+    cap:'<b>The arbiter refused A2’s overlapping lease.</b> A2 re-runs against the real (cancelled) state and correctly declines. A1’s cancel stands. <span style="color:var(--good)">No lost update — J counts the clobber it prevented.</span>'
+  }
+];
+
+let i = 0;
+const $ = id => document.getElementById(id);
+const dots = $('dots');
+steps.forEach((_,k)=>{const d=document.createElement('div');d.className='dot';dots.appendChild(d);});
+
+function render(){
+  const s = steps[i];
+  $('ag1').classList.toggle('live', !!s.a1);
+  $('ag2').classList.toggle('live', !!s.a2);
+  // A2 framing flips between naive and arbiter steps
+  if(s.naive===true){ $('ag2c').textContent='STALE replay on the original state — never saw A1'; }
+  else if(s.naive===false){ $('ag2c').textContent='arbiter made it re-plan on the POST-A1 state'; }
+  else { $('ag2c').textContent='also computed against the ORIGINAL DB — it never saw A1'; }
+
+  $('r-status').querySelector('.v').textContent = s.db.status;
+  $('r-bags').querySelector('.v').textContent = s.db.bags;
+  $('r-nonfree').querySelector('.v').textContent = s.db.nonfree;
+  $('r-pay').querySelector('.v').textContent = s.db.pay;
+  $('r-status').className = 'row' + (s.rstate==='cancelled'?' cancelled':'');
+  $('r-bags').className = 'row' + (s.rchanged?' changed':'');
+  $('r-nonfree').className = 'row' + (s.rchanged?' changed':'');
+
+  $('hash').textContent = s.hash;
+  $('verdict').className = 'verdict' + (s.vclass?(' '+s.vclass):'');
+  $('vhead').textContent = s.vhead;
+  $('vwhy').innerHTML = s.vwhy;
+  $('cap').innerHTML = s.cap;
+
+  [...dots.children].forEach((d,k)=>d.classList.toggle('on', k<=i));
+  $('prev').disabled = i===0;
+  $('next').disabled = i===steps.length-1;
+}
+$('next').onclick = ()=>{ if(i<steps.length-1){i++;render();} };
+$('prev').onclick = ()=>{ if(i>0){i--;render();} };
+$('reset').onclick = ()=>{ i=0;render(); };
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key===' '){$('next').click();e.preventDefault();}
+  if(e.key==='ArrowLeft'){$('prev').click();}
+});
+render();
+</script>
+</body>
+</html>

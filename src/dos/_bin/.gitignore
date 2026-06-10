@@ -1,0 +1,15 @@
+# The native dos-hook fast-path binary lands HERE when a per-platform wheel is built
+# (docs/286): `scripts/build_wheels.py` drops exactly one `dos-hook[.exe]` per arch
+# into this dir before `python -m build`, and the wheel ships it as package data
+# (pyproject `[tool.setuptools.package-data] dos = ["_bin/dos-hook*"]`).
+#
+# Unlike the PLUGIN's binaries (claude-plugin/bin/, which MUST be committed because a
+# plugin ships as its git tree — docs/125 GHF4), the WHEEL's binary is BUILT by CI and
+# bundled into the artifact, so it is a release artifact, NOT committed to the kernel
+# source tree. A clean checkout has NO binary here and `dos.hook_binary.native_hook_binary()`
+# returns None → the CLI falls through to the Python hook verb (the docs/100 fallback).
+#
+# Ignore the binaries; keep this .gitignore so the dir exists in the tree (the locator
+# + the package-data glob both reference it).
+dos-hook
+dos-hook.exe

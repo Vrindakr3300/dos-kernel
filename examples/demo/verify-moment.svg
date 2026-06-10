@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" role="img" aria-label="The dos verify money-moment. Left, what the agent CLAIMS (forgeable): claim 1 — 'Shipped AUTH1, the login endpoint is done' — and claim 2 — 'AUTH2 is done too, all work completed!'. Both are just sentences the agent typed; nothing about a claim tells you which is true. Right, what git actually RECORDS (the ledger): one real commit e389e8b 'AUTH1: ship the login endpoint', and no commit anywhere mentions AUTH2. The two verdicts: dos verify AUTH AUTH1 finds the token in a real commit subject — SHIPPED, exit 0, via grep-subject; dos verify AUTH AUTH2 finds it nowhere — NOT_SHIPPED, exit 1, via none. The confident AUTH2 claim collapses the instant no commit backs it.">
+  <title>The dos verify money-moment — the agent says done, git answers</title>
+  <desc>Two equally-confident agent claims (AUTH1 and AUTH2) checked against git history. AUTH1 maps to a real commit subject and returns SHIPPED (exit 0, via grep-subject); AUTH2 is found in no commit and returns NOT_SHIPPED (exit 1, via none). DOS never reads the claim — it reads the ledger.</desc>
+
+  <style>
+    .canvas { fill:#0a0a0f; }
+    .panel  { fill:#101019; stroke:#23232e; }
+    .panel2 { fill:#0d0d14; stroke:#23232e; }
+    .ink    { fill:#eef1f6; } .dim { fill:#8b93a7; } .faint { fill:#5b6478; }
+    .claim  { fill:#ffc24d; }   /* amber — forgeable narration */
+    .bad    { fill:#ff4d57; }   /* hot-red — NOT_SHIPPED */
+    .good   { fill:#2bff88; }   /* acid-green — SHIPPED */
+    .git    { fill:#b78cff; }   /* violet — git ground truth */
+    .accent { fill:#36e0ff; }   /* electric cyan — the 'ask git' rung */
+    .stamp  { font-family:"Arial Black","Helvetica Neue",Arial,sans-serif; font-weight:900; letter-spacing:.5px; }
+    .h2     { font-size:13px; letter-spacing:1.2px; font-weight:700; }
+    /* freeze-safe intro: defaults visible, fades up once, never loops to blank */
+    .seq { opacity:1; animation:rise .6s ease-out forwards; }
+    @keyframes rise { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+    .dA{animation-delay:0s}.dB{animation-delay:.12s}.dC{animation-delay:.22s}.dD{animation-delay:.32s}.dE{animation-delay:.42s}
+    @media (prefers-reduced-motion: reduce){ .seq{animation:none} }
+  </style>
+
+  <rect class="canvas" width="1200" height="560"/>
+
+  <!-- brand -->
+  <text x="40" y="44" class="ink stamp" font-size="22">DOS</text>
+  <text x="92" y="44" class="dim" font-size="13">— the kernel that doesn't believe the agents</text>
+  <text x="40" y="74" class="ink" font-size="17" font-weight="700">An agent claims two units of work shipped. One did; one didn't.</text>
+  <text x="40" y="96" class="dim" font-size="13">DOS never reads the claim — it reads git and answers from what actually landed. The whole pitch is the contrast between the two verdicts.</text>
+
+  <!-- ============ LEFT: the claims (forgeable) ============ -->
+  <g class="seq dA">
+    <rect class="panel" x="40" y="120" width="540" height="250" rx="12"/>
+    <text x="62" y="150" class="dim h2">WHAT THE AGENT CLAIMS</text>
+
+    <!-- claim 1 -->
+    <rect x="62" y="166" width="496" height="56" rx="8" fill="#1a140d" stroke="#caa23f"/>
+    <rect x="74" y="178" width="118" height="18" rx="5" fill="#d299221f"/>
+    <text x="83" y="191" class="claim mono" font-size="11" font-weight="600">agent · claim #1</text>
+    <text x="74" y="214" class="ink" font-size="14" font-style="italic">"Shipped AUTH1 — the login endpoint is done."</text>
+
+    <!-- claim 2 -->
+    <rect x="62" y="232" width="496" height="56" rx="8" fill="#1a0e0e" stroke="#ff4d57"/>
+    <rect x="74" y="244" width="118" height="18" rx="5" fill="#ff4d5722"/>
+    <text x="83" y="257" class="claim mono" font-size="11" font-weight="600">agent · claim #2</text>
+    <text x="74" y="280" class="ink" font-size="14" font-style="italic">"AUTH2 is done too — all work completed!"</text>
+
+    <text x="62" y="314" class="dim" font-size="12">Both are just sentences the agent typed. Equally confident, equally</text>
+    <text x="62" y="332" class="dim" font-size="12">cheap. Nothing about a claim tells you which is true — that's the</text>
+    <text x="62" y="350" class="dim" font-size="12">problem DOS exists to solve.</text>
+  </g>
+
+  <!-- ============ RIGHT: git records (the ledger) ============ -->
+  <g class="seq dB">
+    <rect class="panel" x="620" y="120" width="540" height="250" rx="12"/>
+    <text x="642" y="150" class="dim h2">WHAT GIT ACTUALLY RECORDS</text>
+
+    <!-- real commit -->
+    <text x="642" y="190" class="git mono" font-size="13">e389e8b</text>
+    <text x="724" y="190" class="good mono" font-size="13" font-weight="600">AUTH1:</text>
+    <text x="780" y="190" class="ink mono" font-size="13">ship the login endpoint</text>
+    <line x1="642" y1="204" x2="1138" y2="204" stroke="#30363d" stroke-dasharray="3 3"/>
+
+    <!-- no AUTH2 commit -->
+    <text x="642" y="232" class="faint mono" font-size="13">— — — —</text>
+    <text x="724" y="232" class="faint mono" font-size="13">(no commit mentions AUTH2)</text>
+
+    <rect x="642" y="256" width="496" height="26" rx="6" fill="#0a0a0f" stroke="#23232e"/>
+    <text x="654" y="273" class="dim mono" font-size="12">the git history is the ledger — one real commit, nothing else.</text>
+
+    <text x="642" y="314" class="dim" font-size="12">This panel was authored by the commit machinery, not the agent.</text>
+    <text x="642" y="332" class="dim" font-size="12">It can't say "all set" — it can only record what landed. That's</text>
+    <text x="642" y="350" class="dim" font-size="12">the byte the agent wrote none of.</text>
+  </g>
+
+  <!-- ============ the two verdicts ============ -->
+  <g class="seq dC">
+    <rect class="panel2" x="40" y="392" width="555" height="128" rx="12" stroke="#2bff88"/>
+    <rect x="40" y="392" width="555" height="128" rx="12" fill="#2bff8810"/>
+    <text x="62" y="426" class="good mono" font-size="14" font-weight="700">$ dos verify AUTH AUTH1</text>
+    <rect x="500" y="410" width="74" height="22" rx="6" fill="#2bff8818" stroke="#2bff8844"/>
+    <text x="512" y="426" class="good mono" font-size="12" font-weight="600">exit 0</text>
+    <text x="62" y="456" class="good stamp" font-size="17">SHIPPED</text>
+    <text x="180" y="456" class="ink mono" font-size="13">AUTH AUTH1  e389e8b</text>
+    <text x="380" y="456" class="accent mono" font-size="12">(via grep-subject)</text>
+    <text x="62" y="484" class="dim" font-size="12">The phase token is in a real commit subject that is a git ancestor</text>
+    <text x="62" y="502" class="dim" font-size="12">of HEAD. Claim and ground truth agree.</text>
+  </g>
+
+  <g class="seq dD">
+    <rect class="panel2" x="620" y="392" width="540" height="128" rx="12" stroke="#ff4d57"/>
+    <rect x="620" y="392" width="540" height="128" rx="12" fill="#ff4d5710"/>
+    <text x="642" y="426" class="bad mono" font-size="14" font-weight="700">$ dos verify AUTH AUTH2</text>
+    <rect x="1080" y="410" width="74" height="22" rx="6" fill="#ff4d5718" stroke="#ff4d5744"/>
+    <text x="1092" y="426" class="bad mono" font-size="12" font-weight="600">exit 1</text>
+    <text x="642" y="456" class="bad stamp" font-size="17">NOT_SHIPPED</text>
+    <text x="820" y="456" class="ink mono" font-size="13">AUTH AUTH2</text>
+    <text x="940" y="456" class="accent mono" font-size="12">(via none)</text>
+    <text x="642" y="484" class="dim" font-size="12">The token is in no commit subject and no registry. The confident</text>
+    <text x="642" y="502" class="dim" font-size="12">claim collapses the instant no commit backs it — caught.</text>
+  </g>
+
+  <text x="40" y="548" class="faint" font-size="11.5">Every string above is verbatim output of examples/demo/verify_demo.sh — a rendering of ground truth, not a hand-typed dramatization.</text>
+</svg>

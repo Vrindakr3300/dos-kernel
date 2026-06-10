@@ -1,0 +1,43 @@
+{
+  "task": "swe3_split",
+  "family": "swe",
+  "note": "remainder distribution",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": "..                                                                       [100%]\n2 passed in 0.26s",
+  "cli_returncode": 0,
+  "wall_s": 22.3,
+  "total_cost_usd": 0.13944374999999998,
+  "num_turns": 5,
+  "duration_ms": 21424,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 507,
+      "outputTokens": 14,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.0005769999999999999,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1985,
+      "outputTokens": 1250,
+      "cacheReadInputTokens": 121671,
+      "cacheCreationInputTokens": 5897,
+      "webSearchRequests": 0,
+      "costUSD": 0.13886674999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "2eaf163",
+  "head_subject": "Fix split_bill to distribute remainder cents",
+  "n_commits_total": "2"
+}

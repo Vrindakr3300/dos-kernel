@@ -1,0 +1,43 @@
+{
+  "task": "swe2_lru",
+  "family": "swe",
+  "note": "LRU eviction correctness",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.22s",
+  "cli_returncode": 0,
+  "wall_s": 27.4,
+  "total_cost_usd": 0.14595225,
+  "num_turns": 5,
+  "duration_ms": 26216,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 512,
+      "outputTokens": 23,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000627,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1985,
+      "outputTokens": 1535,
+      "cacheReadInputTokens": 121763,
+      "cacheCreationInputTokens": 5783,
+      "webSearchRequests": 0,
+      "costUSD": 0.14532525000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "738d5f7",
+  "head_subject": "Fix LRUCache to evict the least-recently-used entry",
+  "n_commits_total": "2"
+}

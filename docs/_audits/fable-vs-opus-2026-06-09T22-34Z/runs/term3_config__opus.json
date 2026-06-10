@@ -1,0 +1,43 @@
+{
+  "task": "term3_config",
+  "family": "term",
+  "note": "in-place JSON edit",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.21s",
+  "cli_returncode": 0,
+  "wall_s": 15.8,
+  "total_cost_usd": 0.10701249999999998,
+  "num_turns": 4,
+  "duration_ms": 14853,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 480,
+      "outputTokens": 16,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.00056,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1983,
+      "outputTokens": 712,
+      "cacheReadInputTokens": 94900,
+      "cacheCreationInputTokens": 5006,
+      "webSearchRequests": 0,
+      "costUSD": 0.10645249999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "4c7c3df",
+  "head_subject": "Set debug to false and port to 9090 in config.json",
+  "n_commits_total": "2"
+}

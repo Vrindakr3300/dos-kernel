@@ -1,0 +1,174 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/meta.py:REFERENCES by paper/assemble_arxiv.py (docs/264).
+% The bibliography is single-sourced in meta.REFERENCES -- the HTML build renders it as a
+% numbered References list, this build projects it to BibTeX. Edit meta.REFERENCES, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+%
+% References for "Verification Is All You Need -- But Not Where You Think".
+
+
+@misc{toolathlon,
+  title        = {The Tool Decathlon: Benchmarking Language Agents for Diverse, Realistic, and Long-Horizon Task Execution},
+  author       = {Li, J. and others (HKUST-NLP)},
+  eprint       = {2510.25726},
+  archivePrefix= {arXiv},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2510.25726},
+  note         = {Third-party-scored agent benchmark (the Toolathlon-Trajectories corpus, CC-BY-4.0); ships its own evaluation/main.py oracle. Replayed here for the offline study (22 models).}
+}
+
+@misc{tau2bench,
+  title        = {$\tau^2$-Bench: Evaluating Conversational Agents in a Dual-Control Environment},
+  author       = {Barres, V. and Dong, H. and Ray, S. and Si, X. and Narasimhan, K.},
+  eprint       = {2506.07982},
+  archivePrefix= {arXiv},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2506.07982},
+  note         = {Live target for the write-admission gate and the coordination experiment; exposes an environment database-hash oracle (db\_match).}
+}
+
+@misc{enterpriseops,
+  title        = {EnterpriseOps-Gym: Environments and Evaluations for Stateful Agentic Planning and Tool Use in Enterprise Settings},
+  author       = {Malay, S. K. R. and others (ServiceNow Research)},
+  eprint       = {2603.13594},
+  archivePrefix= {arXiv},
+  year         = {2026},
+  url          = {https://arxiv.org/abs/2603.13594},
+  note         = {Live model-run environment (SQL final-state verifiers) for the in-loop active-fix bake-off and the give-up cross-benchmark check.}
+}
+
+@misc{metr,
+  title        = {Measuring AI Ability to Complete Long Software Tasks},
+  author       = {{METR}},
+  eprint       = {2503.14499},
+  archivePrefix= {arXiv},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2503.14499},
+  note         = {Task-completion time-horizon measurement; the capability-axis framing the per-model coverage result is read against.}
+}
+
+@misc{silentfailures,
+  title        = {Detecting Silent Failures in Multi-Agentic AI Trajectories},
+  author       = {Pathak, D. and others},
+  eprint       = {2511.04032},
+  archivePrefix= {arXiv},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2511.04032},
+  note         = {The trained-classifier neighbour (XGBoost/SVDD, ~98\% on its own labelled data) the Positioning section measures on this corpus.}
+}
+
+@misc{limen,
+  title        = {Limen: Coordination for Concurrent Autonomous AI Agents over Shared Mutable State (advisory write-leases over MCP)},
+  author       = {Meir, T. (Meirtz)},
+  howpublished = {\url{https://github.com/Meirtz/Limen}},
+  year         = {2025},
+  url          = {https://github.com/Meirtz/Limen},
+  note         = {Arbiter neighbour: advisory write-leases + a witnessed audit trail; compares to DOS's arbitrate(), not its detector.}
+}
+
+@misc{codecrdt,
+  title        = {CodeCRDT: Observation-Driven Coordination for Multi-Agent LLM Code Generation},
+  author       = {Pugachev, S.},
+  eprint       = {2510.18893},
+  archivePrefix= {arXiv},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2510.18893},
+  note         = {Arbiter neighbour: lock-free CRDT coordination with strong eventual consistency; the other multi-agent arbitration point.}
+}
+
+@techreport{anderson,
+  title        = {Computer Security Technology Planning Study},
+  author       = {Anderson, J. P.},
+  number       = {ESD-TR-73-51},
+  institution  = {U.S. Air Force Electronic Systems Division},
+  year         = {1972},
+  url          = {https://csrc.nist.gov/publications/history/ande72.pdf},
+  note         = {Origin of the reference-monitor concept and the minimal-TCB doctrine the kernel descends from.}
+}
+
+@article{wald,
+  title        = {Sequential Tests of Statistical Hypotheses},
+  author       = {Wald, A.},
+  journal      = {Annals of Mathematical Statistics},
+  volume       = {16},
+  number       = {2},
+  pages        = {117--186},
+  year         = {1945},
+  url          = {https://doi.org/10.1214/aoms/1177731118},
+  note         = {The sequential probability ratio test (SPRT); the give-up gate's stop-when-the-evidence-is-decisive lineage.}
+}
+
+@article{page,
+  title        = {Continuous Inspection Schemes},
+  author       = {Page, E. S.},
+  journal      = {Biometrika},
+  volume       = {41},
+  number       = {1/2},
+  pages        = {100--115},
+  year         = {1954},
+  url          = {https://doi.org/10.1093/biomet/41.1-2.100},
+  note         = {CUSUM change detection; paired with SPRT as the give-up gate's statistical ancestry.}
+}
+
+@article{aries,
+  title        = {ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking and Partial Rollbacks Using Write-Ahead Logging},
+  author       = {Mohan, C. and Haderle, D. and Lindsay, B. and Pirahesh, H. and Schwarz, P.},
+  journal      = {ACM Transactions on Database Systems},
+  volume       = {17},
+  number       = {1},
+  pages        = {94--162},
+  year         = {1992},
+  url          = {https://doi.org/10.1145/128765.128770},
+  note         = {The write-ahead-log recovery algorithm DOS's resume() lifts its analysis/redo phases from.}
+}
+
+@book{bernstein,
+  title        = {Concurrency Control and Recovery in Database Systems},
+  author       = {Bernstein, P. A. and Hadzilacos, V. and Goodman, N.},
+  publisher    = {Addison-Wesley},
+  year         = {1987},
+  url          = {https://www.microsoft.com/en-us/research/people/philbe/book/},
+  note         = {Serializability, the lost-update anomaly, and two-phase discipline --- the database-concurrency hazards lifted onto world-state.}
+}
+
+@article{toctou,
+  title        = {Checking for Race Conditions in File Accesses},
+  author       = {Bishop, M. and Dilger, M.},
+  journal      = {Computing Systems},
+  volume       = {9},
+  number       = {2},
+  pages        = {131--152},
+  year         = {1996},
+  url          = {https://www.usenix.org/legacy/publications/compsystems/1996/spr_bishop.pdf},
+  note         = {The canonical time-of-check-to-time-of-use (TOCTOU) race analysis; the hazard the abstract lifts from files onto world state.}
+}
+
+@misc{rlvr,
+  title        = {T\"ulu 3: Pushing Frontiers in Open Language Model Post-Training},
+  author       = {Lambert, N. and others (Allen Institute for AI)},
+  eprint       = {2411.15124},
+  archivePrefix= {arXiv},
+  year         = {2024},
+  url          = {https://arxiv.org/abs/2411.15124},
+  note         = {Reinforcement Learning from Verifiable Rewards (RLVR); the training loop the reward-label-purge result plugs into.}
+}
+
+@misc{bowman,
+  title        = {Measuring Progress on Scalable Oversight for Large Language Models},
+  author       = {Bowman, S. R. and others (Anthropic)},
+  eprint       = {2211.03540},
+  archivePrefix= {arXiv},
+  year         = {2022},
+  url          = {https://arxiv.org/abs/2211.03540},
+  note         = {Scalable oversight: supervising systems that outrun a human's line-by-line check --- frontier-lab program (1) the byte-clean witness is offered as an evidence-rooted instance of.}
+}
+
+@misc{baker,
+  title        = {Monitoring Reasoning Models for Misbehavior and the Risks of Promoting Obfuscation},
+  author       = {Baker, B. and Huizinga, J. and Gao, L. and others (OpenAI)},
+  eprint       = {2503.11926},
+  archivePrefix= {arXiv},
+  year         = {2025},
+  url          = {https://arxiv.org/abs/2503.11926},
+  note         = {Reward hacking / monitorability: optimization pressure teaches a model to hide misbehavior --- frontier-lab program (2); the motivation for a non-forgeable, non-distillable label.}
+}

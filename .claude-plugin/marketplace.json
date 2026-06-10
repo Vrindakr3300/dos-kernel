@@ -1,0 +1,22 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "dos",
+  "description": "DOS — the domain-free trust substrate for fleets of autonomous agents.",
+  "version": "1.0.0",
+  "owner": {
+    "name": "Anthony Chaudhary"
+  },
+  "homepage": "https://github.com/anthony-chaudhary/dos-kernel",
+  "repository": "https://github.com/anthony-chaudhary/dos-kernel",
+  "plugins": [
+    {
+      "name": "dos-kernel",
+      "source": "./claude-plugin",
+      "description": "Bundles the DOS hooks + MCP server + the generic skill pack into one install. Requires the dos-kernel Python package (pip install 'dos-kernel[mcp]').",
+      "version": "0.22.0",
+      "author": {
+        "name": "Anthony Chaudhary"
+      }
+    }
+  ]
+}

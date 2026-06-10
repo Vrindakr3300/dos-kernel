@@ -1,0 +1,50 @@
+# Downloaded Toolathlon-Trajectories JSONL (large, CC-BY-4.0 — not ours to vendor; re-fetch on demand)
+_data/
+
+# mermaid-cli install for rendering the EXPLAINER diagrams — regenerable, never vendor it
+node_modules/
+package.json
+package-lock.json
+# ...but DO keep the rendered diagram sources + high-res PNGs (durable deliverables):
+!_diagrams/
+
+# Replay output: ignore everything by default (regenerable)...
+_results/*
+# ...EXCEPT the durable, small, self-contained deliverables — kept in-repo so the study survives
+# across agents (the operator's "data in a durable format to explore" requirement):
+!_results/replay_all_rows.csv      # the flat per-run rows — the explorable unit
+!_results/replay_all.json          # the aggregate + per-model grids (what viz.py reads)
+!_results/schema.md                # the rows' column documentation
+!_results/fig1_purchase_vs_capability.png
+!_results/fig2_per_model_grid.png
+!_results/fig3_simpson.png
+!_results/fig4_confusion.png
+!_results/fig5_lift_vs_recall.png
+!_results/fig6_trio_additivity.png
+# docs/158 terminal_error additivity: the durable claims ledger + the 3 reproducible figures.
+# NB: git negation lines must NOT carry trailing inline comments (the `#` becomes part of the
+# pattern and silently breaks the match) — keep the path bare, comment on its own line above.
+!_results/additivity_claims.md
+!_results/figA_additivity_headline.png
+!_results/figB_per_model_catches.png
+!_results/figC_frontier_sensitivity.png
+!_results/figD_combined_dos_lift.png
+# docs/160 SOTA positioning: the trained-classifier head-to-head ledger (durable, reproducible).
+!_results/classifier_comparison.md
+!_results/.gitkeep
+
+# docs/161 LIVE Gemini run: ignore the large downloaded run dirs (trajectories, workspaces,
+# conversation histories — regenerable from the public service)...
+_live/*
+# ...EXCEPT the small, durable, self-contained scored-rows CSV (one row per task) + the task lists,
+# so the live study survives across agents the same way the replay rows do. Negation paths stay
+# BARE — a trailing inline comment becomes part of the pattern and silently breaks the match.
+!_live/results/
+_live/results/*
+!_live/results/live_scored_rows.csv
+!_live/results/local_scored_rows.csv
+!_live/results/ab_pilot_run1.md
+!_live/results/ab_flash_run.md
+!_live/results/ab_scored_rows.csv
+!_live/run_local_batch.sh
+!_live/tasklists/

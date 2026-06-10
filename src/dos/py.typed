@@ -1,0 +1,4 @@
+# PEP 561 marker: the `dos` package ships inline type hints. Its presence tells
+# type checkers (mypy/pyright) to read this package's annotations for downstream
+# consumers (the userland app, dos_mcp). Matches the `Typing :: Typed` classifier
+# in pyproject.toml. See https://peps.python.org/pep-0561/.

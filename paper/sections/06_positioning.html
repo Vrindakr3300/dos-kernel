@@ -1,0 +1,177 @@
+<h2 data-sec="baselines">Is the signal real? Naive baselines</h2>
+
+<p>A detector that fires on the right runs is only impressive if a dumb
+detector cannot do the same. So we measured the dumb ones, scored by the
+same lift and false-alarm from &sect;{{sec:bench}} (lift = precision minus the 76.2%
+base fail rate; false-alarm = how often the detector fires on a run that
+actually passed). A good detector has high lift and low false-alarm.</p>
+
+<table data-tbl="baselines">
+  <caption>Table&nbsp;{{tbl:baselines}}. Naive baselines vs. the shipped detector
+  (Toolathlon, third-party scored). Read the <em>lift</em> column: it is precision
+  minus the 76.2% base, so it strips out the credit a detector gets for free on a
+  benchmark where failure is the default.</caption>
+  <thead>
+    <tr><th>Detector</th><th>Fire</th><th>Precision</th><th>Lift</th><th>False-alarm</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>baseline-always-fail</td><td>100%</td><td>76.2%</td><td>+0.0pp</td><td>100%</td></tr>
+    <tr><td>naive-loose</td><td>32.3%</td><td>81.1%</td><td>+4.9pp</td><td>25.6%</td></tr>
+    <tr><td>naive-any-error</td><td>19.5%</td><td>81.4%</td><td>+5.2pp</td><td>15.2%</td></tr>
+    <tr><td>tight-no-recovery</td><td>2.3%</td><td>93.0%</td><td>+16.9pp</td><td>0.7%</td></tr>
+    <tr class="keystone"><td>terminal_error (shipped)</td><td>1.2%</td><td>95.0%</td><td>+18.8pp</td><td>0.24%</td></tr>
+  </tbody>
+</table>
+
+<p>("Fire" is how often the detector triggers at all.)</p>
+
+<p><strong>The recall mirage.</strong> Recall is the wrong scoreboard here. The baseline that prints
+"fail" on every run posts 100% recall &mdash; it catches every failure because it flags everything
+&mdash; yet its lift is +0.0pp and it false-alarms 100% of the time. Score by lift and false-alarm
+instead and it falls to the bottom where it belongs. Our detectors make the opposite trade (high
+precision, low false-alarm, low recall) because a verdict is meant to be <em>acted on</em>, and
+&sect;{{sec:giveup}} is what that looks like: you only give up on a run you are sure is doomed.</p>
+
+<p><strong>The tight grammar is load-bearing.</strong> You might think reading the structured error
+envelope more loosely would catch more failures. It does not: loosening buys ~5pp of precision but
+pushes false-alarm from 0.24% to 25.6%&ndash;69.4% (&asymp;105&times;&ndash;285&times; worse). You cannot buy
+recall by reading the bytes you already have more loosely; the only way to catch more is an
+<em>independent</em> witness &mdash; exactly the Tier-B re-read of &sect;{{sec:payoff}}. The per-model
+grid (<a href="#fig-permodel">Fig.&nbsp;{{fig:permodel}}</a>) shows the precision holding across every
+model that fires.</p>
+
+<figure data-fig="permodel">
+  <img src="figs/fig2_per_model_grid.png" alt="A grid with one row per model, ordered from weakest to strongest. Each row shows the detector's precision and fire-rate. Precision stays high (the detector is right when it fires) across the whole ladder; fire-rate is high on weak models and falls toward zero on the strongest.">
+  <figcaption>Figure&nbsp;{{fig:permodel}}. Model by model (weakest to strongest): precision stays high all the way up the ladder; only the fire-rate falls away on the strongest models. The only honest way to catch more failures is a new source of evidence, not a looser reading of the bytes already in hand.</figcaption>
+</figure>
+
+<h2 data-sec="positioning">Positioning</h2>
+
+<p>Three kinds of system sit near this work. The first does the same job by a cheaper-looking trick &mdash; re-run the agent until a check passes &mdash; and works only for one agent. The second does the same job &mdash; catch a silent failure &mdash; by a different method (a trained classifier). The third does a different job entirely. We take each on its own terms.</p>
+
+<h3 data-sec="positioning.wrapper">The re-run wrapper (and why a fleet defeats it)</h3>
+
+<p>The most common reaction is that this looks unnecessary: <em>if you do not trust an agent&rsquo;s
+&ldquo;done,&rdquo; just check the result and re-run when the check fails.</em> The loop is correct for
+a single agent and we make no claim against it &mdash; only against the dismissal it smuggles in, that
+single-agent reliability is therefore trivial. Two parts of the loop are real work the phrase hides:
+the <em>check</em> must be one the agent cannot forge (a git-ancestry, registry-first ship oracle under
+a closed vocabulary, not &ldquo;re-read the result,&rdquo; which falls into the same mirror-verifier
+trap), and the <em>loop</em> must sense fast enough to gate every turn (here the in-flight path needed
+a rewrite from a ~250&nbsp;ms Python hook to a ~10&nbsp;ms native one). Neither is a few lines of
+glue.</p>
+
+<p>But the <em>headline</em> claim &mdash; the place a re-run wrapper provably cannot follow &mdash; is
+the concurrent one, and we concede the stronger objection first. If the shared store offered a
+transactional primitive (a serializable transaction, a compare-and-swap, a conditional write), a
+wrapper around even a lone agent could fuse check and write into one atomic step and close the race
+with no referee. Our claim is scoped to the regime that holds for agents in the wild: they act through
+high-level tool APIs (cancel a reservation, file a ticket) that expose only unconditional writes, so no
+such primitive is available to wrap. There the TOCTOU argument bites &mdash; A&rsquo;s read and write
+are separate non-atomic calls, so no number of re-runs makes two calls one. The number settles it:
+&sect;{{sec:payoff.race}}&rsquo;s arbiter prevents all 6 live would-be clobbers across its 8 racing
+pairs and a re-run wrapper prevents none, because each agent&rsquo;s own check passed. (The arbiter is a lock service supplying the
+serialization the store does not, lifted <em>outside</em> any single agent &mdash; which is why it
+works where a wrapper on A cannot.)</p>
+
+<p>The honest converse is our own boundary. At the single easy hop where a wrapper <em>does</em> apply,
+handing the verdict back in-loop is mildly <em>harmful</em> (&Delta;B, Appendix&nbsp;D) &mdash; so we do
+not rest the headline payoff on the single-agent case. The concurrency case without a transactional
+store is where the entire <em>incremental</em> payoff over a wrapper lives.</p>
+
+<h3 data-sec="positioning.classifier">Trained classifiers</h3>
+
+<p>The nearest neighbour is a <em>trained</em> classifier: a model fitted on a labelled set of past failures, which then predicts whether a new run failed (arXiv 2511.04032{{cite:silentfailures}}, 2025, about 98% accuracy on its own data). On paper that beats our detectors by a wide margin. The catch is what the number costs, and where that 98% actually lives.</p>
+
+<p>A classifier needs a labelled set of failures from the same kind of task, and a held-out slice to score it honestly. That labelled set is exactly the thing you do not have on a task you have never seen, which is the whole problem. Run the classifier <em>fairly</em> on this corpus and two things happen. Its best-balanced operating point just predicts "everything failed": on a benchmark where 76.2% of runs fail, that scores well by accuracy but buys no real skill, and this is where the 98% headline lives (the recall mirage from &sect;{{sec:baselines}}). Its only deployable operating point &mdash; the one that almost never cries wolf &mdash; fires exactly once. So at a false-alarm rate you could ship, it does nothing.</p>
+
+<table data-tbl="classifier">
+  <caption>Table&nbsp;{{tbl:classifier}}. The zero-training detectors versus a trained classifier on this corpus, on the same scoreboard. A classifier has to pick an <em>operating point</em> (how eager to fire); we show its two honest choices. Watch the <em>lift</em> column &mdash; the real-skill number from &sect;{{sec:bench}} &mdash; not the precision.</caption>
+  <thead>
+    <tr><th>method</th><th>fire</th><th>precision</th><th>lift</th><th>false-alarm</th></tr>
+  </thead>
+  <tbody>
+    <tr class="keystone"><td><code>terminal_error</code> (0-training)</td><td>1.2%</td><td>95.0%</td><td>+18.8pp</td><td>0.24%</td></tr>
+    <tr><td>DOS trio (union, 0-training)</td><td>5.1%</td><td>92.6%</td><td>+16.4pp</td><td>1.6%</td></tr>
+    <tr><td>trained clf &mdash; <strong>deployable</strong> point</td><td>0.0%</td><td>100.0%</td><td>n/a (1 fire)</td><td>0.0%</td></tr>
+    <tr><td>trained clf &mdash; <strong>F1-optimal</strong> point</td><td>100.0%</td><td>76.2%</td><td>+0.0pp</td><td>99.9%</td></tr>
+  </tbody>
+</table>
+
+<p>The two classifier rows are the ends of one dial. At the <em>deployable</em> point (the only setting that does not constantly cry wolf) it fires once in 6,862 runs &mdash; effectively silent. At the <em>F1-optimal</em> point (best by the usual accuracy measures) it just predicts &ldquo;everything failed&rdquo;: 100% fire, +0.0 lift, no skill. The widely-quoted &ldquo;98% accuracy&rdquo; lives at that second setting &mdash; the recall mirage of &sect;{{sec:baselines}} in classifier's clothes. No dial position both fires usefully and stays trustworthy on an unseen task; our zero-training detectors sit at +16 to +19 lift at a deployable false-alarm rate.</p>
+
+<p>Two further problems. The classifier reads the agent's own trajectory structure, so it risks the mirror-verifier trap (&sect;{{sec:intro}}) &mdash; it can learn the tells a model stops emitting once trained against. And when we feed it the DOS detector flags as features, its top weights <em>are</em> those detectors (<code>dangling_fired</code>, <code>terminal_error_fired</code>, <code>tool_stream_fired</code>): it re-derives the cheap signals it was handed. The right place for such a model is not beside DOS as a rival but <em>under</em> it &mdash; a JUDGE-rung adjudicator (ORACLE &rarr; JUDGE &rarr; HUMAN) that rules only on the residue the deterministic detectors abstained on, fail-to-abstain, never the floor.</p>
+
+<h3 data-sec="positioning.arbiter">Arbiter neighbours</h3>
+
+<p>Two multi-agent arbitration systems sit nearby: Limen{{cite:limen}} (advisory write-leases) and CodeCRDT{{cite:codecrdt}} (lock-free CRDT). Both compare to DOS's <code>arbitrate()</code> call, not its detector, and neither can run on this benchmark: a frozen single-agent trace has no live write to mediate. (The arbiter axis is not unmeasured in this paper &mdash; &sect;{{sec:payoff.race}} exercises it live and counts J&nbsp;=&nbsp;6; neither neighbour reports a comparable prevented-corruption count.) On this frozen target DOS's arbiter likewise has nothing to mediate, and its enforcement point &mdash; a pre-tool <code>permissionDecision: deny</code> hook an agent runtime such as Claude&nbsp;Code honours before a tool runs &mdash; is never exercised by a single-agent benchmark. The detector axis of this study and the arbiter axis of these neighbours do not share a scoreboard.</p>
+
+<h2 data-sec="limits">Limitations</h2>
+
+<ul>
+  <li><strong>In-loop: DETECT, not FIX &mdash; no task-lift number on Toolathlon.</strong> Every Toolathlon figure is detection on frozen runs; the one validated <em>in-loop</em> action is give-up (&sect;{{sec:giveup}}), which repairs nothing. The <em>out-of-loop</em> result (&sect;{{sec:payoff}}, J&nbsp;=&nbsp;10 across two models / 120 tasks) is a measured <em>existence</em> result at an 8.3% rate, not a calibrated population rate, and on a different benchmark (tau2-bench).</li>
+  <li><strong>The recall ceiling is hard and tightens on the frontier.</strong> Union recall is 6.18%&ndash;7.42%, so ~93% of failures stay silent, and fire-rate falls toward zero on the strongest models.</li>
+  <li><strong>Four syscalls are null by construction here.</strong> Toolathlon runs one agent on isolated state with no git or WAL, so <code>arbitrate</code>, <code>verify</code>, <code>liveness</code>, and <code>resume</code> have no job; only the in-flight detectors do.</li>
+  <li><strong>The give-up token-saving magnitude is single-corpus, single-model.</strong> The gate never wrongly halts a winner where it fires (specificity, across 22 models and two benchmarks); how <em>often</em> it fires, and so how much it saves, is benchmark-dependent.</li>
+</ul>
+
+<h2 data-sec="conclusion">Conclusion</h2>
+
+<p>Hold one thing fixed &mdash; a byte-clean verdict the agent cannot forge, scored by a third-party
+oracle DOS does not own &mdash; and the result is about <em>where</em> to spend it. <em>In-loop</em>,
+every active fix (warn, rewind, inject the environment&rsquo;s own correction) was flat or
+net-negative, because injecting a turn perturbs runs that would have passed; the one in-loop action
+that helped was the negative one, give up correctly (<strong>zero of 1,634 winners halted across 22
+models</strong>, ~11% of tokens saved). <em>Out-of-loop</em>, the same verdict pays on both ways a
+fleet fails &mdash; a write-admission gate blocked <strong>10 over-claims</strong> at an identical 8.3%
+rate across two models (so the signal does not fade at the stronger tier), and an arbiter prevented
+<strong>all 6 would-be clobbers across 8 racing pairs</strong> &mdash; both off a byte no agent wrote,
+neither touching the judged agent. The decisive move is not a better detector but a better <em>consumer</em>: detect cheaply
+in-loop, stop the doomed run, and spend the verdict out-of-loop &mdash; with the W3 residue (a goal
+with no world footprint) still beyond any witness short of a human.</p>
+
+<h3 data-sec="conclusion.directions">Directions</h3>
+
+<p>The result generalizes along the axis that gave it: <em>where</em> a non-forgeable verdict is
+spent, and <em>what witness</em> it can read. Four directions follow from the honest edges above, each
+a measurement we know how to run. <strong>Close the RLVR loop to a weight update.</strong> &sect;{{sec:payoff.scope}} measures the
+label purge (poison reward labels removed off ground truth); the next rung is the trained-behaviour
+delta &mdash; fine-tune two models on the poison and the witness-cleaned reward set and measure
+whether the second over-claims less. The pipeline is built and the proxy separates (+60pp over a
+control that over-claims 0/4); only the weight update is unmeasured, and that is the one number a
+training lab would want first. <strong>Raise the witness floor.</strong> About 38% of frontier
+goals reach <em>no</em> sound witness at any rung (&sect;{{sec:boundary}}); the open question is
+how far a richer, still-non-forgeable witness (a structured state-diff, an environment-authored
+trace, a second independent grader) can push that floor down before the irreducible human-seed
+residue. <strong>Cascade depth as a calibrated curve, not an existence shape.</strong>
+Appendix&nbsp;D shows the payoff compounds F<sup>D</sup> across a branching fleet, but
+with an injected root and per-node re-inheritance; a fully serial chain whose nodes <em>write</em>
+on the poison turns the shape into a calibrated constant. <strong>Push the referee from advisory to
+enforcing, carefully.</strong> Everything here is advisory &mdash; it proposes, a human or a
+downstream system decides &mdash; which is the right default; the controlled question is where an
+out-of-loop <em>enforcement</em> point (a pre-write deny the runtime honours) can be trusted to act
+without a human in the loop, and where it cannot. The throughline is a small trusted referee that lets
+a fleet of fallible, self-narrating agents &mdash; and the loop that trains them &mdash; be scaled
+without scaling the trust placed in any one of them.</p>
+
+<h2 id="sec-repro">Reproducibility</h2>
+
+<p>Every number in the Toolathlon study (the detectors and their ceiling, &sect;{{sec:bench}}&ndash;{{sec:result}}; the give-up specificity, &sect;{{sec:giveup}}; and the naive baselines, &sect;{{sec:baselines}}) recomputes offline, with no network or model calls, from the durable per-run join <code>replay_all_rows.csv</code> (7,116 records, content fingerprint <code>sha256:1a55e8d8e2d4</code> &mdash; computed line-ending-normalized, CRLF&rarr;LF, so a checkout on Windows whose raw <code>sha256sum</code> differs is <em>not</em> seeing drift; <code>additivity.py:rows_fingerprint</code> is the canonical computation). The additivity single-source-of-truth re-asserts the headline claims and exits non-zero if a regenerated file drifts from them, so a claim cannot silently part from its data; the give-up cross-benchmark numbers and figure regenerate from their own script. The one exception is &sect;{{sec:payoff}}: it reports a <em>live, paid</em> run (tau2-bench through Gemini; single-model run {{fact:spend_writeadmit_single}}, cross-model run {{fact:spend_writeadmit}}), so its numbers are a fixed read-off of that run, not an offline recompute. They are transcribed verbatim into the figure's single source of truth (<code>paper/_VERIFIED_FACTS_228_2026-06-08.md</code> and <code>_VERIFIED_FACTS_232_2026-06-08.md</code>), and the run is resumable from a per-task cache so it never re-spends; re-running it requires a Gemini API key and reproduces an <em>existence</em> result (the gate blocks real over-claims), not the exact count, since the live rollouts vary.</p>
+
+<pre><code># 1. regenerate the durable rows from the frozen trajectories (offline once _data/ is cached):
+python -m benchmark.toolathlon.run_replay --all --no-download --by-model \
+    --rows-out benchmark/toolathlon/_results/replay_all_rows
+
+# 2. recompute + re-assert the detector / additivity / union claims (exits non-zero on drift):
+python -m benchmark.toolathlon.additivity --check
+
+# 3. regenerate the give-up-correctly numbers and the cross-benchmark figure:
+python benchmark/giveup_cross_benchmark.py
+
+# 4. redraw every figure from the same single-source-of-truth numbers:
+python -m benchmark.toolathlon.viz
+</code></pre>
+
+<div class="endnote">
+<p><strong>Artifact.</strong> The replay harness, the per-run data, the figures, and the single-source-of-truth scripts that compute every number in this paper are released together, under <code>benchmark/toolathlon/</code> and <code>benchmark/</code> in the project repository. The Toolathlon benchmark and its <code>Toolathlon-Trajectories</code> dataset (CC-BY-4.0) are the work of the HKUST-NLP authors; we replay them here as an external, third-party-scored test target, and they are not a contribution of this paper.</p>
+</div>

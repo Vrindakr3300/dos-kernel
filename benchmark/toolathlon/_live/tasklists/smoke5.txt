@@ -1,0 +1,5 @@
+cooking-guidance
+detect-revised-terms
+paper-checker
+git-milestone
+imagenet

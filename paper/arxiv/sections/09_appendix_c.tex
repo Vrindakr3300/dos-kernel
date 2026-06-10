@@ -1,0 +1,171 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/09_appendix_c.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{Appendix C. How to reproduce --- every number, command, and released item}
+
+This appendix lists every result the body claims, the command that regenerates it, the artifact
+that backs it, and what you need to run it --- so a stranger with the repository and one API key
+can re-derive the numbers, or see exactly what stands between them and a gated one. The frozen
+results are \textbf{\$0 and deterministic} (a shipped CSV or corpus); the live results are
+\textbf{paid} (an external benchmark through a model API). The distinction is the methodological spine: a frozen
+replay gives a \emph{rate}, only a live run gives an intervention \emph{payoff}.
+
+\subsection{C.1 The reproduction principle: re-derive, never trust the cache}
+
+One rule governs every script below, aimed at our own pipeline: \textbf{every number is recomputed
+from the byte the agent could not author, never read back from a stored summary.} The frozen
+results recompute from a per-run CSV the benchmark's own grader wrote; the live results recompute each
+verdict from the agent's stored message \emph{with the current extractor}, not the cached bit. This
+is not pedantry --- in the cross-model run (\cref{sec:payoff-secondmodel}) a naive sum of cached
+bits reported the stronger model at J~=~4, and re-deriving from the stored message gave the
+true J~=~5, recovering an over-claim the older extractor had missed. So each command ends in a
+fold that re-reads ground truth, and several ship a \code{--check} mode that exits non-zero on
+drift.
+
+\subsection{C.2 One-time setup}
+
+Everything runs from a single editable install of the kernel plus its benchmark extras.
+The kernel's own dependency set is PyYAML-only; the paid runs pull in the external benchmark
+and a model client.
+
+\begin{table}[t]
+  \centering
+  \caption{Setup, in order. Steps 1--2 suffice for the two \$0 results;
+steps 3--4 are needed only for the two live results.}
+  \label{tab:unknown}
+  \begin{tabular}{llll}
+    \toprule
+    \# & Step & Command & Needed for \\
+    \midrule
+    1 & Clone + editable-install the kernel & \code{pip install -e .} (from the repo root) & everything \\
+    2 & Confirm the suite is green & \code{python -m pytest -q} & everything \\
+    3 & Clone + install tau2-bench (the live target; the PyPI \code{tau2} is an unrelated squatter) & \code{pip install -e ./tau2-bench} ~then~ \code{pip install audioop-lts} on Python~3.13 & \cref{sec:payoff} live runs \\
+    4 & Put a model key in \code{.env} at the repo root & \code{GEMINI\_API\_KEY=…} (the runners load it from \code{.env}; it is not read from the shell) & \cref{sec:payoff} live runs \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two setup traps cost real time. tau2-bench transitively imports \code{audioop} (removed in
+Python~3.13) --- install the \code{audioop-lts} backport or the import fails before any
+task runs. And a Gemini access-token key (\code{AQ.}-prefixed) \emph{expires}; re-smoke it
+before any batch (\code{models?pageSize=1\&key=…}), or a dead key silently zeroes the
+run and makes ``we tried, it found nothing'' look like a result.
+
+\subsection{C.3 The two \$0 results (frozen, deterministic, no key)}
+
+These read a shipped CSV and recompute the paper's numbers with no network, no model, no
+spend. They are the detector-quality story (\cref{sec:result} / Appendix~A.3) and the give-up
+story (\cref{sec:giveup} / Appendix~A.3). Each is its own single source of truth and ships a
+\code{--check} mode that fails loud on drift.
+
+\begin{table}[t]
+  \centering
+  \caption{The frozen results --- reproduce with one command each, \$0.}
+  \label{tab:unknown}
+  \begin{tabular}{lll}
+    \toprule
+    Paper claim & Command & Backing artifact \\
+    \midrule
+    \textbf{Detector precision 88--98\%, recall $\sim$2\%, the trio-additivity +30\% recall gain} (\cref{sec:result}, \cref{tab:detectors}) & \code{python -m benchmark.toolathlon.additivity} (print) $\cdot$ \code{--check} (assert) $\cdot$ \code{--emit} (write the claims ledger) & \code{benchmark/toolathlon/\_results/replay\_all\_rows.csv} --- 7,116 frozen runs, 22 models $\times$ 108 tasks, per-run \code{passed} + detector signals \\
+    \textbf{Give-up halts 0 winners at K$\ge$3, $\sim$11\% tokens saved; the naive variant kills 6} (\cref{sec:giveup}, \cref{tab:giveup}) & \code{python benchmark/giveup\_cross\_benchmark.py} (tables + figure) $\cdot$ \code{--no-fig} & the same \code{replay\_all\_rows.csv} (1,634 winners) + \code{benchmark/enterpriseops/live\_results\_natural\_ab} \\
+    \textbf{The frozen 13.6\% over-claim slice} (\cref{sec:payoff-noshow}, the rate the live run promotes) & \code{python -m benchmark.agentprocessbench.overclaim --check} $\rightarrow$ \code{consensus=34 (13.6\%)}, exit 0 & the 250 frozen AgentProcessBench tau2 trajectories (\code{dataset.load(configs=("tau2",))}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The durable-rows CSV carries a fingerprint, and the paper records it: the rows this paper's
+numbers were drawn from fingerprint to \code{1a55e8d8e2d4} (\code{additivity.rows\_fingerprint()}).
+The paper's own build step warns if the live CSV has drifted from that value, so a stale paper
+cannot quietly ship wrong provenance. If you regenerate the rows and the fingerprint moves, the
+numbers move with it --- that is the point.
+
+\subsection{C.4 The live results (paid, gated behind a key)}
+
+These are the headline of the paper --- the out-of-loop payoff, run live (\cref{sec:payoff}).
+They drive a real agent through tau2-bench, read the environment's own database hash, and
+count an integer J of corruptions a referee actually prevented. Both the agent and the
+user-simulator are live models, so cost scales with dialogue length; the whole program in the
+paper ran for well under the budgets below. Every live-output directory is \textbf{gitignored
+on purpose} --- the seed configs embed the API key --- so the repository ships
+the \emph{drivers} that regenerate the result, not the raw transcripts. The
+\code{\textbackslash\{\}\$0} synthetic smoke that each driver ships proves the mechanism with hand-built
+tool-calls and no model; run it first, every time.
+
+\begin{table}[t]
+  \centering
+  \caption{The live results. Run the \$0 smoke first; the paid command reproduces
+the paper's J. The two write-admission runs and the coordination run together cost under \$8
+(\$0.89 + \$4.77 + \$1.50); the
+saturation row is the \emph{same} write-admission program folded to completion, so its
+\$8.35 is cumulative (it contains the first two runs). The Appendix~D
+programs (Table~C4) are separate spends.}
+  \label{tab:unknown}
+  \begin{tabular}{lll}
+    \toprule
+    Paper claim & \$0 smoke (mechanism) & Paid run (the payoff) \\
+    \midrule
+    \textbf{Write-admission, single model: J~=~5, 11.6\% over-claim rate} (\cref{sec:payoff-writes}, \cref{fig:writeadmit}) & \code{python -m benchmark.agentprocessbench.writeadmit.live\_loop} with \code{frozen\_ab} (no key) --- J~arithmetic proven & \code{python benchmark/agentprocessbench/writeadmit/\_run\_model.py gemini/gemini-2.5-flash <out\_dir> 30 25} \\
+    \textbf{Cross-model: J~=~10 over 120 clean tasks, 8.3\% on both flash and pro} (\cref{sec:payoff-secondmodel}, \cref{fig:crossmodel}) & (same gate; the smoke above covers it) & run \code{\_run\_model.py} once for \code{gemini/gemini-2.5-flash} and once for \code{gemini/gemini-2.5-pro}, then fold: \code{python -m benchmark.agentprocessbench.writeadmit.aggregate\_live} \\
+    \textbf{Saturation: J~=~15 over 258 clean tasks, whole-distribution rate 5.8\%} (\cref{sec:payoff-scope}) & \code{python -m benchmark.agentprocessbench.writeadmit.aggregate\_live} --- re-folds every cached run directory and re-derives each verdict from the stored message, \$0 once the caches exist & grow the fold with further \code{\_run\_model.py} task windows, then re-fold (docs/228 \S5.1; \$8.35 cumulative) \\
+    \textbf{Coordination: J~=~6, arbiter serialized 8/8 pairs} (\cref{sec:payoff-race}, \cref{fig:coord}). \emph{6 is the corrected count}: the directional-clobber definition (\cref{sec:payoff-race}) drops one run-to-run-variance pair, taking the live headline from a reported 7 to an honest 6 --- so do not expect a raw 7. & \code{python benchmark/agentprocessbench/writeadmit/coord\_loop.py --smoke} --- the arbiter-serialization invariant, no key & \code{python benchmark/agentprocessbench/writeadmit/coord\_loop.py --live --pairs 8} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two model-specific details silently zero a run if missed. First, the cross-model run needs a
+\textbf{per-tier reasoning setting}: the flag that suppresses a flash-only crash on long
+dialogues is fatal to the thinking-only pro tier (\emph{``Budget 0 is invalid''}) --- a
+pro attempt that re-used the flash flag errored on all 60 tasks and reported a false J~=~0
+(a regression test \code{test\_model\_args.py} now pins it). Second, the coordination run must give
+each task the reservation's \textbf{real owner} as the user identity, or a correct agent rightly
+refuses to touch a stranger's booking and the designed conflict never fires. Both are harness details
+that make ``we tried, it found nothing'' an artifact rather than a result.
+
+The complete, append-only run journals for the live program --- every checkpoint, every
+trap, every dollar --- live next to the drivers and are the most faithful record of how the
+numbers were produced:
+\code{benchmark/agentprocessbench/writeadmit/RUN\_PLAN\_live.md} (the write-admission run,
+J~=~5 $\rightarrow$ the design notes that became \code{docs/228}), and the matching
+design notes \code{docs/232} (cross-model, J~=~10) and \code{docs/233}
+(coordination, J~=~6).
+
+The Appendix~D programs reproduce the same way, from their own drivers and journals
+(Table~C4). Each follows the Table~C3 pattern: a keyless command that proves the mechanism,
+then a gated command that reproduces the live number.
+
+\begin{table}[t]
+  \centering
+  \caption{The Appendix~D programs --- same discipline, separate drivers and
+spends.}
+  \label{tab:unknown}
+  \begin{tabular}{lll}
+    \toprule
+    Paper claim & \$0 / keyless (mechanism) & Gated run (the result) \\
+    \midrule
+    \textbf{Richer witness + $\Delta$B: flash blocks 23 of 35 confident writes (66\%), pro 25 of 31 (81\%); $\Delta$B~=~+4 flash / 0 pro} (D.1) & \code{python -m benchmark.agentdiff.live\_loop} (no key) prints the frozen-witness summary; \code{test\_gate.py} / \code{test\_live.py} pin the gate & same module with \code{--live} (resumable; the 45-task test split caches locally), then the $\Delta$B runner \code{delta\_b.py} (docs/237) \\
+    \textbf{The frontier ladder: subject rung fooled 7/8, presence 2/8, behavior 0/8; the judge is functional only given the OS test byte} (D.2) & \code{python benchmark/fleet\_horizon/forge.py} --- authors the nine artifacts as real commits and runs the deterministic ladder keyless (the judge seat abstains); the run of record is \code{results\_fable5\_ladder\_20260609.json} & \code{DOS\_LLM\_JUDGE\_CMD='claude -p --model claude-fable-5'} seats the model judge through the operator CLI (docs/272) \\
+    \textbf{The cascade: chain D$-$1 (1, 2, 3 at depths 2--4); tree F$^{D}$ (4, 8 at depths 2--3, F=2)} (D.3) & \code{python benchmark/agentprocessbench/writeadmit/cascade\_loop.py --smoke} --- the synthetic state-cascade mechanism, no key & \code{--live --depth 4} (the chain) and \code{--fanout-live --depth 3 --fanout 2} (the tree), \$2.50 total (docs/251, docs/253) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{C.5 Released items}
+
+The full inventory --- the kernel (\code{src/dos/}; distribution \code{dos-kernel},
+import/CLI \code{dos}), the seven-benchmark suite (\code{python -m benchmark.\_run list}
+prints each one's prerequisites and cost; the three the paper draws on are \code{toolathlon},
+\code{agentprocessbench}, and \code{enterpriseops}), the design notes, and the paper's own
+reproducible build (\code{python paper/build.py}) --- ships in the project repository. The
+dependency arrow is one-way: the benchmarks and the paper \code{import dos} / call the
+\code{dos} CLI; nothing under \code{src/dos/} depends on them. The write-admission floor
+both live consumers stand on is \code{src/dos/effect\_witness.py} (the
+\code{believe\_under\_floor} discipline of Appendix~B.2); the build is single-sourced from
+\code{paper/meta.py}, with every figure regenerated from the run data.
+
+The shortest path from a clean clone to the numbers: three commands recompute the frozen rates
+from shipped data at \$0 (Table~C2); the live programs (Tables~C3--C4) drive real agents
+through tau2-bench and Agent-Diff off a single key to recompute the intervention payoffs --- and
+every one re-derives its number from the byte the agent could not author, never from a cached
+summary.

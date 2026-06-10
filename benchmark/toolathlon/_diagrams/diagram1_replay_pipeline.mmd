@@ -1,0 +1,14 @@
+flowchart TD
+    A["one trajectory<br/>(a recorded agent attempt)"] --> B["trajectory.py<br/>the READER<br/>parse messages, pair tool calls↔results"]
+    B --> C1["StopEvidence<br/>(last narration + did anything act after?)"]
+    B --> C2["ToolStream<br/>(tool, args, result-digest) per step"]
+    C1 --> D1["dos.dangling_intent.classify_stop<br/>→ fired? yes/no"]
+    C2 --> D2["dos.tool_stream.classify_stream<br/>→ ADVANCING / REPEATING / STALLED"]
+    A --> E["the third-party label<br/>task_status.evaluation = pass/fail<br/>(Toolathlon's own oracle — we don't own it)"]
+    D1 --> F["JOIN: did the detector fire<br/>vs did the oracle fail?"]
+    D2 --> F
+    E --> F
+    F --> G["confusion grid<br/>→ fire-rate, precision, recall, lift"]
+    style E fill:#fff3cd,stroke:#d97706
+    style F fill:#dbeafe,stroke:#2563eb
+    style G fill:#dcfce7,stroke:#16a34a

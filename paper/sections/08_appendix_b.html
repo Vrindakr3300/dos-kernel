@@ -1,0 +1,118 @@
+<h2 id="appendix-b">Appendix B. How it works — from a forgeable claim to a grounded refusal</h2>
+
+<p>Appendix A said <em>what</em> DOS believes and <em>where</em> a verdict pays. This appendix says
+<em>how</em> a verdict is computed — the machine that turns a forgeable sentence into a grounded "no" —
+and shows the two live consumers from &sect;{{sec:payoff}} are the <em>same</em> pipeline pointed at the
+two ways a fleet fails. The reference points are real: the gate is
+<code>benchmark/agentprocessbench/writeadmit/gate.py</code>, the referee-between-agents is
+<code>coord_loop.py</code>, and the floor both stand on is <code>dos.effect_witness</code>.</p>
+
+<h3 id="appx-b-pipeline">B.1 The pipeline: four steps, and only one of them decides</h3>
+
+<p>Every DOS verdict — the write-admission gate, the race arbiter, every detector here — runs the same
+four-step pipeline. What does the work is not any one clever step but the strict separation between
+them.</p>
+
+<ol>
+<li><strong>Gather evidence — at the boundary, never inside the decision.</strong> All reading from the
+messy world happens here and only here (the database hash, the tool-result stream, the git log); it
+judges nothing, just collects bytes and notes <em>who wrote each one</em>.</li>
+<li><strong>Tag each byte with its author.</strong> Every piece of evidence is labelled by which rung
+of trust it came from — agent, environment, or third party. This label decides everything downstream
+(B.2).</li>
+<li><strong>Classify — a pure function, no I/O.</strong> One function takes the tagged evidence and a
+policy and returns a verdict, reading no files and asking no model, so the same evidence returns the
+same verdict forever. The only step that decides.</li>
+<li><strong>Return a typed refusal — from a closed list.</strong> One value from a fixed vocabulary
+(admit / block / abstain, with a named reason), so a consumer branches without parsing prose and a
+human can check every answer was accounted for.</li>
+</ol>
+
+<p>Splitting reading from deciding is the reason a courtroom separates gathering testimony from
+rendering a verdict: a decision that re-reads the world while deciding can be swayed by what it
+re-reads. By the time the pure classifier runs, the evidence is fixed and labelled and the agent has no
+further move. <em>I/O at the boundary, a pure verdict at the core</em> is the one structural rule the
+kernel obeys.</p>
+
+<h3 id="appx-b-accountability">B.2 The accountability ladder — why the agent's own words can never tip the scale</h3>
+
+<p>Step 2 is where byte-clean turns from a slogan into a working mechanism. Each piece of
+evidence carries a label naming its author, and the labels are ordered by how hard they are to
+forge:</p>
+
+<ul>
+<li><strong>AGENT&#8209;AUTHORED</strong> — the agent wrote it (its final message, its self-report). This is the Vaseline: admitted into evidence but marked, and that mark keeps it from deciding anything.</li>
+<li><strong>OS&#8209;RECORDED</strong> — the environment wrote it (the database hash, the mail server's error envelope, the git commit). The agent triggered the action but did not author the byte.</li>
+<li><strong>THIRD&#8209;PARTY</strong> — an independent grader wrote it (Toolathlon's <code>evaluation/main.py</code>, tau2's database-hash check). Authored by neither the agent nor DOS.</li>
+</ul>
+
+<p>The rule that makes the floor unforgeable: <strong>only an OS&#8209;RECORDED or THIRD&#8209;PARTY
+witness may set the "refuted" bit.</strong> An AGENT&#8209;AUTHORED byte can be <em>recorded</em> (the
+verdict notes the agent <em>claimed</em> success) but can never <em>confirm</em> or <em>refute</em>. So
+a policy that writes itself a glowing receipt moves nothing — its bytes land on the forgeable floor,
+treated as <em>no evidence either way</em>; only a byte from a higher rung flips a write from "admit" to
+"block". In code this is the <code>believe_under_floor</code> discipline: a read-back on the
+AGENT&#8209;AUTHORED rung yields <em>unwitnessed</em>, never <em>refuted</em>.</p>
+
+<p>The agent's words are admitted as <em>testimony</em>, never as <em>proof</em>: only a byte the agent
+did not author can decide the case. This is the A.2 trust ladder (ORACLE&nbsp;&rarr;&nbsp;JUDGE&nbsp;&rarr;&nbsp;HUMAN)
+seen from the evidence side: an accountable witness ranks above the agent's narration, and a missing
+witness fails safe to "admit" — trust the unforgeable thing first, and when it is silent, do the
+cautious thing, never the flattering one.</p>
+
+<h3 id="appx-b-gate">B.3 The two consumers as one pipeline, two witness-moments</h3>
+
+<p>The write-admission gate of &sect;{{sec:payoff}} is the four steps turning. <strong>Gather</strong>
+A's final message (the claim) and the tau2 evaluator's <code>db_match</code> result.
+<strong>Tag</strong> the message AGENT&#8209;AUTHORED and <code>db_match</code> OS&#8209;RECORDED
+(<code>True</code> an attestation, <code>False</code> a refutation, <code>None</code> no witness).
+<strong>Classify</strong>: does A confidently claim a write (a closed write-verb &cap; mutating-tool
+test, not a keyword sniff) <em>and</em> does an accountable witness refute it? Block only when both.
+<strong>Return</strong> admit / block / abstain. The structure buys three properties: it
+<strong>cannot be talked into admitting</strong> (only an OS&#8209;RECORDED byte sets "refuted," so a
+fake receipt changes nothing — the gate can only block <em>more</em> under a real witness, never less);
+it <strong>never blocks correct work</strong> (a database-confirmed write is attested, so all nine
+honest writes were admitted and only the five refuted ones blocked); and <strong>blocking B's input
+writes nothing into A's loop</strong>, so the in-loop harm of &sect;{{sec:giveup.activefix}} is
+structurally absent — the entire reason the consumer is B, not A.</p>
+
+<p>The race arbiter of &sect;{{sec:payoff.race}} is the <em>same</em> pipeline with one substitution:
+the witness is read <em>before</em> the write, not after. A reservation is a region
+<code>reservations/&lt;id&gt;</code>; the pure call <code>arbitrate(region, live_leases)</code> refuses
+A2's lease on a region A1 holds (the same disjointness verdict the live <code>dos lease-lane</code>
+uses, no model, no I/O), so A2 — re-run after A1 commits — sees R already cancelled and does nothing.
+Its scoring witness is the same airline database hash, and a clobber is counted only when
+<em>directional</em> (the discipline that took the headline from 7 to an honest 6,
+&sect;{{sec:payoff.race}}). The arbiter's refusal is a refusal in the identical sense the gate's block
+is: a typed "no" from a pure verdict over evidence the agent cannot forge. One reads the witness after
+the claim, the other before the write. Two moments, one machine.</p>
+
+<figure class="wide">
+<img src="figs/appx_dos_syscall_map.png" alt="A map of the DOS kernel. At the center is THE DOS KERNEL ('the part that does not believe the agents'; every call is a kind of NO decided from evidence the agent did not author). Five calls branch from it: verify() — did it ship? read git, not the agent's 'done'; liveness() — is it moving or just spinning? read the git/tool stream, not 'making progress'; arbitrate() — may two agents write here at once? hand out region-locks, never double-book; refuse() — say no with a reason from a fixed checkable vocabulary; resume() — a run died, how far did the fossils get? re-enter from durable facts, not its last claim. Below sits the trust ladder: 1. ORACLE (a deterministic check that cannot be argued with) leads to 2. JUDGE (a model, only on what the oracle could not settle; advisory, fails to abstain, never to yes) leads to 3. HUMAN (the irreducible seed only a person can ground). A dotted line notes the kernel IS the oracle rung."/>
+<figcaption>Figure B1. The same kernel map as Appendix A, read as <em>machinery</em>: each call is the B.1 pipeline with a different evidence source at step 1 (<code>verify</code> reads git, <code>arbitrate</code> the live leases, the gate the database hash), the same author-tag at step 2, one pure classification at step 3, and the same closed-vocabulary "no" at step 4. The trust ladder beneath is the B.2 accountability ladder from the adjudicator's side.</figcaption>
+</figure>
+
+<h3 id="appx-b-why-typed">B.4 Why the answer is a closed list, not a sentence</h3>
+
+<p>The fourth step — return a value from a fixed vocabulary — carries real weight. A free-text verdict
+("looks mostly fine, but maybe double-check the booking") cannot be acted on by a machine or audited by
+a human: you cannot enumerate the prose a model might emit, so you cannot prove you handled every case.
+A verdict that is one of {admit, block, abstain} with a named reason can be branched on without
+parsing, logged without ambiguity, and — the part that matters for trust — <em>checked for
+completeness</em>. This is why "abstain" is a first-class member, not a shrug: a verdict allowed to say
+"I have no witness for this" never has to guess, and a kernel that never guesses is one whose every
+"block" you can believe. That closure also lets the same verdict be spent in two places without
+re-deciding — the gate's "block" and the arbiter's "refuse" are the same typed object a consumer routes
+(drop the write, hold the lease, surface it) but never re-litigates. <em>That</em> is the mechanism
+behind the paper's one sentence: "handed to anyone else" is nothing more than routing a closed,
+grounded value to a consumer who is not the one being judged.</p>
+
+<p>The whole machine: read bytes at the boundary, tag each by its author, decide once with a pure
+function that only an unforgeable byte can sway, emit one value from a closed list — then route that
+value anywhere except back to the agent it judged.</p>
+
+<p>The companion engineering write-up — the gate, the arbiter, and the
+<code>effect_witness</code> floor with their tests — lives under
+<code>benchmark/agentprocessbench/writeadmit/</code> and <code>src/dos/effect_witness.py</code>
+in the DOS repository; the kernel's own architecture contract is <code>CLAUDE.md</code> and
+<code>docs/ARCHITECTURE.md</code>.</p>

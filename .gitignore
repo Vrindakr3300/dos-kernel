@@ -1,0 +1,310 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local secrets — operator-supplied tokens (Slack bot token, etc.). NEVER
+# tracked: a committed token is the exact supply-chain hazard SECURITY.md warns
+# about. Keep the shape documented in a tracked .env.example, the values local.
+.env
+.env.local
+
+# DOS state / scratch (re-derivable; never tracked in the OS repo itself —
+# the OS is stateless about which workspace it serves)
+_scratch/
+*.err
+.dos-workspace/
+.dos/
+
+# Private GOCACHE used to run the Go suite off the shared cache lock (see the
+# go-test cache-lock note). It bakes absolute build paths into its object files,
+# so it MUST stay untracked — otherwise the pre-publish leak scan flags it.
+.gocache*/
+
+# Throwaway WSL helper scripts (they cd into the dev machine's WSL mount of this
+# checkout). Untracked scratch; ignored so they can never be swept into the public
+# seed copy.
+_wsl_*.sh
+
+# The EnterpriseOps-Gym clone (docs/143/144 live A/B) — a separate upstream repo
+# (ServiceNow/EnterpriseOps-Gym, multi-GB with seed DBs), NEVER vendored into DOS.
+# CRITICALLY this also keeps conf/llm/*.json (which carries the Gemini API key) out
+# of the tree. The DOS-side harness (dos_react.py / run_ab.py / intervention_*.py /
+# live_ab.py) IS tracked; the clone and live-run outputs are not.
+benchmark/enterpriseops/enterpriseops-gym/
+benchmark/enterpriseops/sample_ab/
+benchmark/enterpriseops/results/
+# Every live-run output dir is scratch (large trajectory dumps, re-derivable via
+# live_ab.py). A single glob covers `live_results` + every `live_results_<suffix>/`
+# variant (natural / rewind / restart / smoke / pilot / ab …) so a NEW arm's output
+# dir cannot leak into `git add` the way live_results_restart_smoke/ did. The
+# explicit per-dir lines below are now redundant but kept for readability/grep.
+benchmark/enterpriseops/live_results*/
+benchmark/enterpriseops/live_results/
+benchmark/enterpriseops/live_results_natural/
+# docs/172 rewind-arm live A/B output (large trajectory dumps + run logs — scratch,
+# re-derivable via `live_ab.py --arms none block rewind`; the SCORED summary lives in
+# docs/172, the re-runnable code is committed).
+benchmark/enterpriseops/live_results_rewind_smoke/
+benchmark/enterpriseops/live_results_rewind_smoke2/
+benchmark/enterpriseops/live_results_rewind_pilot/
+benchmark/enterpriseops/live_results_rewind_ab/
+benchmark/enterpriseops/_rewind_*.log
+
+# Transient harness state — the scheduled-agent lock is a per-machine runtime
+# artifact, never source (the .claude/skills/ trees ARE tracked; this lock is not).
+.claude/scheduled_tasks.lock
+# The maintainer's machine-local hooks (trajectory audit, posttool sensor, state
+# cleanup) — personal rig, never shipped: a cold clone must not inherit hooks that
+# need an installed `dos` or a $HOME script (they'd error on every tool call).
+.claude/settings.local.json
+
+# Research scratch — downloaded papers / scraped HTML (prior-art landscape work,
+# e.g. the Arbiter-K paper dump). Not source; large and re-fetchable.
+*.html
+# …but the hand-authored interactive explainer visuals ARE source (stepped,
+# zero-dependency walkthroughs of a real run — e.g. f2_visual.html, gate_visual.html,
+# verify_visual.html, loop_visual.html). They live next to their data and the README
+# links to them; keep them tracked. (f2_visual.html predates this and was force-added.)
+!*_visual.html
+benchmark/enterpriseops/live_results_natural_run/
+benchmark/enterpriseops/live_results_natural_ab/
+benchmark/enterpriseops/live_results_natural_smoke/
+benchmark/enterpriseops/live_results_rewind_paired/
+benchmark/enterpriseops/_ab_*.log
+benchmark/enterpriseops/_natural_ab.log
+benchmark/enterpriseops/_arms_seq.log
+benchmark/enterpriseops/_run_arms_seq.sh
+
+# The standardized runner's per-run stamp records (`python -m benchmark._run run …`
+# writes benchmark/<bench>/_runs/run_<sha>_<entry>.json). Re-derivable scratch — the
+# stamp records which kernel SHA a run was at (so `status` can flag stale numbers),
+# but the SCORED summaries (RESULTS.md / RESULTS.txt) are the tracked artifact.
+benchmark/*/_runs/
+
+# One-off research scratch — the throwaway probe/verify/audit one-offs a session
+# writes to interrogate the corpus, then discards. Re-derivable; the SCORED finding
+# lives in the docs/NN_*.md or paper prose, never in these. Scoped to the dirs/
+# extensions that are UNAMBIGUOUSLY scratch so a concurrent session's tracked work
+# is never hidden from its own `git status` (the shared-tree discipline applied to
+# .gitignore). Deliberately NOT a blanket `_probe_*`/`_verify_*` glob — those names
+# are also used by in-flight feature work under benchmark/{enterpriseops,
+# agentprocessbench}/, which stays visible. (Git has no inline-comment syntax —
+# every annotation here is on its own line so the pattern lines stay literal.)
+#
+# a session-local audit (hardcoded ~/.claude path); never repo source:
+/_audit_rl.py
+*.err
+# per-day re-run fact sheets (the paper PROSE is the tracked artifact):
+paper/_VERIFIED_FACTS_*.md
+paper/_rewrite_workflow.js
+# (paper/figs_src/_audit_render.py
+
+# Reverse-engineered Claude Code extraction artifacts (the docs/189 audit scratch:
+# internal symbol names + line ranges decompiled from a third-party clone). Dropped
+# from tracking 2026-06-08 ahead of the public seed; keep the family ignored so a
+# regenerated dump never re-tracks. See PRE_PUBLISH_AUDIT_2026-06-08.md.
+benchmark/_cc_* is handled in paper/.gitignore — it sits under
+# a `!figs_src/*.py` negation there, so it must be re-excluded in that file, not here.)
+# toolathlon facet probes (the SCORED result is in docs/157/177):
+benchmark/toolathlon/_readback_independence.py
+benchmark/toolathlon/_temporal_drill.py
+benchmark/toolathlon/_temporal_facet.py
+benchmark/toolathlon/_facet_beyond_state.py
+benchmark/toolathlon/_w1_action_ack.py
+benchmark/toolathlon/_probe_frontier_silent.py
+# Throwaway tau2/consensus probes (docstring-labeled "Throwaway", unreferenced by
+# any tracked code; hardcode a dev path). Listed explicitly per the no-blanket-glob
+# rule above so a concurrent session's in-flight _probe_*/_verify_* stays visible.
+# Added 2026-06-08 so the public-seed leak gate isn't tripped by scratch.
+benchmark/agentprocessbench/_probe_map.py
+benchmark/agentprocessbench/_probe_taskid.py
+benchmark/agentprocessbench/writeadmit/_smoke_one.py
+benchmark/enterpriseops/_verify_commons_collisions.py
+# E3 head-to-head run logs (the SCORED result is in docs/206 §5):
+benchmark/fleet_horizon/_e3_*.log
+# enterpriseops live-run output logs (re-derivable via the harness):
+benchmark/enterpriseops/_curable_schema_ab.log
+benchmark/enterpriseops/_livelock_killshots.txt
+benchmark/enterpriseops/_natural_ab_rewind.log
+# writeadmit live outputs + smoke dirs (seed configs carry the Gemini key) — one glob
+# covers live_results_writeadmit{,_sample,_m1_flash25,...}/, live_smoke*/, and *.log run logs.
+benchmark/agentprocessbench/writeadmit/live_results*/
+benchmark/agentprocessbench/writeadmit/live_smoke*/
+benchmark/agentprocessbench/writeadmit/_run_*.log
+# F2 STEP 3 (docs/245) live coordination run logs/results — verbose tau2 transcripts +
+# the J summary; the FINDING lives in the doc, the raw run is regenerable + carries live
+# API responses. (`_f2live.log`, `_f2results.txt`, `_smoke_out.txt`.)
+benchmark/agentprocessbench/writeadmit/_f2*.txt
+benchmark/agentprocessbench/writeadmit/_f2*.log
+benchmark/agentprocessbench/writeadmit/_smoke_out.txt
+# keep the bare patterns too (older runs wrote to cwd-relative dirs)
+live_results_writeadmit/
+live_results_writeadmit_sample/
+# tau2coord (docs/233 port) live headless-claude arm — per-pair JSON cache carries live
+# API responses; the J summary lives in benchmark/tau2coord/RESULTS.md, the cache is
+# regenerable via `python -m benchmark.tau2coord.live_claude`.
+live_results_tau2coord/
+benchmark/tau2coord/live_results*/
+# Agent-Diff live ΔB outputs (docs/237) — cached A/B rows carry live API responses + the
+# run logs. One glob covers live_results{,_*}/ and the *.log run logs.
+benchmark/agentdiff/live_results*/
+benchmark/agentdiff/*.log
+# RLVR Payoff-2 (docs/231) artifacts — regenerable corpus + SFT JSONL + run logs + job-ids.
+# The corpus/JSONL derive from live tau2 runs (re-derivable via `rlvr_train generate`); the
+# *.log carry run noise; the job-id/proxy/eval JSON are run state, not source.
+rlvr_corpus*.jsonl
+sft_poison*.jsonl
+sft_clean*.jsonl
+proxy_j2*.json
+rlvr_j2*.json
+rlvr_jobs*.json
+_rlvr_*.log
+benchmark/agentprocessbench/writeadmit/rlvr_corpus*.jsonl
+benchmark/agentprocessbench/writeadmit/sft_*.jsonl
+benchmark/agentprocessbench/writeadmit/live_results_cascade/
+
+# Fleet-trajectory benchmark (docs/243) — regenerable label outputs mined from the
+# live, NON-STATIONARY CC corpus. The code is committed; the labels are re-derivable
+# (`python -m benchmark.fleet_trajectory.track_a --before <cutoff>`) and carry derived
+# features only (paths/timestamps/verdicts — never raw narration, the §4.4 privacy split).
+benchmark/fleet_trajectory/_track_*_labels.jsonl
+benchmark/fleet_trajectory/_*.log
+benchmark/agentprocessbench/writeadmit/live_results_fanout/
+
+# Session scratch left at the repo ROOT — throwaway probe/data/audit one-offs a
+# session wrote then discarded. Listed explicitly (per the no-blanket-glob rule
+# above) so `git status` at the root is legible without hiding any concurrent
+# session's tracked work. The SCORED finding always lives in a docs/NN_*.md or the
+# paper prose, never in these. Added 2026-06-08.
+#
+# a poll helper with a hardcoded /c/work/dos path (never repo source):
+/_poll_jobs.sh
+# eval/probe JSON dumps + Box-folder-id scratch from a one-off data task:
+/base_eval.json
+/csv_files_data.json
+/domain_file_counts.json
+/domain_folder_ids.json
+/economic_domains_folder_id.txt
+# a dated pre-publish sensitivity audit (local working note; its findings are
+# actioned in-tree — the .gitignore family above cites it as rationale):
+/PRE_PUBLISH_AUDIT_*.md
+# Stop-hook output: the maintainer's machine-local trajectory-audit hook (see
+# settings.local.json note above) writes its report to the repo root on session
+# end; a session's own audit must never ride into the public seed as an
+# untracked file (2026-06-10 audit):
+/trajectory-audit-*.md
+# the paper's per-day critical-claims re-derivation note — the SSOT sibling of the
+# already-ignored paper/_VERIFIED_FACTS_*.md (the paper PROSE is the tracked artifact):
+paper/_AUDIT_*.md
+
+# enterpriseops one-off research probes/verifiers — the throwaway `_probe_*` /
+# `_verify_*` / `_precision_probe_*` scripts a session writes to interrogate the
+# corpus, then discards. Re-derivable; the SCORED finding lives in the docs/NN_*.md
+# (docs/198/199/205) or the paper prose, never in these. Listed EXPLICITLY, file by
+# file — NOT a blanket `_probe_*`/`_verify_*` glob — because that exact name family
+# is ALSO used by TRACKED, in-flight feature work in this same directory (e.g.
+# `_probe_winner_thrash.py`), which a glob would silently hide. The no-blanket rule
+# above is load-bearing here, not stylistic. Added 2026-06-08.
+benchmark/enterpriseops/_precision_probe_co_walled.py
+benchmark/enterpriseops/_precision_probe_corrective_kind.py
+benchmark/enterpriseops/_precision_probe_corrective_specificity.py
+benchmark/enterpriseops/_precision_probe_progress_before_fire.py
+benchmark/enterpriseops/_precision_probe_thrash_breadth.py
+benchmark/enterpriseops/_probe_conversion.py
+benchmark/enterpriseops/_probe_synth.py
+benchmark/enterpriseops/_probe_track1.py
+benchmark/enterpriseops/_probe_track1b.py
+benchmark/enterpriseops/_probe_track4_decomp.py
+benchmark/enterpriseops/_probe_track4_tokens_by_class.py
+benchmark/enterpriseops/_probe_track4_winner_safety.py
+benchmark/enterpriseops/_probe_witness.py
+benchmark/enterpriseops/_probe_witness2.py
+benchmark/enterpriseops/_verify_198_confound.py
+benchmark/enterpriseops/_verify_198_inspect.py
+benchmark/enterpriseops/_verify_198_mechanism.py
+benchmark/enterpriseops/_verify_armspecific.py
+benchmark/enterpriseops/_verify_case_inspect.py
+benchmark/enterpriseops/_verify_ceiling.py
+benchmark/enterpriseops/_verify_corpus_pairing.py
+benchmark/enterpriseops/_verify_corpus_pairing2.py
+benchmark/enterpriseops/_verify_create_draft_claim.py
+benchmark/enterpriseops/_verify_curable_conversion.py
+benchmark/enterpriseops/_verify_curable_conversion_adv.py
+benchmark/enterpriseops/_verify_deploy.py
+benchmark/enterpriseops/_verify_diff.py
+benchmark/enterpriseops/_verify_divergence.py
+benchmark/enterpriseops/_verify_final.py
+benchmark/enterpriseops/_verify_killer.py
+benchmark/enterpriseops/_verify_ksweep.py
+benchmark/enterpriseops/_verify_mostly_walled.py
+benchmark/enterpriseops/_verify_p5.py
+benchmark/enterpriseops/_verify_power.py
+benchmark/enterpriseops/_verify_recovers.py
+benchmark/enterpriseops/_verify_rewind_conversion_power.py
+benchmark/enterpriseops/_verify_rewind_detail.py
+benchmark/enterpriseops/_verify_rlcw.py
+benchmark/enterpriseops/_verify_rlcw_claim.py
+benchmark/enterpriseops/_verify_row5_conjunct.py
+benchmark/enterpriseops/_verify_row5_mint.py
+benchmark/enterpriseops/_verify_row5_mint2.py
+benchmark/enterpriseops/_verify_runlocal.py
+benchmark/enterpriseops/_verify_runlocal_soundness.py
+benchmark/enterpriseops/_verify_token_denom.py
+benchmark/enterpriseops/_verify_track4.py
+benchmark/enterpriseops/_verify_track4b.py
+benchmark/enterpriseops/_verify_track4b_adversarial.py
+benchmark/enterpriseops/_verify_walled_curable.py
+benchmark/enterpriseops/_verify_walled_row.py
+benchmark/enterpriseops/_verify_witness_claim.py
+
+# Live-run output dirs written to the repo ROOT (the fleet-scale F1/F2/F3 harnesses —
+# docs/245/253/255 — wrote cascade/coord/fanout JSON to cwd=root instead of under
+# benchmark/). Large, re-derivable trajectory dumps that carry live API responses;
+# the SCORED J figure lives in the doc, the runnable code is committed. The
+# ROOT-ANCHORED glob (leading `/`) is the structural fix: it stops a NEW root-level
+# `live_results_<suffix>/` from leaking into `git add` the way these three did,
+# WITHOUT shadowing the legitimate tracked dirs deeper in the tree. Added 2026-06-08.
+/live_results*/
+
+# Dated cross-vendor binding proof output (the docs/217 vendor-agnostic-kernel proof
+# run — baseline/pip-install/hook-dialect/MCP-wiring transcripts + config snapshots &
+# .bak backups). A timestamped scratch dir; re-derivable by re-running the proof. The
+# root-anchored `_*_proof_*/` glob also catches a future re-run's fresh timestamp.
+# Added 2026-06-08.
+/_vendor_proof_*/
+/*_proof_2026-*/
+# Isolated Go build caches a session points $GOCACHE at to dodge the shared-cache
+# lock contention from a concurrent fleet (the docs memory's `go test` wedge). All
+# are transient, re-derivable scratch — never commit one. The `/go/.cache_bench`
+# was the first; the glob catches `.cache_goal`, `.cache_goal_audit`, and any future
+# session's private cache dir.
+/go/.cache_bench
+/go/.cache_*/
+# A session may also point $GOCACHE at a root-level dir (e.g. `.gocache-stats-verify/`
+# while rebuilding the bundled plugin binaries) — catch those too.
+/.gocache-*/
+
+# Live host-hook PROBE scratch (manual cross-vendor integration debugging). These
+# wire a real agent's hook to this machine's paths and DELIBERATELY feed a
+# self-modifying write to prove the SELF_MODIFY deny fires — so they must NEVER be
+# committed (a checked-out probe that targets the real kernel propagates the
+# fail-open hazard, and is what truncated arbiter.py to 'x'). The SAFE, committed
+# equivalent is scripts/selfmodify_hook_probe.py (sacrificial workspace). The
+# /.gemini/ runtime config is per-machine (absolute paths + the live MCP wiring),
+# like a local settings file — not a portable example. The globs catch the whole
+# probe family a session spins up: _gemini_hook*, _prove_gemini*, _run_proof*,
+# _dos_hook*, and the _VERDICT.txt they write.
+/_gemini_hook*
+/_prove_gemini*
+/_run_proof*
+/_dos_hook*
+/_*VERDICT*.txt
+/.gemini/

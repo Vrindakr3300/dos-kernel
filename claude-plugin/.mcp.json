@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "dos": {
+      "command": "python",
+      "args": ["-m", "dos_mcp.server"],
+      "cwd": "${CLAUDE_PROJECT_DIR}",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "task": "term4_logcount",
+  "family": "term",
+  "note": "aggregate counts",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.19s",
+  "cli_returncode": 0,
+  "wall_s": 37.0,
+  "total_cost_usd": 0.2280905,
+  "num_turns": 4,
+  "duration_ms": 35976,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 482,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000557,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 1983,
+      "outputTokens": 680,
+      "cacheReadInputTokens": 98291,
+      "cacheCreationInputTokens": 6033,
+      "webSearchRequests": 0,
+      "costUSD": 0.2275335,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "c455f91",
+  "head_subject": "Add counts.txt with HTTP status code counts from access.log",
+  "n_commits_total": "2"
+}

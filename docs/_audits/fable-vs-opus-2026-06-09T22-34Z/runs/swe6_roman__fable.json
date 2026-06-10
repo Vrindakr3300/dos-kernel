@@ -1,0 +1,43 @@
+{
+  "task": "swe6_roman",
+  "family": "swe",
+  "note": "implement from spec",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.20s",
+  "cli_returncode": 0,
+  "wall_s": 33.2,
+  "total_cost_usd": 0.288048,
+  "num_turns": 5,
+  "duration_ms": 32317,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 518,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000593,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 1985,
+      "outputTokens": 1185,
+      "cacheReadInputTokens": 125930,
+      "cacheCreationInputTokens": 6594,
+      "webSearchRequests": 0,
+      "costUSD": 0.287455,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "2c595fe",
+  "head_subject": "Implement to_roman: convert 1..3999 to Roman numerals",
+  "n_commits_total": "2"
+}

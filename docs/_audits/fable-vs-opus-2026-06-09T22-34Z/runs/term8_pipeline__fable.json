@@ -1,0 +1,43 @@
+{
+  "task": "term8_pipeline",
+  "family": "term",
+  "note": "sort/unique/slice",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.21s",
+  "cli_returncode": 0,
+  "wall_s": 21.5,
+  "total_cost_usd": 0.22705150000000002,
+  "num_turns": 4,
+  "duration_ms": 20614,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 476,
+      "outputTokens": 16,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.0005560000000000001,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 1983,
+      "outputTokens": 659,
+      "cacheReadInputTokens": 98278,
+      "cacheCreationInputTokens": 6035,
+      "webSearchRequests": 0,
+      "costUSD": 0.22649550000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "0d5a0ae",
+  "head_subject": "Add top3.txt with three largest distinct values",
+  "n_commits_total": "2"
+}

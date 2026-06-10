@@ -1,0 +1,15 @@
+# Built artifacts — the dos-hook binary is built locally (GHF1) and, until GHF4
+# ships it in the plugin bundle, is not committed. Never commit a compiled binary.
+#
+# NOTE the leading slash: `/dos-hook` anchors to the `go/` ROOT, so it ignores the
+# built `go/dos-hook` binary WITHOUT matching the `go/cmd/dos-hook/` SOURCE directory
+# (an unanchored `dos-hook` would ignore that dir and silently drop main.go — the bug
+# this anchoring fixes).
+/dos-hook
+/dos-hook.exe
+/dos-hook-*
+# Go test artifacts.
+*.test
+*.test.exe
+/hooktest.exe
+*.out

@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph traj["one agent run"]
+        direction TB
+        m1["agent: 'reading the file...'"] --> t1["tool result: contents"]
+        t1 --> m2["agent: 'I still need to<br/>update the rest.'"]
+        m2 --> stop(("STOP"))
+    end
+    m2 -.last message admits open work.-> DI["dangling_intent FIRES<br/>(said not done, then stopped)"]
+    subgraph loop["a different run"]
+        direction TB
+        p1["agent: poll status"] --> r1["result: 'pending'"]
+        r1 --> p2["agent: poll status"] --> r2["result: 'pending'"]
+        r2 --> p3["agent: poll status"] --> r3["result: 'pending'"]
+    end
+    r3 -.same result 3×.-> TS["tool_stream FIRES<br/>(spinning, no new info)"]
+    style DI fill:#dbeafe,stroke:#2563eb
+    style TS fill:#fde68a,stroke:#d97706

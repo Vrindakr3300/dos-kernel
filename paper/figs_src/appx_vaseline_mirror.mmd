@@ -1,0 +1,23 @@
+flowchart LR
+    subgraph world["The real world (what actually happened)"]
+        direction TB
+        W["Inbox: 0 emails sent<br/>Notion: row missing<br/>File: wrong contents"]
+    end
+    subgraph agent["The agent's account of itself"]
+        direction TB
+        N["'All customers have now<br/>received their surveys!'<br/>(a confident, polished 'done')"]
+    end
+    W -. smeared over with .-> V["VASELINE<br/>the agent's own narration"]
+    N --> V
+    V -. you see a clean mirror,<br/>not the smudged glass .-> EYE(("a checker that<br/>reads the NARRATION"))
+    EYE --> TRAP["FORGEABLE<br/>measures the story, not the world.<br/>The agent just stops saying<br/>the give-away phrase."]
+
+    W ==> WIPE["BYTE-CLEAN<br/>read only bytes the agent<br/>did NOT write:<br/>the env's tool results,<br/>a third-party oracle"]
+    WIPE ==> TRUTH["GROUNDED<br/>the SMTP error envelope,<br/>the missing row,<br/>the identical repeated result.<br/>The agent cannot forge these."]
+
+    style V fill:#fde68a,stroke:#d97706,stroke-width:2px
+    style TRAP fill:#fee2e2,stroke:#dc2626,stroke-width:2px
+    style WIPE fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    style TRUTH fill:#dcfce7,stroke:#16a34a,stroke-width:2px
+    style W fill:#f1f5f9,stroke:#64748b
+    style N fill:#f1f5f9,stroke:#64748b

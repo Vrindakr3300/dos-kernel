@@ -1,0 +1,138 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/04_giveup.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{The one action that helps: give up correctly}\label{sec:giveup}
+
+\cref{sec:boundary} drew the line: spending the verdict in-loop is flat-to-harmful, and the one
+in-loop action that paid off was the negative one. This section measures it. A byte-clean detector
+(\cref{sec:bench}) raises an alarm but must be careful what it does next: most actions cross from
+\emph{detecting} into \emph{fixing}, and a fix authors a correction the agent will trust ---
+breaking the byte-clean rule the detector was built on. Exactly one action does not cross that line:
+\textbf{withhold compute}. Stop a clearly-doomed run and hand its remaining budget to one that
+might still win. Stopping authors no correction, so it cannot mislead. Of every action we measured,
+this negative one was the only survivor.
+
+\subsection{Error-gated give-up is accuracy-free}\label{sec:giveup-accuracy}
+
+The gate is simple. It watches each tool the agent uses. When a single tool
+returns \emph{K} structured errors in a row --- errors written by the
+environment, not by the agent --- \textbf{and} its most recent call
+is still erroring, the gate proposes a halt. The second condition matters: the
+run must be failing \emph{now}, not have failed earlier and recovered.
+
+The question is whether this ever stops a run that would have \emph{won} ---
+a \emph{false-abandon}, the gate halting a run that would actually have succeeded.
+It is the only costly mistake the gate can make, so it is the number that has to be
+zero.
+
+\begin{table}[t]
+  \centering
+  \caption{\cref{tab:giveup}. Give-up on Toolathlon at the sound threshold \emph{K}=3,
+across 22 models. The naive gate halts on a bare repeat; the error-gated gate also requires an
+environment-authored error with the latest call still failing. \emph{Fires} counts every run the
+gate would halt; \emph{false-abandon} counts only halts landing on one of the 1,634 winners (the
+costly mistake). Wilson-95 is the 95\%-confidence upper bound on the true false-abandon rate.}
+  \label{tab:giveup}
+  \begin{tabular}{lrlrll}
+    \toprule
+    K & naive repeat: fires & naive: false-abandon & error-gated: fires & error-gated: false-abandon & Wilson-95 upper \\
+    \midrule
+    \textbf{3} & 30 & \textbf{6} & 0 & \textbf{0} & \textbf{0.0023} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+At \emph{K}$\ge$3 the error-gated gate false-abandons \textbf{zero}
+winners --- across all 22 models, frontier to weak. Its Wilson-95 upper bound
+is just 0.0023, so even the worst the true rate could plausibly be is near zero.
+The same threshold is sound on a second, independent benchmark,
+EnterpriseOps-Gym (a ServiceNow operations gym run on gemini-2.5-flash):
+\emph{K}$\ge$3 false-abandons zero winners on both arms there, while
+\emph{K}=2 is unsound (it halts one winner). Two different benchmarks, one safe
+threshold.
+
+The naive gate --- halt on a bare repeat, no error condition --- false-abandons
+\textbf{6} winners at \emph{K}=3, every one the same model (grok-4) doing the same harmless
+thing: polling ``is it ready yet?'' until the resource became ready and the run
+\emph{succeeded}. A repeated answer is not an error. The byte-clean rule saves the gate: the signal is
+the environment-authored \emph{error}, not the repeat --- ``repeated tool call~$\rightarrow$
+halt'' kills pollers, ``repeated tool \emph{error}~$\rightarrow$ halt'' does not, because
+a poller's repeats are not errors and the agent cannot forge the error bytes.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig_giveup_cross_benchmark}
+  \caption{\cref{fig:giveup}. Winning runs wrongly halted (lower is better). \textbf{Left:} as \emph{K} varies, the error-gated gate (green) reaches zero at \emph{K}$\ge$3 on both benchmarks; the naive ``halt on any repeat'' gate (red) never does, because it keeps killing pollers. \textbf{Right:} at \emph{K}=3 by model --- the error-gated gate halts zero winners on all 22 models; the only non-zero bar is the naive gate on grok-4.}
+  \label{fig:giveup}
+\end{figure*}
+
+So blunt a gate works because, on the \emph{K} statistic --- how many errors a tool stacks up
+in a row --- the winning runs and the doomed runs fall into almost non-overlapping ranges: winners
+rarely stack errors, doomed runs do. That a clean class separation collapses to a
+threshold test is nothing new; it is the separable regime of any threshold classifier, and the
+SPRT/CUSUM tradition (below) is built on exactly such run-length count statistics. The part that
+matters here is the statistic's \emph{input}: the count is over \emph{environment-authored error
+bytes the agent cannot forge}. That is what makes the integer threshold at \emph{K}$\ge$3 both
+sound (zero false-abandon, measured) and non-gameable. You do not need a probabilistic model when
+the two populations barely touch and the statistic separating them is one the agent cannot
+author.
+
+The saving follows. At \emph{K}=3 the gate fires on $\sim$7\% of runs (the thrashing tail) and on each
+suppresses a median $\sim$53\% of its tool calls (the doomed back half) --- pooled across both
+EnterpriseOps-Gym arms, \textbf{11.4\%} of total tokens, saved at zero false-abandon. Across five
+recorded run-sets it saved 3.5k--43.7k real tokens, false-abandon 0.000 every time.
+
+\subsection{No novelty in the mechanism; the contribution is the grounding}\label{sec:giveup-mechanism}
+
+The mechanism is old and we claim none of it: our gate is the trip half of a circuit breaker
+(Nygard 2007), the degenerate corner of an SPRT (Wald 1945\cite{wald}), and a CUSUM (Page
+1954\cite{page}) collapsed to a plain error tally. What is new is the grounding: (i) it counts only
+environment-authored bytes the agent cannot forge; (ii) the threshold is calibrated against a
+\emph{measured} false-abandon cost, not a guess; and (iii) it stays advisory --- it
+\emph{proposes} a halt, never trips one --- so a mis-set \emph{K} degrades to a few wasted
+tokens, never a killed winner.
+
+\subsection{Every active fix failed}\label{sec:giveup-activefix}
+
+Give-up is what was left standing after we tried the active fixes too --- the ones that author a
+correction --- on the cross-benchmark target (EnterpriseOps-Gym, gemini-2.5-flash; these numbers
+stay out of the Toolathlon tables and imply no Toolathlon lift).
+
+\begin{itemize}
+  \item \textbf{WARN the agent} (re-surface the alarm into the loop): flat
+on the natural failure stream, \textbf{+0.20pp}. The +6.2pp lift this
+verb shows elsewhere held only when failures were artificially injected, not in
+the wild.
+  \item \textbf{Rewind} (content-free surgery --- cut the agent's bad
+turns back out of the transcript): \textbf{0 conversions, 0 flips} on
+20 paired fired tasks. The null only got stronger as we added data
+(44 $\rightarrow$ 103 $\rightarrow$ 240 runs per arm).
+  \item \textbf{The byte-clean cure} (re-surface the environment's own
+schema correction --- the cleanest fix we could build): wired live, it
+fired on 77 of 88 runs, and it was \textbf{net-negative}:
+$-$5 task successes overall, $-$7 on the no-thrash slice (sign-test
+p=0.016; successes fell 7 $\rightarrow$ 2 of 88). It converted the 2 runs it was aimed
+at --- but injecting a corrective turn at all perturbed runs that would have
+passed on their own.
+\end{itemize}
+
+\begin{quote}
+\textbf{The harm is the intervention's existence in the loop, not the
+content of its bytes.} Even a perfectly byte-clean correction perturbs
+runs that were going to win. Only the negative action --- withhold compute
+--- authors no turn. It perturbs nothing, and it is the only fix that
+survives a measured bake-off.
+\end{quote}
+
+\subsection{Honest ceiling}\label{sec:giveup-ceiling}
+
+This result proves \emph{specificity}, not \emph{sensitivity}: wherever the gate fires it never
+halts a winner, but how often it fires we cannot promise. On Toolathlon at the sound threshold it
+fires on not a single run (one fire at \emph{K}=2), because a capable model that fails
+\emph{silently} emits no error to count --- the fires, and the saving, come from
+EnterpriseOps-Gym (31 fires at \emph{K}=3, none on a winner). So the claim is
+narrow: the gate is accuracy-free \emph{wherever it fires}, but the 11.4\% token saving is a
+single-corpus, single-model figure. The specificity is the durable, regime-independent result; the
+saving is real but travels less.

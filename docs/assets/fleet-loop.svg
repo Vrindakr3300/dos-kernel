@@ -1,0 +1,253 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" role="img" aria-label="The same fleet under two regimes. LEFT, NO REFEREE: three agents each report 'done!', every report is believed, and silent corruption (lies, collisions, spin) piles up into a codebase that 'sorta works' and can't be changed. RIGHT, DOS ADJUDICATES: an agent reports 'done!', dos verify reads git, and the run branches to SHIPPED (in git ancestry, exit 0, land it) or NOT_SHIPPED (found nowhere, exit 1, re-dispatch or flag — caught); the verdict steers the next dispatch.">
+  <title>NO REFEREE vs. DOS ADJUDICATES — believe the narration, or steer on a verdict</title>
+  <desc>Left, no referee: agents self-report, the narration is believed, and lies/collisions/spin accumulate into a codebase that sorta works and can't be changed. Right, DOS adjudicates: dos verify answers from git ground truth (SHIPPED exit 0 / NOT_SHIPPED exit 1) and that verdict steers the next step. Every verdict comes from the artifacts — git, the file tree, the clock — never the agent's word. A static SVG backup for the README's mermaid flowchart, which does not always render on every Markdown surface.</desc>
+
+  <style>
+    .canvas   { fill: #0a0a0f; }
+    .vignette { fill: url(#vg2); }
+    .panelL   { fill: #120c10; stroke: #3a1620; }
+    .panelR   { fill: #0a1310; stroke: #14402c; }
+    .ink      { fill: #eef1f6; }
+    .dim      { fill: #8b93a7; }
+    .faint    { fill: #5b6478; }
+    .mono     { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+
+    .lie      { fill: #ff4d57; }
+    .ship     { fill: #2bff88; }
+    .accent   { fill: #36e0ff; }
+    .steer    { fill: #b78cff; }
+    .claim    { fill: #ffc24d; }
+
+    .h-open   { fill: #ff6b73; }
+    .h-closed { fill: #2bff88; }
+
+    .stamp    { font-family: "Arial Black","Helvetica Neue",Arial,sans-serif; font-weight: 900; letter-spacing: 1px; }
+    .nodefill { fill: #15121b; }
+
+    /* FREEZE-SAFE intro: everything DEFAULTS visible (opacity:1); the keyframes
+       are a tiny fade-up with short delays and no backwards/both fill, so a frozen
+       or reduced-motion client shows the finished frame, never a blank one. */
+    .seq   { opacity: 1; animation: rise2 0.55s ease-out forwards; }
+    @keyframes rise2 { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+    .d1{animation-delay:0s}    .d2{animation-delay:0.10s} .d3{animation-delay:0.18s}
+    .d4{animation-delay:0.26s} .d5{animation-delay:0.32s} .d6{animation-delay:0.10s}
+    .d7{animation-delay:0.18s} .d8{animation-delay:0.26s} .d9{animation-delay:0.32s}
+
+    .rot { opacity: 1; animation: rise2 0.55s ease-out forwards; }
+    .rotA{animation-delay:0.30s}.rotB{animation-delay:0.34s}.rotC{animation-delay:0.38s}
+
+    .pulse { opacity: 0.92; animation: settle2 0.9s ease-out forwards; }
+    @keyframes settle2 { from { opacity: 0.55; } to { opacity: 0.92; } }
+
+    .thunk { opacity: 1; transform-box: fill-box; transform-origin: center;
+             animation: thunk2 0.5s cubic-bezier(.2,1.3,.5,1) forwards; }
+    .thunkA{animation-delay:0.28s} .thunkB{animation-delay:0.34s}
+    @keyframes thunk2 { from { opacity: 0; transform: scale(1.2); } 70% { opacity: 1; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .seq, .rot, .pulse, .thunk { opacity: 1; animation: none; transform: none; }
+    }
+  </style>
+
+  <defs>
+    <radialGradient id="vg2" cx="50%" cy="34%" r="78%">
+      <stop offset="0%"  stop-color="#13131c"/>
+      <stop offset="62%" stop-color="#0a0a0f"/>
+      <stop offset="100%" stop-color="#060609"/>
+    </radialGradient>
+    <marker id="f-arrLie" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#ff6b73"/>
+    </marker>
+    <marker id="f-arrAcc" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#36e0ff"/>
+    </marker>
+    <marker id="f-arrShip" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2bff88"/>
+    </marker>
+    <marker id="f-arrSteer" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 Z" fill="#b78cff"/>
+    </marker>
+  </defs>
+
+  <!-- backdrop -->
+  <rect class="canvas"   x="0" y="0" width="1200" height="560" rx="16"/>
+  <rect class="vignette" x="0" y="0" width="1200" height="560" rx="16"/>
+
+  <!-- ===================== HEADER ===================== -->
+  <g class="seq d1">
+    <text x="40" y="46" class="ink stamp" font-size="20">What goes wrong in a fleet &#8212; and what catches it</text>
+    <text x="40" y="70" class="faint" font-size="13">Same agents, same repo. The only thing that changes is whether a verdict from git ground truth steers the loop.</text>
+  </g>
+
+  <!-- center divider -->
+  <line x1="600" y1="96" x2="600" y2="498" stroke="#23232e" stroke-width="1" stroke-dasharray="2 6"/>
+  <g class="seq d1">
+    <circle cx="600" cy="292" r="17" fill="#0a0a0f" stroke="#2a2a38"/>
+    <text x="600" y="297" text-anchor="middle" class="faint mono" font-size="12">vs</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- ============== LEFT: NO REFEREE (believed) ================= -->
+  <!-- ============================================================ -->
+  <g class="seq d1">
+    <rect class="panelL" x="40" y="96" width="520" height="402" rx="14" stroke-width="1"/>
+    <text x="64" y="130" class="h-open stamp" font-size="14">NO REFEREE</text>
+    <text x="64" y="151" class="dim" font-size="12.5">you believe the narration</text>
+  </g>
+
+  <!-- three agents all shouting done -->
+  <g class="mono" font-size="13" font-weight="700">
+    <g class="seq d2">
+      <rect class="nodefill" x="64" y="172" width="138" height="44" rx="9" stroke="#5a3a1c" stroke-width="1"/>
+      <text x="78" y="191" class="claim" font-size="10">AGENT</text>
+      <text x="78" y="208" class="ink">&#8220;done!&#8221;</text>
+    </g>
+    <g class="seq d2">
+      <rect class="nodefill" x="216" y="172" width="138" height="44" rx="9" stroke="#5a3a1c" stroke-width="1"/>
+      <text x="230" y="191" class="claim" font-size="10">AGENT</text>
+      <text x="230" y="208" class="ink">&#8220;done!&#8221;</text>
+    </g>
+    <g class="seq d2">
+      <rect class="nodefill" x="368" y="172" width="138" height="44" rx="9" stroke="#5a3a1c" stroke-width="1"/>
+      <text x="382" y="191" class="claim" font-size="10">AGENT</text>
+      <text x="382" y="208" class="ink">&#8220;done!&#8221;</text>
+    </g>
+  </g>
+
+  <!-- arrows agents -> believed -->
+  <g class="seq d3" stroke="#ff6b73" stroke-width="1.5" fill="none" opacity="0.8">
+    <path d="M133,216 L300,250" marker-end="url(#f-arrLie)"/>
+    <path d="M285,216 L300,250" marker-end="url(#f-arrLie)"/>
+    <path d="M437,216 L300,250" marker-end="url(#f-arrLie)"/>
+  </g>
+
+  <!-- believed merge -->
+  <g class="seq d3">
+    <rect x="206" y="256" width="188" height="42" rx="9" fill="#1a0e12" stroke="#7a2530" stroke-width="1.5"/>
+    <text x="300" y="282" text-anchor="middle" class="lie mono" font-size="14" font-weight="700">BELIEVED</text>
+  </g>
+  <g class="seq d4" stroke="#ff6b73" stroke-width="1.5" fill="none" opacity="0.8">
+    <path d="M300,298 L300,330" marker-end="url(#f-arrLie)"/>
+  </g>
+
+  <!-- corruption pile -->
+  <g class="seq d4">
+    <rect x="76" y="334" width="448" height="82" rx="10" fill="#180a0e" stroke="#7a2530" stroke-width="1"/>
+    <text x="100" y="357" class="lie mono" font-size="11" font-weight="700">SILENT CORRUPTION PILES UP</text>
+  </g>
+  <g class="mono" font-size="12.5">
+    <g class="rot rotA">
+      <rect x="100" y="368" width="118" height="38" rx="7" fill="#220c11" stroke="#8a2a35"/>
+      <text x="159" y="385" text-anchor="middle" class="lie" font-weight="700">a lie</text>
+      <text x="159" y="400" text-anchor="middle" class="faint" font-size="10">claimed, never shipped</text>
+    </g>
+    <g class="rot rotB">
+      <rect x="241" y="368" width="118" height="38" rx="7" fill="#220c11" stroke="#8a2a35"/>
+      <text x="300" y="385" text-anchor="middle" class="lie" font-weight="700">a collision</text>
+      <text x="300" y="400" text-anchor="middle" class="faint" font-size="10">two agents, one file</text>
+    </g>
+    <g class="rot rotC">
+      <rect x="382" y="368" width="118" height="38" rx="7" fill="#220c11" stroke="#8a2a35"/>
+      <text x="441" y="385" text-anchor="middle" class="lie" font-weight="700">a spin</text>
+      <text x="441" y="400" text-anchor="middle" class="faint" font-size="10">heartbeat, 0 commits</text>
+    </g>
+  </g>
+
+  <!-- dead end terminal -->
+  <g class="seq d5" stroke="#ff6b73" stroke-width="1.5" fill="none" opacity="0.7">
+    <path d="M300,416 L300,442" marker-end="url(#f-arrLie)"/>
+  </g>
+  <g class="seq d5">
+    <rect x="118" y="446" width="364" height="42" rx="10" fill="#10080a" stroke="#5e1c25" stroke-width="1"/>
+    <text x="300" y="466" text-anchor="middle" class="lie mono" font-size="13" font-weight="700">&#8220;sorta works&#8221;</text>
+    <text x="300" y="481" text-anchor="middle" class="faint" font-size="10.5">&#8230; and nobody can safely change it</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- ============ RIGHT: DOS ADJUDICATES (steer it) ============= -->
+  <!-- ============================================================ -->
+  <g class="seq d1">
+    <rect class="panelR" x="640" y="96" width="520" height="402" rx="14" stroke-width="1"/>
+    <text x="664" y="130" class="h-closed stamp" font-size="14">DOS ADJUDICATES</text>
+    <text x="664" y="151" class="dim" font-size="12.5">you steer on a verdict</text>
+  </g>
+
+  <!-- agent done -->
+  <g class="mono" font-size="13" font-weight="700">
+    <g class="seq d6">
+      <rect class="nodefill" x="816" y="170" width="168" height="44" rx="9" stroke="#5a3a1c" stroke-width="1"/>
+      <text x="832" y="189" class="claim" font-size="10">AGENT</text>
+      <text x="832" y="206" class="ink">&#8220;done!&#8221;</text>
+    </g>
+  </g>
+
+  <!-- arrow agent -> verify -->
+  <g class="seq d7" stroke="#36e0ff" stroke-width="1.6" fill="none" opacity="0.9">
+    <path d="M816,196 L780,220 L780,238" marker-end="url(#f-arrAcc)"/>
+  </g>
+
+  <!-- verify diamond -->
+  <g class="seq d7">
+    <path d="M780,240 L884,282 L780,324 L676,282 Z" fill="#06222b" stroke="#36e0ff" stroke-width="1.6"/>
+    <text x="780" y="278" text-anchor="middle" class="accent mono" font-size="14" font-weight="700">dos verify</text>
+    <text x="780" y="296" text-anchor="middle" class="dim" font-size="11">reads git</text>
+  </g>
+
+  <!-- branch arrows -->
+  <g class="seq d8" stroke="#2bff88" stroke-width="1.6" fill="none" opacity="0.9">
+    <path d="M838,304 L948,338" marker-end="url(#f-arrShip)"/>
+  </g>
+  <g class="seq d8" stroke="#ff6b73" stroke-width="1.6" fill="none" opacity="0.9">
+    <path d="M722,304 L676,338" marker-end="url(#f-arrLie)"/>
+  </g>
+  <text x="906" y="327" class="faint mono seq d8" font-size="10">in git ancestry</text>
+  <text x="664" y="327" class="faint mono seq d8" font-size="10">found nowhere</text>
+
+  <!-- SHIPPED stamp -->
+  <g class="thunk thunkA">
+    <rect x="852" y="340" width="232" height="56" rx="10" fill="#062417" stroke="#2bff88" stroke-width="1.6"/>
+    <text x="868" y="369" class="ship stamp" font-size="18">SHIPPED</text>
+    <text x="868" y="387" class="dim mono" font-size="11">e62f74d &#183; exit 0</text>
+    <text x="1068" y="373" text-anchor="end" class="ship mono" font-size="21" font-weight="700">&#10003;</text>
+  </g>
+  <!-- NOT_SHIPPED stamp -->
+  <g class="thunk thunkB">
+    <rect x="652" y="340" width="184" height="56" rx="10" fill="#23090d" stroke="#ff4d57" stroke-width="1.6"/>
+    <text x="668" y="366" class="lie stamp" font-size="14">NOT_SHIPPED</text>
+    <text x="668" y="385" class="dim mono" font-size="11">via none &#183; exit 1</text>
+    <text x="820" y="372" text-anchor="end" class="lie mono" font-size="21" font-weight="700">&#10007;</text>
+  </g>
+
+  <!-- outcomes -->
+  <g class="seq d9" stroke="#2bff88" stroke-width="1.5" fill="none" opacity="0.85">
+    <path d="M968,396 L968,426" marker-end="url(#f-arrShip)"/>
+  </g>
+  <g class="seq d9">
+    <rect x="876" y="430" width="184" height="42" rx="9" fill="#06190f" stroke="#1c7a46" stroke-width="1"/>
+    <text x="968" y="456" text-anchor="middle" class="ship mono" font-size="13" font-weight="700">land it</text>
+  </g>
+  <g class="seq d9" stroke="#ff6b73" stroke-width="1.5" fill="none" opacity="0.85">
+    <path d="M744,396 L744,426" marker-end="url(#f-arrLie)"/>
+  </g>
+  <g class="seq d9">
+    <rect x="652" y="430" width="184" height="42" rx="9" fill="#190a0d" stroke="#7a2530" stroke-width="1"/>
+    <text x="744" y="452" text-anchor="middle" class="lie mono" font-size="12.5" font-weight="700">re-dispatch / flag</text>
+    <text x="744" y="467" text-anchor="middle" class="claim" font-size="10">&#8212; caught &#8212;</text>
+  </g>
+
+  <!-- the steering signal -->
+  <g class="pulse">
+    <path d="M968,472 C968,492 1126,494 1126,282 C1126,222 1056,200 992,192"
+          fill="none" stroke="#b78cff" stroke-width="1.7" stroke-dasharray="5 5" marker-end="url(#f-arrSteer)"/>
+    <rect x="664" y="478" width="196" height="22" rx="6" fill="#160e26" stroke="#5a3f8c"/>
+    <text x="762" y="493" text-anchor="middle" class="steer mono" font-size="11" font-weight="700">the verdict steers the next step</text>
+  </g>
+
+  <!-- ===================== FOOTER ===================== -->
+  <g class="seq d9">
+    <text x="40" y="528" class="dim" font-size="12">Every verdict comes from the artifacts &#8212;
+      <tspan class="accent">git</tspan>, <tspan class="accent">the file tree</tspan>, <tspan class="accent">the clock</tspan> &#8212; never the narration.</text>
+    <text x="1160" y="528" text-anchor="end" class="mono" font-size="11">
+      <tspan class="ship">verify</tspan> <tspan class="faint">&#183;</tspan> <tspan class="accent">liveness</tspan> <tspan class="faint">&#183;</tspan> <tspan class="steer">arbitrate</tspan> <tspan class="faint">&#183;</tspan> <tspan class="claim">refuse</tspan></text>
+  </g>
+</svg>

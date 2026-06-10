@@ -1,0 +1,58 @@
+================================================================================
+  FEASIBILITY SPLIT — split the population BEFORE scoring any cure (docs/198)
+  corpus: live_results_curable_ab   runs(none)=55  cure=warn (55)
+================================================================================
+  tool                              ok   err   verdict
+--------------------------------------------------------------------------------
+  create_filter                      0   623   WALLED
+  update_vacation_settings         105   431   CURABLE
+  create_draft                      26   133   CURABLE
+  update_draft                       0   104   WALLED
+  add_new_user                       0    60   WALLED
+  create_label                      85    33   CURABLE
+  update_change                      6    16   CURABLE
+  modify_message                    22    12   CURABLE
+  list_drafts                       39     8   CURABLE
+  create_forwarding_address         31     7   CURABLE
+  modify_thread                     15     4   CURABLE
+--------------------------------------------------------------------------------
+  WALLED tools (conversion is a category error here): ['add_new_user', 'create_filter', 'update_draft']
+
+  POPULATION SPLIT (none arm) — score conversion on CURABLE, give-up on WALLED:
+    WALLED       10
+    CURABLE      19
+    NO_THRASH    26
+
+================================================================================
+  GIVE-UP-CORRECTLY (early-halt) on the TASK-SUCCESS denominator
+  GATED = fire only on a WALLED thrash (docs/198 §2: fire harder where infeasible)
+================================================================================
+    K        --- WITNESS-GATED ---             --- UN-GATED (any tool) ---    
+         fired   FA  FA-rate   tok-saved     fired   FA  FA-rate   tok-saved
+--------------------------------------------------------------------------------
+    2       15    0    0.000       43678        48    3    0.062       67632
+    3       15    0    0.000       41430        40    2    0.050       53423
+    4       12    0    0.000       40053        25    2    0.080       48392
+--------------------------------------------------------------------------------
+  PRE-REGISTERED KILL (docs/194 §5): ship iff EXISTS K: gated FA-rate<0.10 AND saved>0
+  -> PASSES at K=[2, 3, 4]. Witness-gated early-halt SHIPS (cheap-model tier).
+     cheapest K=2: FA 0.000, 43678 tokens saved, 15 runs halted (all on a WALLED wall).
+
+================================================================================
+  CURABLE-SLICE CONVERSION — none vs warn, the experiment docs/198 §3 frames
+  fired-flip NET (help - hurt) on the task-success denominator, per population
+================================================================================
+  slice                     n  help  hurt  same   NET   sign-p
+--------------------------------------------------------------------------------
+  all paired               55     3     3    49    +0    1.000
+  no-thrash                26     2     3    21    -1    1.000
+  WALLED-only              10     0     0    10    +0      n/a
+  has CURABLE thrash       19     1     0    18    +1    1.000
+--------------------------------------------------------------------------------
+  CURABLE slice n=19, discordant pairs d=1; powered threshold (docs/198 §4.2) = 30.
+  -> UNDERPOWERED. The curable-slice conversion A/B is GENUINELY UNTESTED — the
+     natural thrash rate is too low to settle it on the recorded corpus (d=1 flips; a sign test needs d>=6 to even reach p<0.05). It needs
+     TARGETED re-runs that over-sample the curable-thrash tasks (see
+     curable_oversample.py for the recipe). DO NOT read the curable NET as a
+     result — with d=1, sign-p=1.0. (docs/198 §3 discipline.)
+================================================================================

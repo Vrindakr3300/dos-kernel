@@ -1,0 +1,126 @@
+# DOS verify-action — the claim-vs-diff / did-it-ship gate at the PR boundary (docs/225).
+#
+# A composite GitHub Action that runs a DOS truth verdict over a pull request's
+# commits and propagates the kernel's exit code to the check status. The verdict IS
+# the exit code (`dos commit-audit`: clean=0 / unwitnessed=1 / contract_error=2), so
+# this wrapper is deliberately thin — the gate is the exit code, surfaced to GitHub.
+#
+# It is TOOLING that consumes the package (`pip install dos-kernel`; shells the `dos`
+# CLI); nothing under src/dos/ imports it (the one-way arrow the layering contract
+# draws). Lives at the repo root beside .github/, NOT under src/.
+#
+# What it does NOT do: witness CORRECTNESS. `commit-audit` grades whether a commit's
+# DIFF did the KIND of thing its message CLAIMED (catching a `fix:` that touched only
+# a README, an `--allow-empty "shipped"`, a "tests pass" that deleted assertions). It
+# is author-neutral and deterministic. Run your TEST job for correctness — this sits
+# BESIDE it, not in place of it. It abstains (never blocks) on a wip/merge commit or
+# a subject with no checkable claim. (Wall 3, docs/204 §3.)
+#
+# Usage in a consumer repo (.github/workflows/dos-gate.yml):
+#   jobs:
+#     claim-vs-diff:
+#       runs-on: ubuntu-latest
+#       steps:
+#         - uses: actions/checkout@v4
+#           with: { fetch-depth: 0 }          # commit-audit needs git ancestry
+#         - uses: anthony-chaudhary/dos-kernel/verify-action@v1
+#           with:
+#             mode: commit-audit
+#             range: ${{ github.event.pull_request.base.sha }}..${{ github.sha }}
+#             fail-on: unwitnessed
+
+name: "DOS verify gate"
+description: "Fail a PR when a commit's claim isn't backed by its diff (dos commit-audit) or a phase didn't ship (dos verify) — deterministic, author-neutral, abstains where it can't ground a verdict."
+branding:
+  icon: "git-commit"
+  color: "purple"
+
+inputs:
+  mode:
+    description: "commit-audit (claim-vs-diff over a range/ref) | verify (a (plan, phase) shipped)"
+    required: false
+    default: "commit-audit"
+  range:
+    description: "For commit-audit: a commit ref or A..B range (default: the PR's base..head, else HEAD)."
+    required: false
+    default: ""
+  plan:
+    description: "For verify: the plan/series id (e.g. AUTH)."
+    required: false
+    default: ""
+  phase:
+    description: "For verify: the phase id within the plan (e.g. AUTH2)."
+    required: false
+    default: ""
+  fail-on:
+    description: "unwitnessed (block a CLAIM_UNWITNESSED / NOT_SHIPPED — default) | none (observe-only: report, never block)."
+    required: false
+    default: "unwitnessed"
+  workspace:
+    description: "Repo root to verify against (default: the checkout)."
+    required: false
+    default: "."
+  dos-version:
+    description: "Version spec for the pip install (e.g. ==0.13.0). Default: latest."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install dos-kernel
+      shell: bash
+      run: pip install "dos-kernel${{ inputs.dos-version }}"
+
+    - name: Run the DOS verdict
+      shell: bash
+      env:
+        DOS_MODE: ${{ inputs.mode }}
+        DOS_RANGE: ${{ inputs.range }}
+        DOS_PLAN: ${{ inputs.plan }}
+        DOS_PHASE: ${{ inputs.phase }}
+        DOS_FAIL_ON: ${{ inputs.fail-on }}
+        DOS_WORKSPACE: ${{ inputs.workspace }}
+        # The PR base/head, used to default the range when `range` is empty.
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD: ${{ github.sha }}
+      run: |
+        set -uo pipefail
+        warn_flag=""
+        if [ "${DOS_FAIL_ON}" = "none" ]; then
+          warn_flag="--warn-only"   # observe-only: report, exit 0, never block.
+        fi
+
+        if [ "${DOS_MODE}" = "verify" ]; then
+          if [ -z "${DOS_PLAN}" ] || [ -z "${DOS_PHASE}" ]; then
+            echo "::error::mode=verify needs both 'plan' and 'phase' inputs." >&2
+            exit 2
+          fi
+          echo "## DOS verify — did ${DOS_PLAN} ${DOS_PHASE} ship?" >> "$GITHUB_STEP_SUMMARY"
+          # verify is a two-valued verdict (SHIPPED=0 / NOT_SHIPPED=1). Under
+          # fail-on=none we still surface it but force a 0 exit.
+          dos verify --workspace "${DOS_WORKSPACE}" "${DOS_PLAN}" "${DOS_PHASE}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          rc=${PIPESTATUS[0]}
+          if [ "${DOS_FAIL_ON}" = "none" ]; then exit 0; fi
+          exit "$rc"
+        fi
+
+        # mode=commit-audit (default).
+        range="${DOS_RANGE}"
+        if [ -z "$range" ]; then
+          if [ -n "${PR_BASE}" ] && [ -n "${PR_HEAD}" ]; then
+            range="${PR_BASE}..${PR_HEAD}"
+          else
+            range="HEAD"   # not a PR event — audit the tip commit.
+          fi
+        fi
+        echo "## DOS commit-audit — claim vs diff over \`${range}\`" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        # The human-readable per-commit lines go to the step summary; the exit code
+        # is the gate. --warn-only forces exit 0 under fail-on=none.
+        dos commit-audit --workspace "${DOS_WORKSPACE}" $warn_flag "$range" \
+          2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+        rc=${PIPESTATUS[0]}
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        exit "$rc"

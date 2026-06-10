@@ -1,0 +1,42 @@
+# acme-store — a polyglot web-service monorepo (anonymized archetype).
+#
+# Shape: a SaaS storefront with a backend API, a frontend web app, a background
+# worker, and an infra/deploy tree. The classic "fleet on a real codebase" case:
+# the API and the web app can be worked in parallel BECAUSE their file trees are
+# disjoint; infra runs alone because its blast radius is the whole system.
+#
+# See ../../playbooks/02_polyglot-web-service.md for the walkthrough.
+workspace = "."
+
+# Lane taxonomy — the units of concurrency the arbiter keeps from colliding.
+#   concurrent: may run in parallel IFF their [lanes.trees] are disjoint.
+#   exclusive : runs alone (touches shared blast-radius state).
+#   autopick  : the walk order when a dispatch asks for "any free lane".
+[lanes]
+concurrent = ["api", "web", "worker"]
+exclusive  = ["infra"]
+autopick   = ["api", "web", "worker"]
+
+# Each lane's canonical file tree. The disjointness algebra compares these:
+# api vs web vs worker never overlap, so all three admit concurrently. A lease
+# whose tree overlaps a live one COLLIDES (or auto-picks a different free lane).
+[lanes.trees]
+api    = ["src/api/**", "src/shared/**"]
+web    = ["web/**"]
+worker = ["src/worker/**"]
+infra  = ["deploy/**", "terraform/**", ".github/**"]
+
+# Route a bare keyword to a named lane (so `--kind keyword` requests land right).
+[lanes.aliases]
+backend  = "api"
+frontend = "web"
+
+# Where plan docs live (optional — verify works without any).
+[paths]
+plans_glob = "docs/plans/*.md"
+
+# How acme-store stamps a shipped phase. It uses the bare generic shape — a
+# commit subject like "CART3: ship guest checkout" or "AUTH: AUTH2 — refresh".
+[stamp]
+style        = "grep"
+subject_dirs = []

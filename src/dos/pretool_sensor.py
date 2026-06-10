@@ -1,0 +1,490 @@
+"""pretool-sensor — the boundary I/O for the PRE moment of a tool call (docs/191).
+
+> **The PRE moment is the unique cell where a DOS verdict is both SOUND and backed
+> by real DENY-power.** `dos hook posttool` (the BOUNDARY moment) can only ADD
+> context — the call already fired. `dos hook stop` (the STOP moment) can only emit
+> a host-honored `{ok:false}`. Only a `PreToolUse` hook can return a
+> `permissionDecision: deny` the runtime honors BEFORE the tool runs (the docs/126
+> mediated-write moment). This module is the boundary adapter that reads a CC
+> `PreToolUse` event, runs the already-shipped PURE kernel verdicts that are sound at
+> PRE, and emits the exact CC dialect — the `posttool_sensor` sibling, one moment
+> earlier on the tool-call timeline.**
+
+The evidence-locus asymmetry (docs/191 §0) is the whole reason this module exists and
+is constrained the way it is. At PRE the only bytes that exist for THIS call are
+agent-authored (`tool_name` / `tool_input`); this call's env-authored `result_digest`
+does NOT exist yet (that is what BOUNDARY adds). So a PRE verdict may use ONLY:
+
+  * the proposed call's own path/tree (`SelfModifyPredicate`, `DisjointnessPredicate` —
+    request-absolute / lease-relative admission, sound on the proposed tree alone);
+  * the agent's args checked against the corpus of PRIOR env results
+    (`arg_provenance.classify_call` — the cross-moment join: prior RESULTS are
+    env-authored, available at PRE even though THIS result is not).
+
+`tool_stream` REPEATING and `terminal_error` are UNSOUND here — they need this call's
+env `result_digest`, which does not exist until BOUNDARY. They bind at POST only. This
+module never computes them.
+
+Two rungs, two safe-failure directions (docs/191 §3 — keep them rigorously apart)
+=================================================================================
+
+  * **Rung A — structural admission** (auto-deny-safe). `admission.run_predicates`
+    over the built-in conjunction (`DisjointnessPredicate`, `SelfModifyPredicate` — the
+    ONLY two built-ins; there is no "dangerous-exec" class) is conjunctive-only +
+    fail-CLOSED-to-REFUSE. A buggy predicate can only OVER-refuse, and an admission
+    over-refusal is operator-visible + `--force`-overridable — an admission gate, NOT a
+    mid-plan derail, so it carries no docs/143 −9 pp exposure. A Rung-A refusal with a
+    structural reason becomes a `permissionDecision: deny` directly.
+
+  * **Rung B — behavioral provenance** (confidence-gated, fail-to-OBSERVE). The
+    provenance verdict is routed `classify_call → intervention.choose_intervention →
+    enforce.run_handler`. `choose_intervention` clamps into `[floor, ceiling]` with the
+    DEFAULT `ceiling=BLOCK`, so DEFER (the turn-spending rung) is structurally
+    unreachable. `run_handler` is fail-to-OBSERVE + no-escalation: a handler that raises
+    / returns a non-`EffectProposal` → OBSERVE (no deny), and a handler can never
+    propose harder than the kernel's confidence-gated rung. So a handler bug CANNOT
+    manufacture a deny.
+
+These coexist in one hook with NO contradiction (the docs/191 §5 correction): admission
+fails CLOSED (cheap, visible over-refusal) while the behavioral path fails toward
+WARN/OBSERVE (the expensive −9 pp direction is the one avoided). The two are selected by
+which seam produced the verdict.
+
+Why it stays a PDP, not a PEP (docs/191 §4)
+===========================================
+
+A PRE deny is an `EffectProposal{dispatch_call=False}` — a PROPOSAL the kernel computes.
+The CC runtime is the PEP that consumes `permissionDecision: deny` and actually withholds
+the call. The default handler is `ObserveHandler`, which proposes OBSERVE on everything →
+ZERO deny until a driver wires a ruling handler. So a default install emits no deny: DOS
+is PDP-only by construction. The CC `PreToolUse` schema also offers `updatedInput` (rewrite
+the agent's args) — this module DELIBERATELY never emits it: minting corrective bytes FOR
+the agent would violate the byte-author invariant (docs/138). PRE stays
+deny / passthrough / additionalContext only.
+
+⚓ Kernel discipline (the litmus): a PURE verdict-adapter — imports only sibling kernel
+modules (`admission`, `self_modify`, `arg_provenance`, `intervention`, `enforce`,
+`lane_journal`, `config`), names no host beyond the `PreToolUse` JSON shape, resolves
+every path via `SubstrateConfig`, takes no lease, carries no policy of its own (the
+thresholds live in `ProvenancePolicy` / the `InterventionLadder` / `StreamPolicy`).
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from typing import Optional
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+except Exception:
+    pass
+
+from dos import config as _config
+
+# The CC PreToolUse result keys we must NOT see — their ABSENCE is the structural marker
+# that distinguishes a PreToolUse event from a PostToolUse one (docs/191 §6). A PRE event
+# carries no tool RESULT; if one of these is present the event is mis-routed (a PostToolUse
+# event sent to the pre hook), and we decline to treat agent-unseen result bytes as PRE
+# evidence. The same dual-key the posttool sensor reads on the other side.
+_RESULT_KEYS = ("tool_response", "tool_output")
+
+# The tools whose `tool_input` names a filesystem path we can turn into an admission tree.
+# Conservative + host-shaped: a host with different tool names declares its own mapping in a
+# driver. The kernel knows only the generic CC edit/write tools. A Bash command is parsed
+# best-effort (see `_tree_from_event`); an unrecognized mutating tool yields an UNKNOWN tree
+# (empty), which the SELF_MODIFY rung treats as unknown blast radius (the safe direction).
+_PATH_ARG_KEYS = ("file_path", "path", "notebook_path")
+
+# Read-only tools never take an admission tree (reads are how provenance ENTERS the corpus,
+# docs/191 §2) — an empty tree admits. A tool not in either set is treated as potentially
+# mutating with an unknown tree (conservative).
+_READ_ONLY_TOOLS = frozenset(
+    {"Read", "Grep", "Glob", "LS", "NotebookRead", "WebFetch", "WebSearch"}
+)
+_WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
+
+
+# ---------------------------------------------------------------------------
+# PURE adapters — a PreToolUse event in, the pure kernel inputs out (no I/O).
+# ---------------------------------------------------------------------------
+def is_pre_event(event: dict) -> bool:
+    """True iff this looks like a PreToolUse event we should act on. PURE.
+
+    The structural PRE marker (docs/191 §6): a `tool_name` present AND no tool RESULT key
+    (`tool_response`/`tool_output`). A PostToolUse event mis-routed to the pre hook carries
+    a result key — we decline it (return False) so we never treat agent-unseen result bytes
+    as PRE evidence, and the caller emits nothing (passthrough). A `hook_event_name` of
+    `PreToolUse`, when present, is honored too — but its absence is not disqualifying (older
+    builds omit it); the result-key absence is the load-bearing test.
+    """
+    if not isinstance(event, dict):
+        return False
+    tool_name = event.get("tool_name")
+    if not (isinstance(tool_name, str) and tool_name):
+        return False
+    name = event.get("hook_event_name")
+    if isinstance(name, str) and name and name != "PreToolUse":
+        return False
+    for k in _RESULT_KEYS:
+        if event.get(k) is not None:
+            return False  # a result is present → this is a BOUNDARY event, not PRE
+    return True
+
+
+def _tree_from_event(event: dict) -> tuple[tuple[str, ...], bool]:
+    """The admission tree for the proposed call + whether the tree is KNOWN. PURE.
+
+    Returns `(tree, known)`:
+      * a read-only tool → `((), True)` (empty tree, known-empty → admits; reads are how
+        provenance enters the corpus, never a self-modify hazard).
+      * a write/edit tool with a path arg → `((path,), True)`.
+      * a write/edit tool with NO usable path, or an unrecognized (potentially mutating)
+        tool → `((), False)` — an UNKNOWN tree. The caller treats unknown-blast-radius
+        conservatively at the SELF_MODIFY rung (docs/191 §6: a missed self-modify is the
+        dangerous direction; an un-parseable mutating tree must not silently admit).
+
+    Tree extraction from `tool_input` is intentionally lossy and host-shaped — the lane
+    arbiter historically got trees from the dispatch layer, not from a tool-arg parse. The
+    kernel handles only the generic CC edit/write tools + a best-effort Bash path scrape; a
+    host with other tools declares its own mapping in a driver.
+    """
+    tool_name = event.get("tool_name")
+    if not isinstance(tool_name, str):
+        return (), False
+    if tool_name in _READ_ONLY_TOOLS:
+        return (), True  # known-empty: a read takes no tree, admits
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    # A direct path arg (Write/Edit/NotebookEdit and the like).
+    for k in _PATH_ARG_KEYS:
+        v = tool_input.get(k)
+        if isinstance(v, str) and v.strip():
+            return (_repo_relative(v.strip(), event),), True
+    # Bash: best-effort scrape of path-shaped tokens from the command. Conservative — if we
+    # find nothing path-shaped we return UNKNOWN (not empty-known), so a mutating command we
+    # cannot parse is treated as unknown blast radius, never silently admitted.
+    if tool_name == "Bash":
+        cmd = tool_input.get("command")
+        if isinstance(cmd, str) and cmd.strip():
+            paths = _paths_from_command(cmd)
+            if paths:
+                return tuple(_repo_relative(p, event) for p in paths), True
+        return (), False  # unknown command footprint → unknown tree
+    if tool_name in _WRITE_TOOLS:
+        return (), False  # a write tool with no resolvable path → unknown, conservative
+    # An unrecognized tool: could be a mutating MCP tool. Unknown tree (conservative) — the
+    # SELF_MODIFY rung sees unknown blast radius; but since the tree is empty AND we cannot
+    # name a runtime-file collision, this degrades to admit at Rung A (no false deny) while
+    # Rung B (provenance) still applies to its args. The honest middle: we never invent a
+    # collision we cannot prove, and we never claim a read is safe when we cannot tell.
+    return (), False
+
+
+def _repo_relative(path: str, event: dict) -> str:
+    """Best-effort repo-relative POSIX form of a path (the shape a lane tree carries). PURE.
+
+    A lane tree is repo-relative POSIX (e.g. `src/dos/arbiter.py`). We normalize separators
+    and, when the path is under the event's `cwd`, strip that prefix. This is best-effort:
+    when we cannot relativize (an absolute path outside cwd) we return the POSIX-normalized
+    absolute form, which the SELF_MODIFY runtime-file compare will simply not match (the
+    safe direction — an unrelatable path is not claimed to be a kernel file).
+    """
+    p = path.replace("\\", "/")
+    cwd = event.get("cwd")
+    if isinstance(cwd, str) and cwd:
+        c = cwd.replace("\\", "/").rstrip("/")
+        if p.startswith(c + "/"):
+            return p[len(c) + 1 :]
+    return p.lstrip("/")
+
+
+def _paths_from_command(cmd: str) -> tuple[str, ...]:
+    """Best-effort path-shaped tokens from a Bash command string. PURE.
+
+    NOT a shell parser — a heuristic scrape for tokens that look like file paths (contain a
+    `/` and a recognizable suffix, or name a known runtime file). Used only to give the
+    SELF_MODIFY rung a chance to fire on `echo x > src/dos/arbiter.py`. Returns `()` when
+    nothing path-shaped is found, which `_tree_from_event` maps to an UNKNOWN tree (the
+    conservative branch). Deliberately under-extracts: a missed path → unknown tree →
+    conservative, never a fabricated collision.
+    """
+    out: list[str] = []
+    for raw in cmd.replace(";", " ").replace("|", " ").replace("&", " ").split():
+        tok = raw.strip("\"'()<>")
+        if "/" in tok and not tok.startswith("-") and "." in tok.rsplit("/", 1)[-1]:
+            out.append(tok)
+    return tuple(dict.fromkeys(out))  # de-dup, preserve order
+
+
+def is_mutating_tool(event: dict) -> bool:
+    """Whether the proposed call mutates state — the `ToolCall.is_mutating` flag. PURE.
+
+    FAIL-OPEN (docs/191 §3, the `arg_provenance` posture): when unsure, treat as a READ
+    (`is_mutating=False`), which short-circuits the provenance fold to ABSTAIN-all. Under-
+    gating is the feasible-task-safe direction — a false gate risks a real regression while
+    a missed gate just degrades to baseline. A tool explicitly in the read-only set is a
+    read; a write tool / Bash is mutating; anything else is conservatively mutating ONLY for
+    the provenance check (Rung B fails to OBSERVE, so a wrong guess there cannot deny).
+    """
+    tool_name = event.get("tool_name")
+    if not isinstance(tool_name, str):
+        return False
+    if tool_name in _READ_ONLY_TOOLS:
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# PURE dialect renderers — a verdict in, the exact CC PreToolUse dialect out (no I/O).
+# ---------------------------------------------------------------------------
+def deny_payload(reason: str, *, additional_context: str = "") -> dict:
+    """The CC PreToolUse DENY dialect — `permissionDecision: deny`. PURE.
+
+    The one envelope real Claude Code honors to block a tool BEFORE it runs (verified
+    against the CC v2.1.88 source: `permissionBehaviorSchema = z.enum(['allow','deny',
+    'ask'])`; `deny` sets `result.permissionBehavior='deny'` and skips the tool). Field
+    names are case-sensitive and exact, the same load-bearing dialect-exactness the
+    posttool sensor's `additionalContext` envelope depends on (emit the wrong shape and the
+    hook is a SILENT no-op, the old `dos hook stop` lesson). NEVER emits `updatedInput`
+    (that would mint corrective bytes for the agent — a byte-author violation, docs/191 §4).
+    """
+    out = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+    if additional_context:
+        out["hookSpecificOutput"]["additionalContext"] = additional_context
+    return out
+
+
+def warn_payload(text: str) -> dict:
+    """The CC PreToolUse WARN dialect — `additionalContext` ONLY, no `permissionDecision`. PURE.
+
+    A WARN does NOT deny: it omits `permissionDecision` entirely (so CC's normal permission
+    flow proceeds — passthrough) and only ADDS a re-surfaced fact to the next turn. This is
+    the turn-preserving soft rung: the agent gets the corrective OBSERVATION without losing
+    its turn (docs/191 §3, the WARN-and-pass resolution for a LOW-confidence / composite
+    mint).
+    """
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": text,
+        }
+    }
+
+
+# ---------------------------------------------------------------------------
+# The impure half — gather PRE evidence at the boundary (the cross-moment join +
+# the live-lease read), then run the pure kernel verdicts. All I/O is HERE, never
+# inside a verdict (the `liveness`/`posttool_sensor` boundary discipline).
+# ---------------------------------------------------------------------------
+def live_leases_for(cfg: "_config.SubstrateConfig") -> list[dict]:
+    """Replay the workspace lane journal into the live leases a PRE admission check sees.
+
+    Boundary I/O (the `lane_journal` WAL read), handed to the pure `run_predicates`. Any
+    failure (no journal, unreadable, replay error) → `[]` (no leases), which makes
+    DisjointnessPredicate admit and leaves SelfModifyPredicate (request-absolute) still
+    firing — the same idle-repo behavior `run_predicates` documents. Fail-safe: a journal
+    read fault never denies a real call (it degrades to "no leases", the safe direction for
+    the COLLISION rung; SELF_MODIFY is unaffected because it answers from the request).
+    """
+    try:
+        from dos import lane_lease
+        # `expire_dead=True`: the PRE-admission gate is a CONTENTION read — a crashed
+        # worker's un-RELEASEd ACQUIRE (a phantom orphan whose TTL aged out or whose
+        # holder PID is confidently gone on this host) must NOT silently revoke the
+        # interactive session's Read/Edit on every tool call (docs/281 Defect 1).
+        # The live set self-heals here instead of waiting for an external SCAVENGE;
+        # only the provably-dead are dropped, so a genuinely-live lane still gates.
+        return lane_lease.live_leases(cfg, expire_dead=True)
+    except Exception:
+        return []
+
+
+def prior_results(session_id: str, cfg: "_config.SubstrateConfig"):
+    """The env-authored corpus of PRIOR tool results — the cross-moment join (docs/191 §2).
+
+    The load-bearing PRE-soundness move: this call's result does not exist, but EARLIER
+    calls' results do, and they are env-authored. We read them from the SAME accumulating
+    `posttool_sensor` stream the BOUNDARY hook writes — so the PRE provenance check sees
+    every prior RESULT digest, tagged `TOOL_RESULT` (env source — `CorpusSource` has no
+    `AGENT_AUTHORED` member, so a minted id can never launder itself into the corpus).
+
+    NOTE the honest limit (docs/191 §8 coupling tension): the posttool stream stores DIGESTS
+    of prior results, not their raw bytes, so the provenance corpus here is built from the
+    result digests + tool names the stream retained. A missing/stale stream degrades to an
+    EMPTY corpus, which `classify_call` reads as "cannot prove mintage → ABSTAIN-all" — the
+    safe direction (no false deny), at the cost of PRE coverage only as good as the POST
+    stream that feeds it. Any failure → empty corpus (fail-safe).
+    """
+    from dos.arg_provenance import EnvBlob, PriorResults, CorpusSource
+    blobs: list = []
+    try:
+        from dos import posttool_sensor as _pts
+        stream = _pts.read_stream(session_id, cfg)
+        for step in stream.steps:
+            # The env-authored evidence available from the stream: the prior result digest
+            # and the tool name. We fold each prior RESULT digest into the corpus as a
+            # TOOL_RESULT blob. (A future phase that retains raw result bytes would carry
+            # them here verbatim; v1 carries the digest the stream kept.)
+            if step.result_digest:
+                blobs.append(EnvBlob(text=str(step.result_digest), source=CorpusSource.TOOL_RESULT))
+    except Exception:
+        return PriorResults(())
+    # The task text, when the event/host surfaced it, would be a TASK_TEXT blob — not
+    # available from the PreToolUse event in v1, so the corpus is prior RESULTS only.
+    return PriorResults(tuple(blobs))
+
+
+def toolcall_from_event(event: dict):
+    """Build the `arg_provenance.ToolCall` for the proposed call. PURE-ish (no I/O).
+
+    Flattens the agent-authored `tool_input` dict into `ToolArg`s (the value the model
+    emitted per arg) and sets `is_mutating` via the fail-open classifier. Returns None for a
+    non-mutating call (a read short-circuits provenance to ABSTAIN-all) or a malformed event.
+    """
+    from dos.arg_provenance import ToolArg, ToolCall
+    tool_name = event.get("tool_name")
+    if not (isinstance(tool_name, str) and tool_name):
+        return None
+    if not is_mutating_tool(event):
+        return None  # reads are never gated — short-circuit
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    args = tuple(ToolArg(name=str(k), value=v) for k, v in tool_input.items())
+    return ToolCall(tool_name=str(tool_name), args=args, is_mutating=True)
+
+
+# ---------------------------------------------------------------------------
+# The composed PRE decision — the two rungs, in order. Returns the CC dialect dict
+# to emit (or None for passthrough) PLUS the structured outcome for the journal.
+# ---------------------------------------------------------------------------
+def decide(
+    event: dict,
+    cfg: "_config.SubstrateConfig",
+    *,
+    handler_name: str = "observe",
+) -> tuple[Optional[dict], dict]:
+    """Run the PRE division on one event → `(dialect_or_None, outcome_record)`.
+
+    `dialect_or_None` is the CC PreToolUse JSON to print (deny / warn) or None (passthrough —
+    emit nothing). `outcome_record` is the structured forensic body the CLI journals on a
+    non-passthrough outcome (the `OP_ENFORCE` evidence, docs/189 §C4).
+
+    Rung A (admission) runs first: a structural refusal denies immediately. Rung B
+    (provenance → intervention → enforce.run_handler) runs only if Rung A admitted. The
+    DEFAULT `handler_name="observe"` is the PDP-only floor — `ObserveHandler` proposes
+    OBSERVE on everything, so a default install emits ZERO deny from Rung B (a deny there
+    requires a wired ruling handler). All of `decide`'s own faults fail toward passthrough.
+    """
+    # ---- Rung A: structural admission (auto-deny-safe, fail-CLOSED-to-refuse) ----
+    from dos import admission
+    tree, tree_known = _tree_from_event(event)
+    request = admission.AdmissionRequest(
+        lane=str(event.get("tool_name") or "tool"),
+        kind="tool-call",
+        tree=tree,
+    )
+    leases = live_leases_for(cfg)
+    predicates = admission.active_predicates(config=cfg)
+    averdict = admission.run_predicates(predicates, request, leases, cfg)
+    if not averdict.admitted:
+        # A non-admit is one of TWO very different things, and only one is deny-safe at PRE:
+        #
+        #   (a) a STRUCTURAL refusal we can PROVE — a typed `reason_class` (SELF_MODIFY), or a
+        #       region collision on a KNOWN **and non-empty** tree (`tree_known and tree` — a
+        #       parseable footprint that really overlaps a held lease). This is the operator-
+        #       visible, --force-overridable admission gate; a pre-dispatch deny here strictly
+        #       dominates a post-hoc WARN (docs/191 §3). → deny.
+        #
+        #   (b) a CONTENTION-only refusal we CANNOT prove collides — an UNKNOWN tree
+        #       (`tree_known=False`, an un-parseable mutating footprint) OR a KNOWN-but-EMPTY
+        #       tree (a read: `_tree_from_event` → `((), True)`) that got refused only because the
+        #       requested lane was contended ("no lane available" / the empty-requested-tree
+        #       "unknown blast radius" rule), with NO structural `reason_class`. In neither case
+        #       can we show the call actually collides — a read touches NOTHING, and a pathless
+        #       write footprint is unknown — so it may be an innocent read / `git status` / `npm
+        #       test` running while an UNRELATED lane is leased. Denying it is the docs/143 −9 pp
+        #       spurious-disruption mistake (and the PreToolUse ABI gives the agent no --force
+        #       escape — a wrong deny just fails the turn). → WARN-and-pass (additionalContext
+        #       only, no permissionDecision), the turn-preserving safe direction.
+        #
+        # The load-bearing correction (FQ-532 Defect 3): `tree_known` ALONE is NOT proof of a
+        # collision — a read has a KNOWN but EMPTY tree, and the old `reason_class or tree_known`
+        # gate escalated that contention-only refusal to a hard DENY for every Read/Edit while a
+        # Bash (unknown tree) only WARNed (the "route-through-Bash" asymmetry). Requiring a
+        # NON-EMPTY known tree keeps a contention-only refusal ADVISORY regardless of tree_known,
+        # and only a parseable footprint that really overlaps denies — the same "never invent a
+        # collision we cannot prove" line `_tree_from_event` already draws for the empty-tree case.
+        reason = averdict.reason or "DOS admission refused this call (no lane available)."
+        provable = bool(averdict.reason_class) or (tree_known and bool(tree))
+        if provable:
+            outcome = {
+                "rung": "admission",
+                "decision": "deny",
+                "reason_class": averdict.reason_class or "",
+                "reason": reason,
+                "tree_known": tree_known,
+            }
+            return deny_payload(f"DOS PRE-admission: {reason}"), outcome
+        outcome = {
+            "rung": "admission",
+            "decision": "warn",
+            "reason_class": averdict.reason_class or "",
+            "reason": reason,
+            "tree_known": tree_known,
+        }
+        return (
+            warn_payload(
+                f"DOS PRE-admission (advisory): {reason} This call's footprint does not prove a "
+                f"collision (a read touches nothing; an unresolved write footprint is unknown), "
+                f"so DOS cannot prove it collides — proceeding, but "
+                f"if this call mutates shared state, scope it to a declared path/lane."
+            ),
+            outcome,
+        )
+
+    # ---- Rung B: behavioral provenance (confidence-gated, fail-to-OBSERVE) ----
+    call = toolcall_from_event(event)
+    if call is None:
+        return None, {"rung": "none", "decision": "passthrough", "reason": "read / non-mutating call"}
+    from dos import arg_provenance, intervention, enforce
+    prior = prior_results(str(event.get("session_id") or ""), cfg)
+    pverdict = arg_provenance.classify_call(call, prior, arg_provenance.DEFAULT_POLICY)
+    decision = intervention.choose_intervention(
+        pverdict, intervention.DEFAULT_POLICY, cfg.interventions
+    )
+    handler = enforce.resolve_handler(handler_name)
+    proposal = enforce.run_handler(handler, decision, cfg)
+    base = {
+        "rung": "provenance",
+        "intervention": proposal.intervention.value,
+        "confidence": decision.confidence.value,
+        "handler": proposal.handler,
+        "unsupported": list(decision.unsupported),
+    }
+    if proposal.withholds_call:
+        # A turn-preserving BLOCK → deny, with the synthetic corrective surfaced in the
+        # reason (names the unresolved arg by NAME + component TOKENS only — the
+        # anti-laundering shape; never echoes the minted id value).
+        synth = proposal.synthetic_result or intervention.synthetic_corrective_result(
+            pverdict, call.tool_name
+        )
+        ctx = json.dumps(synth, sort_keys=True, ensure_ascii=False)
+        reason = proposal.note or decision.reason or "an id argument was minted, not resolved."
+        return deny_payload(f"DOS PRE-provenance: {reason}", additional_context=ctx), {
+            **base, "decision": "deny",
+        }
+    if proposal.intervention is intervention.Intervention.WARN and proposal.note:
+        # WARN-and-pass: additionalContext only, no permissionDecision (passthrough).
+        return warn_payload(f"DOS PRE-provenance: {proposal.note}"), {**base, "decision": "warn"}
+    # OBSERVE (or a WARN with nothing to surface) → emit nothing.
+    return None, {**base, "decision": "passthrough"}

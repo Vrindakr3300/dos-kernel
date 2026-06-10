@@ -1,0 +1,146 @@
+# FleetHorizon — canonical A/B results (determinism-fixed: zlib.crc32 seed)
+# dos kernel 0.6.0
+<!-- dos-bench-stamp: kernel=0.6.0 date=2026-06-02 -->
+#   ^ the machine-parseable provenance stamp `benchmark._run status` reads: these
+#     numbers were captured at kernel 0.6.0, so status flags them stale once the live
+#     kernel moves past it (re-run the sweep + re-stamp to refresh). Keep this line in
+#     sync with the legacy `# dos kernel` line above when the numbers are re-captured.
+# Reproduce (from the repo root): PYTHONPATH=src python -m benchmark.fleet_horizon.harness --sweep   (and --velocity-sweep)
+#   Single headline cell ([C]/[V-C], 8×30): PYTHONPATH=src python -m benchmark.fleet_horizon.harness --efforts 8 --phases 30
+# Graphs: PYTHONPATH=src python -m benchmark.fleet_horizon.plot  -> build/fleet_horizon_charts.png
+#
+# PROVENANCE (2026-06-02): the two HEADLINE cells [C] and [V-C] below were
+# re-captured against kernel 0.6.0 and now read 35 lies caught / 205 real ships /
+# 7 overwrites / 104 collisions refused (was 40/200/6/102 under kernel 0.3.0).
+# The shift is from kernel commits landed after the original capture plus a new
+# per-effort RNG draw (agent.py) that re-shuffles the open-loop arm too; the
+# QUALITATIVE result is unchanged (closed loop catches EVERY lie and prevents
+# EVERY silent overwrite, same agents/seed). The SWEEP tables [A] [B] [V-A] [V-B]
+# below are NOT yet re-run on 0.6.0 (the full --sweep is git-per-phase and slow on
+# Windows) — treat their absolute counts as 0.3.0-era and pending a fresh --sweep;
+# their monotone SHAPE (value rising in horizon×fleet, → 0 at fleet/horizon=1) is
+# the load-bearing claim and is kernel-version-robust.
+
+==============================================================================
+FleetHorizon — the adjudication gap as a function of horizon × fanout
+==============================================================================
+
+The claim: DOS's value (lies caught, overwrites prevented, integrity
+preserved) is monotonically increasing in horizon × fleet size — and
+→ 0 when the fleet/horizon → 1 (where a non-believing kernel is pure
+overhead). Both columns prove themselves below.
+
+
+[A] FIXED fleet = 6 efforts; horizon (phases/effort) grows:
+    The lie RATE is ~flat (per-phase) — what compounds is the COUNT of
+    caught defects and the defect DEBT (= count × remaining horizon).
+     horizon  lies caught  overwrites prev  open debt  DOS verified/$ edge
+           1            1                0          0                1.00x
+           3            2                7          2                0.81x
+           8            3               21         13                0.89x
+          20           16               54        147                1.51x
+          40           43              103        779                2.89x
+
+[B] FIXED horizon = 20 phases; fleet (concurrent efforts) grows:
+    At fleet=1 there is no one to collide with — overwrites-prevented is
+    0 and DOS's collision value is nil (its own falsifier). It climbs
+    with the fleet — collision-prevention is strictly a fleet phenomenon.
+       fleet  lies caught  overwrites prev  open debt  DOS verified/$ edge
+           1            1                0          6                1.30x
+           2            6                0         46                2.10x
+           4           12               30        127                1.84x
+           8           25               67        226                1.67x
+          12           38              112        399                1.78x
+
+[C] Headline cell — a realistic long-horizon fleet (8 efforts × 30 phases):
+    (re-captured on kernel 0.6.0, 2026-06-02)
+
+  metric                     open-loop  closed-loop
+  -------------------------  ---------  -----------
+  phases                           240          240
+  banked as shipped                240          205
+    └ of those, LIES banked         35            0
+  lies CAUGHT (refused)              0           35
+  real ships (ground truth)        205          205
+  silent overwrites                  7            0
+  collisions refused                 0          104
+  rework                             0            0
+  thrash                            15           15
+  raw spend (actions)            255.0        359.0
+  downstream defect debt         711.0          0.0
+  TRUE cost (spend+debt)         966.0        359.0
+  LIE RATE (banked)              14.6%         0.0%
+  banked INTEGRITY               85.4%       100.0%
+  verified/$ (raw)              0.8039        0.571
+  verified/$ (defect-adj)       0.2122        0.571
+  ── VELOCITY (docs/81) ──
+  human reviews queued             240           35
+  human-review FRACTION         100.0%        17.1%
+  conflict detonations               7            0
+  loaded cost (κ=5)              530.0        394.0
+  review-queue wait                inf        1.271
+  VERIFIED-VELOCITY / $         0.3868       0.5203
+
+  → The open loop banked 35 false 'shipped' claims (14.6% of its ledger) it could not detect.
+  → The closed loop caught all 35 and prevented 104 silent overwrites on shared state — same agents, same seed.
+  → It cost +104 extra actions (+40.8%) to keep the fleet honest.
+
+==============================================================================
+FleetHorizon — the VELOCITY axis (docs/81): review-queue + conflict cost
+==============================================================================
+
+'Catching the lie is integrity. Not paying for it downstream is velocity.'
+The open loop must human-review EVERYTHING (nothing adjudicated
+completeness); the closed loop routes only kernel-surfaced exceptions to
+a human — the lever against the Faros productivity paradox (+98% PRs
+merged, +91% review time, flat throughput).
+
+[V-A] human-review FRACTION (model-free) as the fleet grows (horizon=20):
+       fleet   open review frac   closed review frac   human-queue shrink
+           1            100.0%                5.3%               94.7%
+           2            100.0%               17.6%               82.4%
+           4            100.0%               17.6%               82.4%
+           8            100.0%               18.5%               81.5%
+          12            100.0%               18.8%               81.2%
+
+[V-B] BREAK-EVEN κ (conflict multiplier where DOS overtakes), horizon=20:
+    Below it DOS is overhead; above it DOS pays for itself on merge cost
+    alone. Literature puts real κ (hand-merge ÷ normal action) well into
+    double digits — far above these break-evens.
+       fleet   break-even κ  interpretation
+           2           0.00  DOS ahead even at κ=0 (review-fraction alone wins)
+           4           0.00  DOS ahead even at κ=0 (review-fraction alone wins)
+           8           0.00  DOS ahead even at κ=0 (review-fraction alone wins)
+          12           0.00  DOS ahead even at κ=0 (review-fraction alone wins)
+
+[V-C] Velocity headline cell (8 efforts × 30 phases, κ=5, μ=0.33):
+      (re-captured on kernel 0.6.0, 2026-06-02)
+
+  metric                     open-loop  closed-loop
+  -------------------------  ---------  -----------
+  phases                           240          240
+  banked as shipped                240          205
+    └ of those, LIES banked         35            0
+  lies CAUGHT (refused)              0           35
+  real ships (ground truth)        205          205
+  silent overwrites                  7            0
+  collisions refused                 0          104
+  rework                             0            0
+  thrash                            15           15
+  raw spend (actions)            255.0        359.0
+  downstream defect debt         711.0          0.0
+  TRUE cost (spend+debt)         966.0        359.0
+  LIE RATE (banked)              14.6%         0.0%
+  banked INTEGRITY               85.4%       100.0%
+  verified/$ (raw)              0.8039        0.571
+  verified/$ (defect-adj)       0.2122        0.571
+  ── VELOCITY (docs/81) ──
+  human reviews queued             240           35
+  human-review FRACTION         100.0%        17.1%
+  conflict detonations               7            0
+  loaded cost (κ=5)              530.0        394.0
+  review-queue wait                inf        1.271
+  VERIFIED-VELOCITY / $         0.3868       0.5203
+
+  → Open loop sent 240 'done's to a human (100% of output); closed loop sent 35 (17.1%) — only the exceptions.
+  → Verified-velocity/$ (fully loaded, κ=5): open 0.387 vs closed 0.520 (1.35×).

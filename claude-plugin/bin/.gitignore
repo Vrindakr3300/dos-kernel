@@ -1,0 +1,7 @@
+# The compiled dos-hook binaries (docs/125 GHF4) ARE committed into this directory so
+# the plugin is a DIRECT install: a `/plugin marketplace add` clones this git repo and
+# the native fast-path binary for the user's arch is already present — no build step,
+# no separate download, no silent fall-back to Python. A plugin ships as its git tree
+# (`marketplace.json` source: ./claude-plugin), so a gitignored binary is one the user
+# never gets. They are rebuilt by `scripts/build_hook_binary.py` and pinned present +
+# tracked by `tests/test_hook_binaries_bundled.py`. NOTHING is ignored here.

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The DOS money-moment, stepped through — the agent says done, DOS asks git</title>
+<style>
+  :root{
+    /* ---- signature DOS identity (matches docs/assets/loop-hero.svg) ---- */
+    --bg:#0a0a0f; --bg2:#06060a; --panel:#101019; --panel2:#0d0d14;
+    --ink:#eef1f6; --dim:#8b93a7; --faint:#5b6478; --line:#23232e;
+    --a1:#36e0ff;       /* electric cyan — the 'ask git' rung */
+    --claim:#ffc24d;    /* amber — the forgeable narration */
+    --bad:#ff4d57;      /* hot-red — NOT_SHIPPED */
+    --good:#2bff88;     /* acid-green — SHIPPED */
+    --git:#b78cff;      /* violet — git ground truth / the steering signal */
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --display:"Arial Black","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);
+       background:radial-gradient(120% 80% at 50% 0%, #13131c 0%, var(--bg) 58%, var(--bg2) 100%) fixed;
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 22px 70px;}
+  .brand{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+  .brand .dos{font:900 22px/1 var(--display);letter-spacing:1px;color:var(--ink)}
+  .brand .tag{color:var(--dim);font-size:14px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.2px}
+  .sub{color:var(--dim);margin:0 0 22px;font-size:14px}
+  .sub b{color:var(--ink);font-weight:600}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);
+            margin:0 0 12px;font-weight:700}
+  /* agent claim */
+  .claimcard{border:1px solid var(--line);border-radius:8px;padding:11px 13px;background:#15121b;
+             margin-bottom:10px;opacity:.32;transition:opacity .25s,border-color .25s,background .25s}
+  .claimcard.live{opacity:1;border-color:var(--claim);background:#d2992212}
+  .claimcard .who{font:600 11px var(--mono);color:var(--claim);background:#d299221f;
+                  padding:2px 7px;border-radius:5px;display:inline-block;margin-bottom:7px}
+  .claimcard .quote{font-size:14.5px;font-style:italic;color:var(--ink)}
+  .claimcard.a2.live{border-color:var(--bad);background:#f8514910}
+  .forge{font-size:11.5px;color:var(--dim);border-top:1px dashed #30363d66;padding-top:8px;margin-top:8px}
+  .forge b{color:var(--claim)}
+  /* git ledger */
+  .gitlog{font:12.5px var(--mono)}
+  .commit{display:flex;gap:9px;padding:6px 0;border-bottom:1px dashed #30363d66;opacity:.35;
+          transition:opacity .25s}
+  .commit.live{opacity:1}
+  .commit:last-child{border-bottom:0}
+  .commit .sha{color:var(--git);white-space:nowrap}
+  .commit .msg{color:var(--ink)}
+  .commit .hl{color:var(--good);font-weight:600}
+  .scan{margin-top:11px;font:12px var(--mono);padding:8px 10px;border-radius:6px;
+        border:1px solid var(--line);background:var(--bg);color:var(--dim);min-height:20px}
+  .scan .found{color:var(--good);font-weight:600} .scan .none{color:var(--bad);font-weight:600}
+  .verdict{margin-top:18px;border-radius:12px;padding:15px 18px;border:1px solid var(--line);
+           background:var(--panel2);min-height:78px}
+  .verdict .head{font-weight:700;font-size:16px;margin-bottom:4px;font-family:var(--mono)}
+  .verdict.good .head .stamp,.verdict.bad .head .stamp{font:900 17px var(--display);letter-spacing:.5px}
+  .verdict.good{border-color:var(--good);background:#3fb95010}
+  .verdict.bad{border-color:var(--bad);background:#f8514910}
+  .verdict.good .head{color:var(--good)} .verdict.bad .head{color:var(--bad)}
+  .verdict .why{color:var(--dim);font-size:13.5px}
+  .verdict .why code{font:12px var(--mono);color:#cfe3ff;background:var(--bg);padding:1px 5px;border-radius:4px}
+  .exit{float:right;font:600 12px var(--mono);padding:3px 9px;border-radius:6px;margin-top:-2px}
+  .exit.z{color:var(--good);background:#2bff8818;border:1px solid #2bff8844}
+  .exit.o{color:var(--bad);background:#ff4d5718;border:1px solid #ff4d5744}
+  .controls{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}
+  button{font:600 14px inherit;color:var(--ink);background:#16161f;border:1px solid var(--line);
+         border-radius:9px;padding:9px 16px;cursor:pointer;transition:background .2s,border-color .2s}
+  button:hover{background:#1f1f2b;border-color:#34344a} button:disabled{opacity:.36;cursor:default}
+  #next{border-color:#2a5a52;background:#0c1a16;color:#bdf6dd}
+  #next:hover:not(:disabled){background:#10241d}
+  .step-ind{display:flex;gap:7px;margin-left:4px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .25s}
+  .dot.on{background:var(--a1);box-shadow:0 0 6px #36e0ff66}
+  .caption{margin-top:16px;padding:13px 16px;border-left:3px solid var(--a1);background:var(--panel);
+           border-radius:0 8px 8px 0;font-size:14px}
+  .caption b{color:var(--ink)}
+  .meta-box{margin-top:30px;color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+  .meta-box code{font:12px var(--mono);color:#cfe3ff;background:var(--panel);padding:1px 5px;border-radius:4px}
+  .meta-box b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="dos">DOS</span><span class="tag">— the kernel that doesn&rsquo;t believe the agents</span></div>
+  <h1>The money-moment, stepped through</h1>
+  <p class="sub">An agent claims two units of work shipped. One did; one didn't.
+     <b>DOS never reads the agent's claim</b> — it reads git history and answers from what
+     actually landed. The whole pitch is the contrast between the two verdicts.
+     <span style="color:var(--dim)">every line is real output of
+     <code style="font-size:11.5px">examples/demo/verify_demo.sh</code></span></p>
+
+  <div class="stage">
+    <!-- LEFT: the two claims -->
+    <div class="panel">
+      <h2>What the agent CLAIMS</h2>
+      <div class="claimcard a1" id="c1">
+        <span class="who">agent · claim #1</span>
+        <div class="quote">“Shipped <b>AUTH1</b> — the login endpoint is done.”</div>
+      </div>
+      <div class="claimcard a2" id="c2">
+        <span class="who">agent · claim #2</span>
+        <div class="quote">“<b>AUTH2</b> is done too — all work completed!”</div>
+      </div>
+      <div class="forge" id="forge">
+        Both are just <b>sentences the agent typed</b>. Equally confident, equally cheap.
+        Nothing about the claim itself tells you which is true — that's the problem DOS exists
+        to solve.
+      </div>
+    </div>
+
+    <!-- RIGHT: git ground truth -->
+    <div class="panel">
+      <h2>What git actually RECORDS</h2>
+      <div class="gitlog" id="gitlog">
+        <div class="commit" id="g1">
+          <span class="sha">e389e8b</span>
+          <span class="msg"><span class="hl">AUTH1:</span> ship the login endpoint</span>
+        </div>
+        <div class="commit" id="gempty">
+          <span class="sha" style="color:var(--dim)">— — — —</span>
+          <span class="msg" style="color:var(--dim)">(no commit mentions AUTH2)</span>
+        </div>
+      </div>
+      <div class="scan" id="scan">the git history is the ledger — one real commit, nothing else.</div>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict">
+    <div class="head" id="vhead">$ dos verify AUTH …</div>
+    <div class="why" id="vwhy">Press <b>Step ▶</b> to verify each claim against git.</div>
+  </div>
+
+  <div class="controls">
+    <button id="prev" disabled>◀ Back</button>
+    <button id="next">Step ▶</button>
+    <button id="reset">↺ Reset</button>
+    <div class="step-ind" id="dots"></div>
+  </div>
+
+  <div class="meta-box">
+    <p style="margin:0"><b>Why this is the whole idea.</b> An agent can <b>claim</b> <code>AUTH2</code>
+    is done all day long; <code>dos verify</code> just reports what the artifacts say — and they say
+    it isn't. The little <code>via grep-subject</code> / <code>via none</code> tag tells you <i>how it
+    knows</i>: it found the phase token in a commit subject, or it found it nowhere. Two things make
+    this trivial to drop into a pipeline:</p>
+    <ul style="margin:10px 0 0;padding-left:20px;line-height:1.7">
+      <li><code>verify</code> needs <b>no plan, no registry, no config</b> — hand it a plain git repo
+        and it answers from history alone.</li>
+      <li><b>the exit code IS the verdict</b> (<code>0</code> shipped / <code>1</code> not), so any
+        shell or CI step branches on it without parsing a word — replace the step that trusts an
+        agent's "done" with <code>dos verify PLAN PHASE</code>.</li>
+    </ul>
+    <p style="margin:10px 0 0">Reproduce every line: <code>bash examples/demo/verify_demo.sh</code>
+    (or <code>verify_demo.ps1</code>).</p>
+  </div>
+</div>
+
+<script>
+const steps = [
+  { // 0 — setup
+    c1:false, c2:false, g1:false, gempty:false,
+    scan:'the git history is the ledger — one real commit, nothing else.', scanCls:'',
+    vclass:'', exit:'', vhead:'$ git commit -m "AUTH1: ship the login endpoint"',
+    vwhy:'A fresh repo with one commit. A <i>plan</i> (AUTH) groups <i>phases</i> (AUTH1, AUTH2); a commit whose subject starts <code>AUTH1:</code> is what stamps that phase shipped. The agent is about to claim both phases are done.'
+  },
+  { // 1 — claim 1
+    c1:true, c2:false, g1:false, gempty:false,
+    scan:'the git history is the ledger — one real commit, nothing else.', scanCls:'',
+    vclass:'', exit:'', vhead:'The agent claims AUTH1 shipped',
+    vwhy:'Claim #1: “the login endpoint is done.” It reads true and it’s stated with total confidence. But DOS will not take its word — it’s about to ask git instead.'
+  },
+  { // 2 — verify 1 → SHIPPED
+    c1:true, c2:false, g1:true, gempty:false,
+    scan:'scanning commit subjects for the <b>AUTH1</b> token…  <span class="found">FOUND in e389e8b</span>', scanCls:'',
+    vclass:'good', exit:'z', vhead:'<span class="stamp">SHIPPED</span>  AUTH AUTH1  e389e8b  (via grep-subject)',
+    vwhy:'<code>dos verify AUTH AUTH1</code> finds the phase token in a real commit subject that is a git ancestor of HEAD → <b>SHIPPED</b>, exit <code>0</code>. The claim and the ground truth agree. The <code>via grep-subject</code> tag names the rung that answered: it matched a commit, not a narration.'
+  },
+  { // 3 — claim 2
+    c1:true, c2:true, g1:true, gempty:false,
+    scan:'scanning commit subjects for the <b>AUTH1</b> token…  <span class="found">FOUND in e389e8b</span>', scanCls:'',
+    vclass:'', exit:'', vhead:'Now the agent claims AUTH2 shipped too',
+    vwhy:'Claim #2: “all work completed!” — the cheerful one-liner from a worker that did nothing for AUTH2. Same confidence as claim #1. To a consumer reading only the narration, the two are indistinguishable. Watch what git says.'
+  },
+  { // 4 — verify 2 → NOT_SHIPPED
+    c1:true, c2:true, g1:true, gempty:true,
+    scan:'scanning commit subjects for the <b>AUTH2</b> token…  <span class="none">FOUND NOWHERE</span>', scanCls:'',
+    vclass:'bad', exit:'o', vhead:'<span class="stamp">NOT_SHIPPED</span>  AUTH AUTH2  (via none)',
+    vwhy:'<code>dos verify AUTH AUTH2</code> finds the token in <b>no</b> commit subject and <b>no</b> registry → <b>NOT_SHIPPED</b>, exit <code>1</code>. The <code>via none</code> tag says it knows because it found the phase <i>nowhere</i>. The confident claim collapses the instant no commit backs it — caught by ground truth, not by re-reading the story.'
+  }
+];
+
+let i = 0;
+const $ = id => document.getElementById(id);
+const dots = $('dots');
+steps.forEach(()=>{const d=document.createElement('div');d.className='dot';dots.appendChild(d);});
+
+function render(){
+  const s = steps[i];
+  $('c1').classList.toggle('live', !!s.c1);
+  $('c2').classList.toggle('live', !!s.c2);
+  $('g1').classList.toggle('live', !!s.g1);
+  $('gempty').classList.toggle('live', !!s.gempty);
+  $('scan').innerHTML = s.scan;
+
+  $('verdict').className = 'verdict' + (s.vclass?(' '+s.vclass):'');
+  const exitHtml = s.exit ? `<span class="exit ${s.exit}">exit ${s.exit==='z'?'0':'1'}</span>` : '';
+  $('vhead').innerHTML = exitHtml + s.vhead;
+  $('vwhy').innerHTML = s.vwhy;
+
+  [...dots.children].forEach((d,k)=>d.classList.toggle('on', k<=i));
+  $('prev').disabled = i===0;
+  $('next').disabled = i===steps.length-1;
+}
+$('next').onclick = ()=>{ if(i<steps.length-1){i++;render();} };
+$('prev').onclick = ()=>{ if(i>0){i--;render();} };
+$('reset').onclick = ()=>{ i=0;render(); };
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key===' '){$('next').click();e.preventDefault();}
+  if(e.key==='ArrowLeft'){$('prev').click();}
+});
+render();
+</script>
+</body>
+</html>

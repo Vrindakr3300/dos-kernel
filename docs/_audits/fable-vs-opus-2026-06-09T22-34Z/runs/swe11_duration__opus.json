@@ -1,0 +1,43 @@
+{
+  "task": "swe11_duration",
+  "family": "swe",
+  "note": "time decomposition",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": false,
+  "oracle_detail": "============================= FAILURES ===================================\n_________________________________ test_values _________________________________\n\n    def test_values():\n        assert humanize(3661) == '1h 1m 1s'\n>       assert humanize(61) == '1m 1s'\nE       AssertionError: assert '0h 1m 1s' == '1m 1s'\nE         \nE         - 1m 1s\nE         + 0h 1m 1s\nE         ? +++\n\ntests\\test_oracle.py:4: AssertionError\n=========================== short test summary info ===========================",
+  "cli_returncode": 0,
+  "wall_s": 23.6,
+  "total_cost_usd": 0.147491,
+  "num_turns": 6,
+  "duration_ms": 22352,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 509,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000584,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1987,
+      "outputTokens": 1166,
+      "cacheReadInputTokens": 146769,
+      "cacheCreationInputTokens": 5510,
+      "webSearchRequests": 0,
+      "costUSD": 0.146907,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "f0152e3",
+  "head_subject": "Fix minutes calculation in humanize()",
+  "n_commits_total": "2"
+}

@@ -1,0 +1,98 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/05_detectors.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{The benchmark and the three detectors}\label{sec:bench}
+
+We test on \textbf{Toolathlon}, a hard benchmark for agents that use real tools across many apps over a long task. The property that makes it useful to us is its grader. Toolathlon ships its own \emph{oracle}: a separate grading program (\code{evaluation/main.py}) that reads the live state of the apps the agent touched and exits 0 for pass or 1 for fail. The oracle is not the agent and does not read the agent's words; by construction it judges results, not narration. The benchmark is hard: across the corpus a run fails 76.2\% of the time. We call 76.2\% the \textbf{base fail rate}.
+
+We do not run new agents. We replay frozen traces. The public \textbf{Toolathlon-Trajectories} corpus holds 7,116 recorded runs (22 models $\times$ 3 runs over $\sim$108 tasks); 6,862 carry an oracle label (5,228 fail, 1,634 pass). The remaining 254 have no oracle verdict, so we drop them --- we never guess a label. A detector is a pure function of a recorded run, so we can replay the whole corpus offline, with no live agents and no model calls. Every number below recomputes from the recordings alone.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{diagram1_replay_pipeline}
+  \caption{\cref{fig:pipeline}. How we score a detector, with no live run. A detector reads only environment-authored bytes from each recorded trajectory and fires or stays silent; Toolathlon's own \code{evaluation/main.py} oracle has already graded that run pass/fail off the real application state. We join the two --- each fire checked against a verdict we did not write and cannot fake. The detector reads the recording, the oracle read the world; neither trusts the agent.}
+  \label{fig:pipeline}
+\end{figure}
+
+\subsection{The three byte-clean detectors}\label{sec:bench-detectors}
+
+Each detector obeys the byte-clean rule from \cref{sec:intro}: it reads only bytes the agent under judgement did not write --- the environment's tool results, never the agent's own narration. The three differ only in which environment-authored bytes they watch.
+
+\begin{itemize}
+  \item \textbf{\code{dangling\_intent}} --- the agent's last message admits open work (``I still need to\dots''), and nothing environment-authored ran after it. The agent said it was not done, then stopped.
+  \item \textbf{\code{tool\_stream}} --- the same call returns the same result N times in a row: the same tool, the same arguments, the same result fingerprint. The environment keeps answering identically and the agent keeps asking. (A small normalizer strips volatile bytes --- timestamps, ids --- before fingerprinting; we defer the details to \cref{sec:baselines}.)
+  \item \textbf{\code{terminal\_error}} --- the run ended on an error. Within the last 3 tool results, the environment returned a structured error envelope --- a result the environment itself marks as failed --- and the agent never recovered. The agent saying ``Email sent successfully!'' does not suppress the fire when the environment's last result was an SMTP rejection: the agent does not author that byte, so it cannot talk it away.
+\end{itemize}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{diagram2_what_each_detector_sees}
+  \caption{\cref{fig:whateach}. What each detector reads. All three watch environment-authored bytes only: an unfinished-work admission with nothing acting after it (\code{dangling\_intent}), an identical-result loop (\code{tool\_stream}), and an unrecovered structured error envelope (\code{terminal\_error}). Agent narration is never the trigger.}
+  \label{fig:whateach}
+\end{figure}
+
+We score each detector with five numbers, used throughout \cref{sec:result}:
+
+\begin{itemize}
+  \item \textbf{Fire-rate} --- how often the detector raises a flag, as a fraction of all runs.
+  \item \textbf{Precision} --- when it does fire, how often the run really had failed. High precision means ``believe it when it speaks.''
+  \item \textbf{Recall} --- of \emph{all} the failing runs, how many it managed to catch. Low recall means ``it stays silent for most failures.''
+  \item \textbf{False-alarm} --- how often it fires on a run that actually \emph{passed}. This is the costly mistake: cry wolf and an operator stops listening.
+  \item \textbf{Lift} --- precision is misleading on its own, because this benchmark is hard: 76.2\% of all runs fail, so a ``detector'' that flags \emph{every} run is ``right'' 76.2\% of the time by default. \emph{Lift is how far above that floor a detector's precision sits} (lift = precision $-$ 76.2\%) --- the part of being right that took skill, not luck. A lift of +20 points means a fire is 20 points more likely to be a real failure than a random run; a lift of 0 is no better than flagging everything. We read \textbf{lift, not raw precision}, throughout.
+\end{itemize}
+
+\section{The detection result, and its ceiling}\label{sec:result}
+
+\cref{tab:detectors} reports all five numbers for each detector, plus two combinations: the \emph{pair} (the first two detectors together) and the \emph{trio} (all three). Read each row left to right as a sentence: this detector fires on \emph{fire}\% of runs; when it does, it is right \emph{precision}\% of the time, which is \emph{lift} points of real skill above the 76.2\% floor; it catches \emph{recall}\% of all failures; and it wrongly flags a passing run only \emph{false-alarm}\% of the time. The last column (\code{tp/fp}) is the raw count behind those rates --- true catches over false alarms. The shape below is high-precision and low-recall: a detector you can trust, that rarely speaks.
+
+\begin{table}[t]
+  \centering
+  \caption{\cref{tab:detectors}. The three byte-clean detectors and their combinations, scored against Toolathlon's third-party oracle over 6,862 labelled runs (base fail rate 76.2\%). Lift = precision $-$ 76.2\%.}
+  \label{tab:detectors}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    Detector & Fire & Precision & Lift & Recall & False-alarm & tp/fp \\
+    \midrule
+    \code{dangling\_intent} & 1.5\% & 98.0\% & +21.9pp & 1.91\% & 0.12\% & 100/2 \\
+    \code{tool\_stream} & 2.5\% & 88.2\% & +12.0pp & 2.87\% & 1.22\% & 150/20 \\
+    \code{terminal\_error} & 1.2\% & 95.0\% & +18.8pp & 1.45\% & 0.24\% & 76/4 \\
+    pair (dangling+tool\_stream) & --- & 91.9\% & --- & 4.74\% & --- & 248/22 \\
+    \textbf{trio (union)} & 5.1\% & 92.6\% & +16.4pp & 6.18\% & 1.59\% & 323/26 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The trade is the same for all three: when they fire they are right \textbf{88--98\%} of the time, at near-zero false-alarm (0.12--1.22\% each, 1.59\% for the trio). Each clears the 76.2\% base by a real margin --- +12.0 to +21.9pp of lift. But recall is small: about 2--3\% per detector, 6.18\% for the trio together (7.42\% at 92.4\% precision with one opt-in strictness flag that stops crediting a generic executor's ``recovery'' --- a later same-tool success that is a different operation, not a fix). The detectors catch the honest-narrating slice and the visibly-looping slice; they miss the run that fails quietly.
+
+\code{terminal\_error}'s catches are almost all \textbf{new}: of its 76 catches, 75 are runs the other two never flagged (99\% additive), lifting union recall 4.74\%$\rightarrow$6.18\% (+30\% relative) at 92.6\% precision. It reads a different environment-authored byte and catches a different failure.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figA_additivity_headline}
+  \caption{\cref{fig:additivity}. Why the third detector earns its place. \textbf{Left:} of \code{terminal\_error}'s 76 catches, 75 are \emph{net-new} (99\% additive). \textbf{Right:} adding it raises union recall 4.74\%$\rightarrow$6.18\% (+30\% relative) while precision holds at 92.6\% --- recall rises while precision stays put, so it finds a \emph{different} failure rather than re-finding the same ones.}
+  \label{fig:additivity}
+\end{figure}
+
+This holds on the strongest models too: on the eight highest-scoring models (passing $\ge$0.30 of tasks), the first two detectors catch 6 failures between them and \code{terminal\_error} adds 9 more they missed.
+
+\subsection{The recall ceiling is real and tightens on the frontier}\label{sec:result-ceiling}
+
+The ceiling is blunt: the detectors are trustworthy when they fire, and they fire rarely --- rarest on exactly the models that matter most. One thing does carry across capability: \textbf{precision}. On every model that fires at all, a fire is almost always a real failure --- the quality of the signal generalises from weak models to strong. What collapses is \emph{fire-rate}, and therefore recall. Strong models fail \textbf{silently}: among the top-4 models' failures, the median run takes 19 tool steps (only 6\% stop short), 92\% end with substantial final narration (median $\sim$1,004 characters), and 59\% confidently \emph{claim} they finished --- ``All customers have now received their surveys!'' on a run the oracle scores as failed. A confidently-wrong run narrates no open work, loops on nothing, and emits no error envelope, so a byte-clean detector has no environment-authored byte to read. What changes on the frontier is not the detector's quality but its opportunity: the visible failures it can see thin out toward zero.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{fig1_purchase_vs_capability}
+  \caption{\cref{fig:capability}. Coverage shrinks on the frontier, quality does not. Horizontal axis: each model's Toolathlon pass-rate (capability). \textbf{Left:} fire-rate drops toward zero as models get more capable. \textbf{Right:} \emph{lift} stays high and flat wherever they fire --- the detectors speak less often on stronger models but are no less right when they do.}
+  \label{fig:capability}
+\end{figure}
+
+The two panels of \cref{fig:capability} answer two different questions. The left panel is ``how much can these detectors help?'' --- the answer shrinks toward zero on the frontier. The right panel is ``when they do help, can you trust them?'' --- the answer stays yes everywhere. A signal can be highly trustworthy and still rarely available.
+
+So the result is narrow and solid: a byte-clean, zero-training detector that is \textbf{right when it
+fires} (against a grader we cannot influence) but fires on only a small, shrinking slice of
+failures. That high-precision, low-recall, shrinks-on-the-frontier shape is the in-loop ceiling, and why
+the verdict had to be spent out-of-loop (\cref{sec:payoff}): a signal this trustworthy and this narrow
+earns precisely one in-loop action --- give up correctly (\cref{sec:giveup}) --- and pays
+elsewhere only when handed to the rest of the fleet.

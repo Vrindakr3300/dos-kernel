@@ -1,0 +1,148 @@
+% !!! GENERATED FILE - DO NOT EDIT !!!
+% Produced from paper/sections/07_appendix.html by paper/assemble_arxiv.py
+% (rules in arxiv/_CONVERSION_SPEC.md). Edit the .html source + meta.py, then
+% rerun `python paper/build.py` (or `python paper/assemble_arxiv.py`).
+
+\section{Appendix A. DOS in plain words --- the Vaseline test}
+
+The body defines its terms as it goes. This appendix is for a reader who wants the one idea underneath all of them --- \emph{do not trust the narrator} --- in the plainest language, plus two reference tables: a key to every symbol (Table A1) and a plain-language glossary (Table A2). It is self-contained, built around one running picture: a smear of Vaseline on a mirror.
+
+\subsection{A.1 The one idea, and the Vaseline picture}
+
+An AI agent doing a long task also authors the story about it --- the actions \emph{and} the closing summary, and the summary is the problem. It can end with a confident \emph{``All customers have now received their surveys!''} while the inbox shows zero emails sent: nothing crashed, nothing in the transcript contradicts the happy ending. This is a \textbf{silent failure}, a wrong result in the costume of a right one (on the hard benchmark here three runs in four fail, and nearly every failure is this quiet kind). So the obvious move --- read what the agent says about itself --- is the \textbf{mirror-verifier} trap: you measure the \emph{story}, not the \emph{world}, and training against it just teaches the agent to stop saying the give-away phrase.
+
+The picture: the real state of the world --- the inbox, the database row, the file --- is a mirror, and the agent's narration is a \textbf{smear of Vaseline} wiped across it. Vaseline changes only what you \emph{see}, and the smear re-applies for free (the agent can always produce a smoother sentence) --- that is what \emph{forgeable} means. The fix is to read only what the narration cannot coat: the \textbf{tool results the environment sent back} (an error envelope, the identical ``pending'' returned three times, the absent row) and a \textbf{third-party judge} that re-reads the live world. The agent authored none of those bytes. A check that reads \emph{only} bytes the judged agent did not author is \textbf{byte-clean}; the test is one question --- \emph{could the agent have written these bytes?} If yes, Vaseline; if no, ground truth.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{appx_vaseline_mirror}
+  \caption{The Vaseline test. The agent's narration is a smear over the real state of the world: it changes only what a careless checker sees. Reading \emph{through} the smear (the agent's words) is \textbf{forgeable}; reading \emph{around} it (the environment's tool results, a third-party oracle) is \textbf{byte-clean} and grounded. Every DOS check lives on the bottom path.}
+  \label{fig:unknown}
+\end{figure*}
+
+\subsection{A.2 What DOS actually is --- a referee made of ``no''}
+
+DOS --- \textbf{Dispatch Operating System} --- sits between many AI agents and the one shared world they are all changing, the way a computer's OS sits between many programs and one machine, and plays \textbf{referee}. Its motto is blunt: \emph{the kernel is the part that does not believe the agents.} A referee mostly says one word, \textbf{no}, and DOS is a handful of careful ways to say it --- each the same move, a refusal backed by evidence the agent could not forge, pointed at a different question (the map below).
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{appx_dos_syscall_map}
+  \caption{The DOS kernel is a small set of grounded refusals --- \code{verify}, \code{liveness}, \code{arbitrate}, \code{refuse}, \code{resume} --- each answering one question from bytes the agent did not author (git history, not the agent's ``done''). Below, the \textbf{trust ladder}: a deterministic \textbf{oracle} settles what it can; a model-based \textbf{judge} rules only on the leftovers, as advice that fails safe to ``abstain''; a \textbf{human} is the last resort for what no machine can ground.}
+  \label{fig:unknown}
+\end{figure*}
+
+Two features keep the referee honest. \textbf{The oracle goes first and cannot be argued with} --- ``did this phase ship?'' is answered from git history, a record the agent cannot rewrite to flatter itself. \textbf{The model-judge is on a short leash} --- used only on what the oracle could not settle, only as advice (it never blocks alone), and when unsure it must say \textbf{``abstain,''} never ``looks fine,'' because a model checking a model is still two things on the smeared side of the glass.
+
+\subsection{A.3 The three detectors, lift vs. recall, and the punchline}
+
+This paper measures three of those refusals as \textbf{detectors} (defined in Table A2), each firing on a byte-clean fingerprint of failure: \code{dangling\_intent}, \code{tool\_stream}, \code{terminal\_error}. They produce one triumphant number and one dismal one, both true: \textbf{when they fire they are right 88--98\% of the time} (a \emph{lift} of up to +22 points above the 76\% base fail rate), but they \textbf{catch only $\sim$2\% of failures} each. Picture a smoke alarm that is 98\% accurate but goes off in two of every hundred real fires: run when it sounds, but keep your other alarms. And it sharpens on the frontier --- the strongest models fail \emph{quietly} (a polished, wrong summary, no trace), so the fire-rate drifts toward zero exactly where the leaderboard lives. Quality carries; coverage shrinks.
+
+The punchline is \textbf{detect, don't fix.} In a separate live program every \emph{active} fix came up empty or worse --- \textbf{warn} (flat, +0.2 points), \textbf{rewind} (zero conversions), \textbf{cure} with the environment's own correction (net-negative). The harm is the intervention \emph{existing in the loop at all}, not its content. The one survivor is the \textbf{negative} action, \textbf{give up correctly}: it fires on a repeated \emph{environment-authored error} and, across two benchmarks and 1,600+ winners, halted \textbf{zero} winners while saving $\sim$11\% of compute. (A naive version that halts on any \emph{repeat} kills six winners --- one model harmlessly polling. Repeating is normal; repeating an error is the doomed signal.)
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{appx_fix_bakeoff}
+  \caption{The bake-off: steering a doomed loop fails, stopping it works. \textbf{Left:} every \emph{active} fix runs flat (warn) to nothing (rewind) to negative (the injected cure), because each authors a turn and a turn perturbs a fragile run; only the \emph{negative} action (green star), give up, authors nothing. \textbf{Right:} the error-gated halt wrongly stops \textbf{zero} winners at \emph{K}$\ge$3 while a naive halt-on-any-repeat never reaches zero. (From EnterpriseOps-Gym and Toolathlon, kept apart from the main detection tables.)}
+  \label{fig:unknown}
+\end{figure*}
+
+Telling a doomed loop to stop is robust; steering it to succeed is not. So the substrate detects, withholds compute when it is sure, and hands the rest to a human, rather than pretending it can fix what it can only see.
+
+\subsection{A.4 Where the substrate ends and a verifier begins}
+
+The failure that beats every detector here has no fingerprint at all: the agent runs cleanly, hits no error, contradicts nothing, and ends with a confident, polished, \emph{wrong} summary, because it never re-read the state it claims to have changed. No byte already in the transcript reveals it; the only honest catch is to \textbf{go re-read the world} after the run. That is the job of the benchmark's own final judge, and the line this paper draws on purpose: an in-flight byte-clean substrate reads the evidence the environment already wrote; a \textbf{final-state verifier} re-reads the world to settle what no in-trace evidence can. The gap is not a flaw to hide --- it \emph{is} the boundary, where reading around the Vaseline runs out and going behind the mirror begins.
+
+\subsection{A.5 Notation --- the symbols, decoded}
+
+Every symbol in one place. The body leans on \textbf{J} on nearly every page of the headline result and glosses it only briefly at first use; this is its full key.
+
+\begin{table}[t]
+  \centering
+  \caption{Every symbol and short code in this paper.}
+  \label{tab:unknown}
+  \begin{tabular}{lll}
+    \toprule
+    Symbol & Reads as & What it means, plainly \\
+    \midrule
+    \textbf{J} & the prevention count & An integer count of \emph{real corruptions the referee caught and blocked at the root} --- phantom writes a peer would have inherited, or overwrites a race would have caused. Not a rate, and \emph{not} a downstream-outcome delta (that quantity is $\Delta$B, Appendix~D). ``J~=~10'' = ten real failures stopped; the whole \cref{sec:payoff} result is in J. J is experiment-local --- a blocked over-claim and a prevented clobber are different events --- so compare J within one experiment, never across them. \\
+    \textbf{K} & the halt threshold & How many times the \emph{same} tool must error \emph{in a row} before the give-up gate proposes a stop. We use K~=~3 (latest still failing) --- the smallest value that never killed a winner across 22 models. \\
+    \textbf{pp} & percentage points & The plain \emph{difference} between two percentages: 76\% to 92\% is ``+16~pp'', not ``+21\%'' (the relative change). Lift is always in pp. \\
+    \textbf{db\_match} & ``database matches'' & The unforgeable witness in \cref{sec:payoff}: the benchmark hashes the task's database and compares it to the \emph{gold} hash. \code{True} = world correct; \code{False} = not; absent = no database to check. The agent writes none of these bytes. \\
+    \textbf{W0--W3} & witness rungs & Four grades of evidence (\cref{sec:boundary}): \textbf{W0} the agent's narration (forgeable); \textbf{W1} the environment acknowledged a write; \textbf{W2} the change \emph{persisted} (DOS's git rung --- \emph{presence}); \textbf{W3} a full comparison to the correct answer (\emph{correctness}, what \code{db\_match} does). Only W3 settles whether the work was \emph{right}. \\
+    \textbf{tp / fp / fn} & true-positive / false-positive / false-negative & A fire is a \emph{true-positive} (run really failed) or \emph{false-positive} (run passed --- the costly false alarm); silence on a failing run is a \emph{false-negative} (the missed silent failure). With true-negative they form the confusion grid. \\
+    \textbf{Wilson-95} & ``Wilson 95\% upper bound'' & A conservative ceiling on a rate measured as zero: ``Wilson-95 upper 0.0023'' means the \emph{true} rate is almost certainly below 0.23\% --- a guard against reading ``0 out of N'' as stronger than the sample supports. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{A.6 Glossary --- every term, in plain words}
+
+Grouped by the kind of thing each is; every entry is self-contained.
+
+\begin{table}[t]
+  \centering
+  \caption{The terms used in this paper, in plain language, grouped by topic.}
+  \label{tab:unknown}
+  \begin{tabular}{ll}
+    \toprule
+    Term & What it means, plainly \\
+    \midrule
+    The one idea, and its vocabulary &  \\
+    \textbf{silent failure} & A run that ends ``successfully'' by its own account but left the world wrong --- no crash, no contradiction, just a confident false ``done.'' Three runs in four fail on the hard benchmark here, nearly all of them this quietly. \\
+    \textbf{byte-clean} & A check that reads \emph{only} bytes the judged agent did not write (the environment's tool results, a third-party judge) --- the thing its narration cannot smear. The single rule under everything DOS does. \\
+    \textbf{byte-author} & Whoever produced the bytes a check reads. A check is trustworthy only when its byte-author is \emph{not} the agent being judged. \\
+    \textbf{forgeable} & The opposite of byte-clean: a signal the agent \emph{can} author and therefore wipe away (its narration is forgeable; an error envelope the mail server wrote is not). \\
+    \textbf{the Vaseline test} & The one-question check: \emph{could the agent have written these bytes?} If yes, the smear (forgeable); if no, the mirror (byte-clean). \\
+    \textbf{mirror-verifier trap} & Checking an agent by asking it how it looks --- measuring consistency (does the story hang together?), not truth (does it match the world?). \\
+    \textbf{consistency ≠ grounding} & Re-deriving an author's \emph{own} bytes proves consistency; checking against a \emph{different} author's bytes proves grounding. Only grounding crosses the trust floor. \\
+    The referee --- DOS and its parts &  \\
+    \textbf{DOS} & Dispatch Operating System: the small trusted referee between many agents and the one shared world they change; it believes none of their self-reports. \\
+    \textbf{kernel} & The small trusted core --- the referee itself --- as opposed to the agents it watches. ``The part that does not believe the agents.'' \\
+    \textbf{oracle} & A deterministic check that cannot be argued with (git history says a phase shipped, or it didn't). Always tried first. \\
+    \textbf{third-party oracle} & The benchmark's own pass/fail judge, authored by the benchmark not DOS --- a verdict DOS cannot fake. Every detector here is scored against one. \\
+    \textbf{judge} & A model-based check, used only on what the oracle could not settle. Advisory; says ``abstain'' when unsure; never blocks on its own. \\
+    \textbf{ORACLE $\rightarrow$ JUDGE $\rightarrow$ HUMAN} & The trust ladder: a deterministic oracle settles what it can, a model-judge rules only on the leftovers as advice that fails safe to ``abstain'', a human is the last resort. \\
+    \textbf{abstain} & The safe non-answer: when evidence is missing, a check says ``abstain'' rather than guess. It can refuse on proof but never \emph{affirms} without it; abstain always means admit. \\
+    \textbf{advisory} & A check that \emph{reports} a verdict but does not \emph{enforce} it. Everything measured here is advisory; nothing kills a run on its own. \\
+    \textbf{detector / fire} & A check that ``fires'' on a byte-clean fingerprint of failure; fire-rate = how often it flags, as a fraction of all runs. \\
+    \textbf{structured error envelope} & The specific \emph{shape} of an environment-authored failure (a crash, a 5xx, a permission-denied) that \code{terminal\_error} matches --- not merely the \emph{word} ``error'' in a result. Matching the shape keeps false alarms near zero. \\
+    Where you spend the verdict &  \\
+    \textbf{in-loop} & Spending a verdict \emph{back on the agent that earned it} (warn, rewind, correct). Flat-to-harmful here, because adding any turn disturbs a run that might have passed. \\
+    \textbf{out-of-loop} & Spending the \emph{same} verdict on \emph{anyone but} that agent --- a peer, the operator, a training set. Where it pays: correcting a peer's input injects nothing back. \\
+    \textbf{claim (failure)} & The first way a fleet fails: one agent announces a write that did not land, and a peer inherits that false ``done'' as truth. \\
+    \textbf{race (failure)} & The second way a fleet fails: two agents touch the same state at once and one silently overwrites the other. No one lied; the state is wrong anyway. \\
+    \textbf{write-admission gate} & The out-of-loop referee for a \emph{claim}: it checks A's announcement against a byte A could not author before a peer inherits it --- admitting a real write, blocking a phantom. \\
+    \textbf{over-claim / phantom write} & An agent announcing a successful change the world's own record says did not land. What the write-admission gate catches. \\
+    \textbf{clobber / lost update} & What a race causes: a second agent's write lands on top of a first's, erasing it, because the second never saw the first. What the arbiter prevents. \\
+    \textbf{lease / region / lane} & A \emph{region} is a named patch of shared state (e.g. \code{reservations/<id>}); a \emph{lease} is a temporary exclusive hold. Two agents wanting overlapping regions cannot both hold one. \\
+    \textbf{arbiter / arbitrate} & The referee for a \emph{race}: it hands out region leases and refuses a second agent's lease while a first holds an overlapping one, so the writes \emph{serialize}. \\
+    \textbf{serialize} & To force two would-be-simultaneous writes into a strict order, so the second acts on the first's result instead of clobbering it. \\
+    \textbf{half-plane} & One of the two distinct ways a fleet fails (a claim and a race); the paper's symmetry is one referee covering both off the same witness. \\
+    \textbf{existence result} & A claim stated no wider than ``this happens and we caught it N times,'' not ``X\% everywhere.'' \cref{sec:payoff} proves the gate catches real over-claims live, not that 8.3\% is universal. \\
+    The give-up result &  \\
+    \textbf{DETECT vs FIX} & Spotting a failure vs repairing it. This paper measures DETECT only. The one FIX-adjacent action that helped was the negative one --- give up correctly. \\
+    \textbf{give up correctly} & Stop a doomed run and re-spend its token budget elsewhere. Authors no new turn, so it perturbs nothing --- the only in-loop action that paid off. \\
+    \textbf{false-abandon} & The give-up gate's one costly mistake: halting a run that \emph{would} have succeeded. The number that has to be zero --- and is, at K~=~3. \\
+    \textbf{specificity vs sensitivity} & \emph{Specificity}: when it fires, it never halts a winner (the half we have, across 22 models). \emph{Sensitivity}: it fires often enough to catch most doomed runs (the half we do not --- quiet on silent failures). \\
+    \textbf{circuit breaker / SPRT / CUSUM} & Three classic ``stop after repeated trouble'' mechanisms --- a circuit breaker (trip a failing component after too many faults), SPRT (decide as evidence arrives), CUSUM (watch a running tally for a change). The give-up gate is a corner of each; only its byte-clean \emph{grounding} and measured threshold are new. \\
+    Measuring a detector &  \\
+    \textbf{precision / recall / lift} & When it fires, how often it is right (ours: 88--98\%); of all failures, how many it caught (ours: $\sim$2\% each, $\sim$6\% combined); and lift = precision $-$ the 76.2\% base fail rate, the ``better than guessing'' part we read throughout instead of raw precision. \\
+    \textbf{false-alarm rate} & Of all the runs that actually \emph{passed}, how often the detector wrongly flagged one --- the costly mistake (cry wolf and an operator stops listening). Ours: near zero. \\
+    \textbf{net-new / additivity} & A catch a detector makes that the others did \emph{not}, so adding it raises coverage instead of re-finding the same failures. \code{terminal\_error} is 99\% net-new. \\
+    \textbf{union (pair / trio)} & Treating a \emph{set} of detectors as one (caught if \emph{any} fires): the \emph{pair} is the first two, the \emph{trio} all three. \\
+    \textbf{operating point} & A classifier's dial setting trading eagerness-to-fire against false alarms. A trained classifier has no setting that both fires usefully \emph{and} stays trustworthy on a task it was not trained for. \\
+    Systems and benchmarks named in the body &  \\
+    \textbf{Toolathlon} & The hard benchmark behind the offline replay study (every section except \cref{sec:payoff}): long tasks over 600+ real tools across 32 apps, with its own pass/fail oracle re-reading the real app state. DOS replays its published recordings. \\
+    \textbf{trajectory / replay} & A \emph{trajectory} is one agent's recorded transcript on one task; \emph{replay} is running the detectors over those frozen recordings offline (\$0) --- which is why the study measures DETECT, never FIX. \\
+    \textbf{tau2-bench} & The live benchmark in \cref{sec:payoff} (airline/retail customer service), the right target because it ships \code{db\_match} --- the database-hash witness the agent cannot author. \\
+    \textbf{EnterpriseOps-Gym} & The live benchmark for the \cref{sec:giveup-activefix} bake-off (a ServiceNow gym with hidden database checks), used because an active fix can only be measured by replaying it into a \emph{live} agent. \\
+    \textbf{Gemini (flash / pro)}, \textbf{grok-4} & The models run live in \cref{sec:payoff} (\code{gemini-2.5-flash} mid, \code{gemini-2.5-pro} stronger) and the one that exposed the naive gate's flaw by harmlessly polling (grok-4). \\
+    \textbf{SMTP / 5xx / API error} & Ordinary failure shapes the environment reports (a mail-server ``no'', a server-side HTTP error, a transient call failure) --- all environment-authored bytes the agent cannot talk away. \\
+    The boundary and beyond &  \\
+    \textbf{final-state verifier} & A check that re-reads the live world after a run to catch the confident-but-wrong ending no in-trace evidence reveals. The boundary where an in-flight detector ends and \cref{sec:payoff}'s out-of-loop re-read begins. \\
+    \textbf{RLVR / poison reward label} & RLVR = Reinforcement Learning from Verifiable Rewards. A \emph{poison reward label} is an over-claim a self-judged loop banks as a \emph{win}, teaching the model to over-claim more; \cref{sec:payoff-scope}'s gate purges them off ground truth. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The companion engineering write-up for this appendix --- with the same diagrams and the ``why doesn't the lift carry over?'' walk-through --- lives at \code{benchmark/toolathlon/EXPLAINER.md} and \code{GLOSSARY.md} in the DOS repository.

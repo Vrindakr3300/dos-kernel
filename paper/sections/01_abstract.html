@@ -1,0 +1,106 @@
+<!--ABSTRACT-->
+<h2>Abstract</h2>
+<p>Checking one agent is easy: wrap it in &ldquo;if the check fails, run it again.&rdquo; That trick
+assumes the world holds still between the check and the act. <strong>In a fleet of concurrent agents
+it does not.</strong> A check reads <em>true</em> when agent&nbsp;A looks and <em>false</em> by the
+time A writes, because agent&nbsp;B changed the shared state in between (a
+time-of-check-to-time-of-use race{{cite:toctou}}, lifted onto world state). Agents act through
+high-level tool APIs that offer no transaction and no conditional write, so no re-run wrapper around A
+can close that race. It takes a <strong>referee between the agents</strong> that serializes their
+effects and reads only bytes the agents <em>cannot author</em>. We build one and run it live. The
+finding that surprised us is about <em>where</em> a non-forgeable verdict is worth spending. Hand it
+<em>back</em> to the agent that earned it (<strong>in-loop</strong>) and it is flat-to-harmful: a
+capable agent re-checks and heals its own phantom, so every active fix we measured (warn, rewind,
+inject a cure) only disturbs a run that would have passed. The lone in-loop survivor is the
+<em>negative</em> action, <strong>give up correctly</strong> (zero false-halts across 1,634 winners,
+~11% compute saved). Hand the same verdict to <strong>anyone else</strong> &mdash; the rest of the
+fleet &mdash; and it pays, on both of the ways a fleet fails. Off the environment&rsquo;s own
+database hash (a byte no agent wrote), an arbiter serializes eight pairs of racing agents to prevent
+<strong>all 6 would-be lost-update clobbers</strong>, and a write-admission gate blocks <strong>10
+genuine over-claims across 120 clean tasks</strong> while admitting every correct write. The block rate is an identical
+8.3% on a mid and a strong model, so the signal does not fade at the stronger tier. A third consumer
+is not an agent at all. Each blocked over-claim is a <em>poison reward label</em> a self-judged RL
+loop would bank as a win, and scoring the reward against the byte the model cannot author &mdash; the
+verifiable-reward (RLVR{{cite:rlvr}}) discipline &mdash; purges every one (label purity
+60%&nbsp;&rarr;&nbsp;100%). One non-forgeable check, three consumers: a
+<strong>monitorability</strong> primitive for fleets and the loops that train them, whose value turns
+on <em>where</em> it is spent.</p>
+<!--/ABSTRACT-->
+
+<figure class="wide" data-fig="hero">
+  <img src="figs/hero_inloop_vs_outofloop.png" alt="Two panels under one title: the same verdict the agent cannot forge is harmful handed back to it and valuable handed to anyone else. Left panel, IN-LOOP: handing the verdict back to the agent that earned it. Three active fixes are red and flat-to-negative — WARN the agent is +0.2 points (flat), REWIND its bad turns fixes 0 of 20 runs, INJECT a cure is minus 5 successes (worse). A green band notes the only in-loop survivor is the negative action, give up correctly: 0 winners halted, about 11% compute saved. Right panel, OUT-OF-LOOP: handing the same verdict to the rest of the fleet. Two green and blue bars show it pays on both ways a fleet fails — refuse a phantom write (over-claims) is J equals 10 over 120 tasks across two models at 8.3% each, and serialize a race (coordination) is J equals 6 over 8 pairs, clobbers prevented. Both off the environment's own ground truth.">
+  <figcaption>Figure&nbsp;{{fig:hero}}. Hold a check the agent <strong>cannot forge</strong> fixed and
+  ask only <em>where</em> to spend it. <strong>In-loop</strong> (left), every active fix is
+  flat-to-harmful and only give-up (which writes nothing) survives; <strong>out-of-loop</strong>
+  (right), the same verdict pays on both fleet failures &mdash; J&nbsp;=&nbsp;6 races serialized,
+  J&nbsp;=&nbsp;10 phantom writes refused. The asymmetry is the finding. (<strong>J</strong> is our one
+  score: an integer count of real corruptions the referee blocked off ground truth, never a rate; full
+  key in Appendix&nbsp;A.)</figcaption>
+</figure>
+
+<h2 data-sec="intro">Introduction</h2>
+
+<p>Give an agent a real task &mdash; reconcile an inventory across two SaaS apps, send a survey to
+every customer &mdash; and it works for many turns, then announces success. Often the announcement is
+a lie the agent believes. It wrote &ldquo;All customers have now received their surveys!&rdquo; and
+the surveys never went out. This is <em>silent failure</em>: the run looks finished, the world is
+still broken, and nothing in the agent&rsquo;s own words tells you which is true. For one agent the
+skeptic reaches for a tidy answer, and at the easy hop it is right, so we grant it up front: do not
+trust the &ldquo;done,&rdquo; check the work, re-run if the check fails. We grant that <em>loop</em>
+&mdash; while noting two parts of it are real work the phrase &ldquo;just check the result&rdquo;
+hides: a check the agent cannot forge (not &ldquo;re-read your own result&rdquo;), and sensing fast
+enough to gate every turn (&sect;{{sec:positioning.wrapper}}). But the claim we rest the paper on is
+what a re-run wrapper genuinely <em>cannot</em> reach. The instant you have a <em>fleet</em> &mdash;
+many agents working concurrently against the same database, the same tickets &mdash; the assumption
+breaks: a check reads <em>true</em> when agent&nbsp;A looks and <em>false</em> by the time A writes,
+because agent&nbsp;B changed the shared state in the gap (a time-of-check-to-time-of-use
+race{{cite:toctou}}, lifted from files onto world state). The textbook cure &mdash; fuse check and
+write into one atomic step &mdash; lives in the <em>store</em>, and the high-level tool APIs agents act
+through (cancel a reservation, file a ticket) expose only unconditional writes. So no re-run wrapper
+around A can close the race. It takes a referee <em>between</em> the agents that supplies the missing
+serialization itself and trusts none of their narration. That referee, and the one surprising place
+its verdict is worth spending, is this paper.</p>
+
+<p>The trust rule under everything is one test: read what the agent <em>says</em>, or read bytes the
+agent <em>could not have written</em>. We call the second <strong>byte-clean</strong> &mdash; a check
+whose byte-author is not the agent under judgement (an environment&rsquo;s tool result qualifies; the
+agent&rsquo;s own prose does not). Reading the agent&rsquo;s own bytes is the <strong>mirror-verifier
+trap</strong>: it measures whether the story is internally consistent, not whether it matches the
+world, and collapses the moment the model stops emitting the give-away phrase you trained on. (A
+plain-language walk-through of every term is in <strong>Appendix A</strong>; the machinery in
+Appendix B.)</p>
+
+<p>The result is not a detector but a place to <em>spend</em> one&rsquo;s verdict. Hold a check the
+agent cannot forge fixed, and ask only <em>where</em>. Hand it <strong>in-loop</strong>, back to the
+agent that earned it, and it is worthless: every active fix we measured was flat or worse, because
+injecting any turn perturbs runs that would have passed. Hand it <strong>out-of-loop</strong>, to the
+rest of the fleet, and it pays on the two distinct ways a fleet fails &mdash; a <strong>claim</strong>
+(one agent announces a write that did not land, and a peer inherits it as truth) and a
+<strong>race</strong> (two agents touch the same state and one overwrites the other). In
+&sect;{{sec:payoff}} we build one out-of-loop referee reading the environment&rsquo;s own database
+hash, run it live on tau2-bench{{cite:tau2bench}} through Gemini, and it blocks <strong>10 real
+over-claims across two models</strong> at an identical 8.3% rate while <strong>serializing two live
+agents across eight conflict pairs to prevent all six would-be clobbers</strong> &mdash; both off
+ground truth, neither touching the judged agent. A third consumer is the loop that <em>trains</em> the
+next model: each blocked over-claim is a poison reward label a self-judged RL loop would bank as a
+win, and scoring the reward against the same byte (RLVR{{cite:rlvr}} in the strict sense) purges
+every one. The rest of the paper is the boundary that <em>forces</em> this design.
+One distinction throughout: <strong>J counts real corruptions a non-forgeable witness blocked</strong>,
+never a downstream-outcome delta; where we measure the latter (&Delta;B) it is a fragile floor, and we
+say so in the same breath.</p>
+
+<blockquote><p><strong>Why this matters past this paper.</strong> A verdict the agent
+<em>cannot forge or train away</em> is the load-bearing primitive under three problems a frontier lab
+already cares about, each touched with a measured result. <strong>Scalable oversight{{cite:bowman}}</strong>:
+when work outruns a human&rsquo;s line-by-line check{{cite:metr}}, the only oversight that survives is
+rooted in evidence the model did not author (the byte-clean rule and its rungs W0&ndash;W3,
+&sect;{{sec:boundary}}). <strong>Reward hacking / monitorability{{cite:baker}}</strong>: a self-judged
+loop rewards the <em>appearance</em> of success, and a label non-forgeable by narration is the one
+signal optimization pressure cannot launder &mdash; we show it purges real poison reward labels off
+ground truth. <strong>Multi-agent reliability</strong>: the race no single-agent wrapper can reach
+needs a referee <em>between</em> agents, and we build one and measure the corruptions it prevents live.
+The method borrows a minimal-trusted-kernel framing{{cite:anderson}}, three distributed-systems hazards
+(TOCTOU{{cite:toctou}}, lost-update{{cite:bernstein}}, write-ahead recovery{{cite:aries}}), and the
+SPRT{{cite:wald}}/CUSUM{{cite:page}} lineage of the give-up gate &mdash; and it states the strength of
+every claim in the same breath as the claim, never dressing a rate as a payoff or a frozen replay as a
+live result.</p></blockquote>

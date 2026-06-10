@@ -1,0 +1,43 @@
+{
+  "task": "swe11_duration",
+  "family": "swe",
+  "note": "time decomposition",
+  "model": "fable",
+  "model_id": "claude-fable-5",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.22s",
+  "cli_returncode": 0,
+  "wall_s": 74.6,
+  "total_cost_usd": 0.528482,
+  "num_turns": 8,
+  "duration_ms": 73744,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 509,
+      "outputTokens": 16,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000589,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-fable-5": {
+      "inputTokens": 1991,
+      "outputTokens": 3443,
+      "cacheReadInputTokens": 216858,
+      "cacheCreationInputTokens": 9518,
+      "webSearchRequests": 0,
+      "costUSD": 0.527893,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "b267714",
+  "head_subject": "Fix humanize() minutes math and drop leading zero units",
+  "n_commits_total": "2"
+}

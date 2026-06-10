@@ -1,0 +1,31 @@
+# riverflow — a data / ML pipeline repo (anonymized archetype).
+#
+# Shape: ingest → train → serve, with long-running jobs that share one GPU box.
+# The point of this fixture: a LONG-HORIZON exclusive lane. Training holds the
+# accelerator for 40 minutes; you can't tell from its logs whether it's
+# advancing or wedged in a retry loop — that's what `dos liveness` is for, and
+# why `train` is exclusive (only one job may hold the box).
+#
+# See ../../playbooks/04_data-ml-pipeline.md for the walkthrough.
+workspace = "."
+
+# ingest and serve touch disjoint trees and can run concurrently. train is
+# exclusive: it monopolizes the shared accelerator, so it runs alone regardless
+# of file-tree disjointness.
+[lanes]
+concurrent = ["ingest", "serve"]
+exclusive  = ["train"]
+autopick   = ["ingest", "serve"]
+
+[lanes.trees]
+ingest = ["ingest/**", "schemas/**"]
+serve  = ["serve/**"]
+train  = ["train/**", "models/**"]      # exclusive: keyed on liveness, not tree
+
+[paths]
+plans_glob = "experiments/*.md"
+
+# riverflow stamps ships with the bare phase id: "FEAT7: ship feature store".
+[stamp]
+style        = "grep"
+subject_dirs = []

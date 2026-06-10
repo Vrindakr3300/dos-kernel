@@ -1,0 +1,43 @@
+{
+  "task": "term2_sum",
+  "family": "term",
+  "note": "read+compute script",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.25s",
+  "cli_returncode": 0,
+  "wall_s": 27.1,
+  "total_cost_usd": 0.14641949999999998,
+  "num_turns": 6,
+  "duration_ms": 26073,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 477,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000552,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1987,
+      "outputTokens": 1137,
+      "cacheReadInputTokens": 146915,
+      "cacheCreationInputTokens": 5448,
+      "webSearchRequests": 0,
+      "costUSD": 0.14586749999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "7076a5c",
+  "head_subject": "Add sum.py to compute sum of integers in data.txt",
+  "n_commits_total": "2"
+}

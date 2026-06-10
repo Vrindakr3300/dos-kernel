@@ -1,0 +1,34 @@
+# libkv — an OSS key-value library + docs (anonymized archetype).
+#
+# Shape: a published library. One source tree, a docs tree, a test tree, and a
+# strict release convention. The point of this fixture is NOT concurrency (a
+# library is usually worked on one lane at a time) — it's the SHIP GRAMMAR:
+# libkv scopes its ship commits under `src/` and `docs/`, so verify must
+# recognize "src/CODEC: CODEC2 — ..." as a real ship.
+#
+# See ../../playbooks/03_oss-library-release.md for the walkthrough.
+workspace = "."
+
+# A small library: one main lane, plus a docs lane that can run alongside it
+# (editing the manual never touches src). Releases are exclusive — a version cut
+# touches everything.
+[lanes]
+concurrent = ["lib", "docs"]
+exclusive  = ["release"]
+autopick   = ["lib", "docs"]
+
+[lanes.trees]
+lib     = ["src/**"]
+docs    = ["docs/**", "README.md"]
+release = ["**/*"]          # a version cut may touch anything → runs alone
+
+[paths]
+plans_glob = "docs/rfcs/*.md"
+
+# libkv scopes ship commits under a directory: "src/CODEC: CODEC2 — ship varint".
+# Declaring subject_dirs makes verify's grep rung require that prefix (the strict
+# direction). Its release commits use the universal "vX.Y.Z:" anchor, which every
+# convention recognizes for free.
+[stamp]
+style        = "grep"
+subject_dirs = ["src", "docs"]

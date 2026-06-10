@@ -1,0 +1,109 @@
+% =============================================================================
+%  Verification Is All You Need -- But Not Where You Think
+%  arXiv-ready LaTeX source.  Compiles on arXiv / Overleaf with pdflatex.
+%
+%  BUILD:  pdflatex main && bibtex main && pdflatex main && pdflatex main
+%  (or just upload this directory + ../figs to Overleaf and compile.)
+%
+%  Figures live in ../figs/  (the same PNGs the HTML paper embeds).  The
+%  \graphicspath below points there so \includegraphics{name} resolves.
+%
+%  This is a faithful port of paper/paper.html.  Every numeric claim traces to
+%  benchmark/toolathlon/replay_all_rows.csv (offline replay) or the live-run
+%  outputs cited in the text; the LaTeX changes presentation only, never a number.
+% =============================================================================
+\documentclass[11pt]{article}
+
+% --- geometry / layout -------------------------------------------------------
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{parskip}            % paragraph spacing instead of indentation (matches the HTML feel)
+
+% --- encoding / fonts --------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}     % arXiv's TeX Live accepts utf8; we still prefer LaTeX macros for dashes/quotes
+\usepackage{lmodern}
+\usepackage{textcomp}
+
+% --- math --------------------------------------------------------------------
+\usepackage{amsmath,amssymb}
+
+% --- graphics / color --------------------------------------------------------
+\usepackage{graphicx}
+\graphicspath{{../figs/}{figs/}}
+\usepackage{xcolor}
+\definecolor{accent}{HTML}{1A5276}
+
+% --- tables ------------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+
+% --- links / refs ------------------------------------------------------------
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=accent,
+  citecolor=accent,
+  urlcolor=accent,
+  pdftitle={Verification Is All You Need -- But Not Where You Think},
+  pdfauthor={Anthony Chaudhary}
+}
+\usepackage{cleveref}
+
+% --- lightweight semantic macros (mirror the HTML's terms of art) ------------
+% byte-clean, J, etc. appear constantly; keep them uniform.
+\newcommand{\byteclean}{\textit{byte-clean}}
+\newcommand{\J}{\textbf{J}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% Section-label aliases so the HTML's {{sec:...}} cross-refs port directly.
+% (Each section file \label{}s itself; \Cref picks up the number.)
+
+\title{\textbf{Verification Is All You Need}\\[2pt]
+       \large ---\,But Not Where You Think}
+
+\author{Anthony Chaudhary\thanks{Dispatch Operating System (DOS).
+  Correspondence: \texttt{anthonymwchaudhary@gmail.com}.
+  Code and every recomputable number: \url{https://github.com/anthony-chaudhary/dos}
+  (\code{benchmark/toolathlon/}).}\\
+  \normalsize Dispatch Operating System (DOS)}
+
+\date{8 June 2026}
+
+% =============================================================================
+\begin{document}
+\maketitle
+
+% -----------------------------------------------------------------------------
+% NOTE TO AUTHOR (delete before submitting):
+%   * Confirm the \author{} line — the byline is "Anthony Chaudhary · DOS"
+%     (no affiliation). Add co-authors here if any.
+%   * arXiv first-time cs.* submitters need an ENDORSEMENT — arrange before upload.
+%     Since 21 Jan 2026 an institutional email alone is NOT enough; the automatic
+%     path needs BOTH an institutional email AND a prior cs.* arXiv paper. With a
+%     gmail address + no prior cs.* paper, take the PERSONAL-endorsement path:
+%     submission issues a 6-char code an established cs.* author enters at
+%     arxiv.org/auth/endorse. A co-author with cs.* history removes the gate.
+%   * Suggested categories: cs.SE (primary), cs.AI  (optionally cs.DC).
+%   * This scaffold targets arXiv/Overleaf compilation; no local LaTeX was used
+%     to verify it. Compile once on Overleaf and fix any stragglers.
+% -----------------------------------------------------------------------------
+
+\input{sections/01_abstract}
+\input{sections/02_payoff}
+\input{sections/03_boundary}
+\input{sections/04_giveup}
+\input{sections/05_detectors}
+\input{sections/06_positioning}
+\input{sections/07_appendix}
+\input{sections/08_appendix_b}
+\input{sections/09_appendix_c}
+
+% --- bibliography ------------------------------------------------------------
+% `plain` is a built-in BibTeX style (always available on arXiv/Overleaf).
+% Switch to a numeric-url style only if you add a matching .bst.
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}

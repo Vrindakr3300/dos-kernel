@@ -1,0 +1,19 @@
+gemini-3-pro-preview frontier failures (n=203, oracle-confirmed fails)
+2D contingency: terminating-belief × world-effect
+(write-task set = any task some model passed by writing; computed over all 66 cached files)
+
+                WROTE             NO_MUTATION_req   READ_only_or_unk    TOTAL
+CLAIM_SUCCESS   95                3                 11                  109
+PLAIN_STOP      15                0                 1                   16
+ABANDONED       52                19                7                   78
+TOTAL           162               22                19                  203
+
+Reading:
+- CLAIM_SUCCESS×WROTE=95 (47%): confidently-wrong/partial mutation. verify() catches; narration forgeable. THE flagship.
+- ABANDONED×WROTE=52 (26%): ran out of turns mid-action. in-trace truncation signature (partly byte-clean).
+- ABANDONED×NO_MUTATION=19 (9%): gave up before acting. verify() trivially catches (world unchanged).
+- CLAIM_SUCCESS×(NO_MUTATION+READ)=14: claimed success having never acted — pure narration-vs-state contradiction.
+- multi-write (>=3 mutations) = 56% of writers -> partial-completion is the dominant TASK SHAPE.
+
+Detector-silence is NOT one class. It decomposes by (belief × effect); most cells are verify()-reachable,
+a few (CLAIM_SUCCESS×WROTE with subtly-wrong content) need result-state semantic comparison.

@@ -1,0 +1,27 @@
+# Example DOS workspace config — the per-repo policy the installed `dos` package
+# reads. The mechanism (oracle, arbiter, refusal vocabulary) lives in the package;
+# THIS file is the policy that crosses into your tree. Copy + edit freely.
+workspace = "."
+
+# --- Lane taxonomy (concurrency policy as data) ----------------------------
+[lanes]
+concurrent = ["main"]
+exclusive = ["global"]
+autopick = ["main"]
+
+[lanes.trees]
+main = ["**/*"]
+
+# --- Block reasons (the refusal vocabulary as data) ------------------------
+# Each [reasons.TOKEN] adds one closed reason class your no-pick / blocked
+# verdicts may carry. `category` must be one of the kernel's known categories:
+#   TRUE_DRAIN · OPERATOR_GATE · STALE_CLAIM · MISROUTE · UNCLASSIFIED
+# A reason is `refusal = true` by default (carrying it routes to /replan); set
+# it false for an advisory-only reason that should still render.
+
+[reasons.LANE_PARKED_FOR_BUDGET]
+category = "OPERATOR_GATE"
+refusal = true
+summary = "lane parked: monthly token budget hit"
+fix = "raise the budget cap in billing, or /replan to re-shape the lane"
+see_also = ["meta budget", "oracle picker_oracle"]

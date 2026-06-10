@@ -1,0 +1,43 @@
+{
+  "task": "swe6_roman",
+  "family": "swe",
+  "note": "implement from spec",
+  "model": "opus",
+  "model_id": "claude-opus-4-8",
+  "passed": true,
+  "oracle_detail": ".                                                                        [100%]\n1 passed in 0.19s",
+  "cli_returncode": 0,
+  "wall_s": 23.9,
+  "total_cost_usd": 0.1384915,
+  "num_turns": 5,
+  "duration_ms": 23027,
+  "stop_reason": "end_turn",
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 518,
+      "outputTokens": 14,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000588,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    },
+    "claude-opus-4-8": {
+      "inputTokens": 1985,
+      "outputTokens": 1288,
+      "cacheReadInputTokens": 121582,
+      "cacheCreationInputTokens": 5598,
+      "webSearchRequests": 0,
+      "costUSD": 0.13790349999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "head": "afa52bd",
+  "head_subject": "Implement to_roman: int 1..3999 to Roman numeral",
+  "n_commits_total": "2"
+}
