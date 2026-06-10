@@ -1,10 +1,31 @@
 # The release dry run — tag last, adjudicate the commit, rehearse on TestPyPI
 
-> **Status:** proposed — no phase shipped. Born from the 2026-06-10 v0.23.x
-> release run, which burned three version numbers (v0.23.0–v0.23.2) on defects
-> that were all detectable *before* the tag was minted. This plan is release
-> **tooling** (`scripts/`, `.claude/skills/release/`, `publish.yml`) — zero
-> kernel surface; the "no `scripts/` in the kernel" litmus is untouched.
+> **Status:** P1, P2, P4 shipped 2026-06-10 (same day); P3 shipped as skill
+> text (the trailer is authored into the Step-6 tag command, not machine-read).
+> Born from the 2026-06-10 v0.23.x release run, which burned three version
+> numbers (v0.23.0–v0.23.2) on defects that were all detectable *before* the
+> tag was minted. This plan is release **tooling** (`scripts/`,
+> `.claude/skills/release/`, `publish.yml`) — zero kernel surface; the "no
+> `scripts/` in the kernel" litmus is untouched.
+>
+> Two same-day amendments from the field:
+>
+> - **The P2 venv isolation shipped as the DEFAULT, not a deferred mode.** The
+>   script's first live run proved the editable-install coupling bites in
+>   practice, not in theory: a sibling session bumped the main tree mid-flight
+>   and every drift test in a v0.23.3 worktree read `dos.__version__` 0.23.4.
+>   `--no-venv` is the opt-out.
+> - **Convergent work landed independently** while this plan shipped: the
+>   release skill grew a Step 5.9 working-tree pre-tag witness and a
+>   tag-after-green Step 6 (push → wait for the real CI verdict → tag the
+>   witnessed SHA), and the suite grew `tests/test_workflow_yaml_parses.py`
+>   (issue #7). The pieces compose as rungs of one ladder: payload facts (P1)
+>   → working-tree quick set (5.9) → committed-bytes isolation
+>   (`release_dry_run.py`, P2) → the real CI verdict (Step 6) → the registry
+>   rehearsal (P4) → the human hold. Each rung catches what the cheaper one
+>   structurally cannot.
+> The rehearsal leg (P4) is untested until the next `v*` tag exercises it —
+> read that run's summary before trusting it.
 
 ## 1. The evidence — one night, three refusals
 
