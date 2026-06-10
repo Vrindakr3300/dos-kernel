@@ -14,7 +14,7 @@ your job title, and every section hands off to the one above it.
 | *"I already run agents — how do I wire the verdict into **my** stack?"* | [How you plug it in](#how-you-plug-it-in) | [the MCP lie detector](#give-your-agent-a-lie-detector-mcp) · [Install](#install) |
 | *"I run a fleet every day — how do I watch it, triage it, debug it?"* | [Three live projections](#three-live-projections-read-only-tuis) | [Debug a stuck fleet](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/06_debug-a-stuck-fleet.md) |
 | *"How do I bend it to my org without forking it?"* | [Hacking it](#hacking-it) | [docs/HACKING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/HACKING.md) — the seven extension axes |
-| *"What is actually proven here — and can I re-run it?"* | [What's proven and what's still a bet](#whats-proven-and-whats-still-a-bet) | [Citation](#citation) |
+| *"What is actually proven here — and can I re-run it?"* | [For researchers](#for-researchers) — claims → invariants → reproduction | [What's proven and what's still a bet](#whats-proven-and-whats-still-a-bet) · [Citation](#citation) |
 
 (The seventh reader — an AI agent orienting itself in this repo — already has
 its own front door: **[AGENTS.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/AGENTS.md)**, per the note above.)
