@@ -23,45 +23,39 @@ editing, and keep edits inside the layer they belong to.
 > unrelated squatter); host wiring is `dos init --hooks <runtime>` or the bundled
 > [claude-plugin/](claude-plugin/README.md).
 
-> **Strategy / vision / positioning docs do NOT live here — they go in the
-> separate `dos-strategy` repo (a sibling checkout,
-> [github.com/anthony-chaudhary/dos](https://github.com/anthony-chaudhary/dos)'s
-> strategy sibling) by default.** Any "why-now / vision / competitive-landscape /
-> market / positioning / adoption / anti-slop / business-case" essay — the
-> product-strategy genre, *not* a kernel `docs/NN_*.md` design plan — is written to
-> `dos-strategy`, added to that repo's `README.md` table, and committed there. The
-> dependency arrow is one-way: those docs reference the `dos` code; nothing under
-> `src/dos/` depends on the strategy repo. Engineering design plans (the numbered
-> `docs/NN_*.md`) stay in this repo; strategy prose stays in `dos-strategy`. When in
-> doubt: if it argues *why DOS matters / who buys it / how it wins*, it is strategy →
-> `dos-strategy`; if it argues *how a kernel module behaves*, it is a design plan →
-> `dos/docs/`.
+> **Strategy / private prose does NOT live here — it goes to the `dos-private`
+> repo (the private sibling checkout `../dos-private`; renamed 2026-06-10 from
+> `dos-strategy`, old links redirect) by default.** That repo takes three genres:
+> the "why-now / vision / competitive-landscape / market / positioning / adoption /
+> anti-slop / business-case" **essay** — the product-strategy genre, *not* a kernel
+> `docs/NN_*.md` design plan — registered in that repo's `README.md` table;
+> low-ceremony **operator notes / runbooks** (its `notes/`); and **code spikes**
+> (its `prototypes/`). The dependency arrow is one-way: those docs reference the
+> `dos` code; nothing under `src/dos/` depends on `dos-private`. Engineering design
+> plans (the numbered `docs/NN_*.md`) stay in this repo. When in doubt: if it
+> argues *why DOS matters / who buys it / how it wins / how we operate it* — or it
+> is a scratch experiment — it goes to `dos-private`; if it argues *how a kernel
+> module behaves*, it is a design plan → `docs/` here.
 
-> **Tracked here = public-bound. Route privacy at AUTHORING time, not seed time.**
-> This checkout is the private *archive* of a public artifact: the publishable tree
-> is seeded fresh into the public `dos-kernel` repo (the publishing playbook lives
-> in `dos-strategy` as `dispatch-os-publishing-playbook.md`), and **every
-> tracked file default-ships** unless the publication gate — `scripts/leak_scan.py`,
-> private-side tooling that itself never ships, run by CI on every push — excludes
-> it. The gate only catches a leak *after* it is committed, and the archive's
-> history keeps it forever (the reason the fresh-seed model exists), so the durable
-> move is routing when you WRITE, not scrubbing when you seed:
+> **Tracked here = ships. This IS the public repo — route privacy at AUTHORING
+> time.** Every tracked file is public on the next push: no scrub step or leak
+> gate stands between a commit here and the world (the old private-archive
+> seed/leak-scan flow retired with the 2026-06-10 cutover to this working repo;
+> the publishing playbook lives on in `dos-private`). So the durable rule is
+> where you WRITE:
 >
-> - **Private-SUBJECT prose** — operator runbooks, launch/publication process, audits
->   whose subject is the private host repo or this machine's fleet — goes to
->   `dos-strategy` by default (it takes operations notes, not just strategy essays).
->   If it must live here as a `docs/reports/*.md`, the SAME commit that creates it
->   adjudicates it in the scanner: `EXCLUDE` (private-side) or
->   `REVIEWED_PUBLIC_REPORTS` (reviewed for publication). The scan **fails closed**
->   on an unadjudicated report — adjudicating at authoring time is what keeps CI
->   green.
+> - **Private-SUBJECT prose** — operator runbooks, launch/publication process,
+>   audits whose subject is this machine or its fleet — is born in `dos-private`
+>   (`notes/` is the low-ceremony tier), never here. A `docs/reports/*.md`
+>   authored here must read as a public document about the public code.
 > - **Never write a dev-machine absolute path, hostname, or personal identifier**
 >   into a tracked file — including JSON-escaped forms inside logs/fixtures (leaks
 >   shipped at escaping depth 4). Write paths sibling-relative; synthetic fixture
 >   paths use neutral roots.
 > - **Cross-link, don't duplicate**: a kernel doc with strategy implications names
->   the `dos-strategy` doc; the strategy doc registers in that repo's `README.md`
->   table and links back by `docs/NN` name. The dependency arrow stays one-way.
+>   the `dos-private` doc by filename; the private doc registers in that repo's
+>   `README.md` table (essays — notes and prototypes skip the table) and links
+>   back by `docs/NN` name. The dependency arrow stays one-way.
 
 ## The layering — keep these apart
 
