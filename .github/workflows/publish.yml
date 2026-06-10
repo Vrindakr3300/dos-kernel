@@ -114,7 +114,9 @@ jobs:
         id: version
         shell: bash
         run: |
-          v="$(python -c 'import dos; print(dos.__version__)')"
+          # Read from pyproject.toml (the version's source of truth) — the package
+          # itself is NOT installed in this job; only build/twine/wheel are.
+          v="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Built dos-kernel $v"
           # On a tag push, the tag (vX.Y.Z) MUST match the package version — a
