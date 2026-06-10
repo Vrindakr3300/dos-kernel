@@ -359,7 +359,7 @@ BASE_REASONS = ReasonRegistry(specs=(
         summary="An explicit keyword request named a lane this workspace's taxonomy "
                 "does not contain — the kernel refuses to guess a substitute "
                 "(auto-pick only chooses when the caller expresses no preference).",
-        fix="Pass a lane the workspace knows as --scope (see the refusal's "
+        fix="Pass a lane the workspace knows as --lane (see the refusal's "
             "known-lane list or `dos man lane`), run a bare invocation to auto-pick "
             "any free lane, or register the lane in dos.toml.",
         see_also=("lane", "dos arbitrate", "dos man wedge SELF_MODIFY"),

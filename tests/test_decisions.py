@@ -120,7 +120,7 @@ def _seed_refuse_already_held(cfg, *, lane="replan", seq=1, ts="2026-05-31T10:00
     with lj.open("a", encoding="utf-8") as f:
         f.write(json.dumps({
             "op": "REFUSE", "seq": seq, "ts": ts, "lane": lane,
-            "reason_class": f"lane '{lane}' is already held by a live loop — pick a different --scope or wait.",
+            "reason_class": f"lane '{lane}' is already held by a live loop — pick a different --lane or wait.",
         }) + "\n")
 
 
@@ -1124,7 +1124,7 @@ class TestBackpressureClassification:
     # --- the pure classifier, against the kernel/host refuse strings verbatim ---
 
     @pytest.mark.parametrize("prose", [
-        "lane 'replan' is already held by a live loop — pick a different --scope or wait.",
+        "lane 'replan' is already held by a live loop — pick a different --lane or wait.",
         "GLOBAL_LOOP_CEILING — 5 live dispatch-loop lease(s) >= ceiling 5",
         "CLASS_BUDGET_EXHAUSTED: every auto-pick candidate belongs to a concurrency class",
         "lane 'replan' cannot share live lane 'AB': overlap too large (6/6 = 100%)",
@@ -1157,7 +1157,7 @@ class TestBackpressureClassification:
     def test_already_held_is_hidden_from_human_queue(self, tmp_path: Path):
         cfg = default_config(tmp_path)
         _seed_refuse_prose(cfg, lane="replan", seq=1,
-                           prose="lane 'replan' is already held by a live loop — pick a different --scope or wait.")
+                           prose="lane 'replan' is already held by a live loop — pick a different --lane or wait.")
         assert D.collect_decisions(cfg, resolver="HUMAN") == []
         # ...but visible under --all, labeled BACKPRESSURE.
         alld = D.collect_decisions(cfg, resolver=None)

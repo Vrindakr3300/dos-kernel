@@ -520,7 +520,7 @@ def arbitrate(
             return LaneDecision(
                 "refuse",
                 reason=(f"lane {requested_lane!r} is already held by a live "
-                        f"loop — pick a different --scope or wait."),
+                        f"loop — pick a different --lane or wait."),
                 free_clusters=_free_clusters(),
             )
 
@@ -662,7 +662,7 @@ def arbitrate(
                 f"workspace, so the kernel will not guess a substitute for it "
                 f"(auto-pick only chooses when you express NO preference). "
                 f"Known lanes: {', '.join(_known_sorted) or '(none)'}. "
-                f"Pass one of those as --scope, run a bare invocation to "
+                f"Pass one of those as --lane, run a bare invocation to "
                 f"auto-pick any free lane, or register {requested_lane!r} as a "
                 f"lane in dos.toml."),
             free_clusters=_free_clusters(),
@@ -670,7 +670,7 @@ def arbitrate(
 
     bare = (not requested_lane) or unresolved_keyword
     _unresolved_suffix = (
-        f" (requested --scope {requested_lane!r} matched no live plan — "
+        f" (requested --lane {requested_lane!r} matched no live plan — "
         f"degraded to auto-pick)" if unresolved_keyword else "")
 
     # FQ-449 single-pick-ceiling: the bare auto-pick PREFERS a ladder lane whose
@@ -790,7 +790,7 @@ def arbitrate(
         # binding constraint is a concurrency budget, not drained work or a tree
         # collision. Surface that honestly: the lever is "wait for a slot of this
         # class to free" — NOT /replan (the work exists; the class is just full) and
-        # NOT --scope (a scoped request of the same kind hits the same budget). The
+        # NOT --lane (a scoped request of the same kind hits the same budget). The
         # CLASS_BUDGET_EXHAUSTED token mirrors docs/97's named refuse so a downstream
         # cause-classifier can route it distinctly from DRAIN / ladder-exhausted.
         if _saw_budget_skip and not _saw_non_budget_candidate:
@@ -818,7 +818,7 @@ def arbitrate(
                         "0 pickable phases right now (all soak-gated / sibling-"
                         "gated / already claimed) — leasing one would only DRAIN. "
                         "Refusing at Step 0 instead. Run /replan, wait for an open "
-                        "soak window to close, or pass --scope <lane-with-work>."
+                        "soak window to close, or pass --lane <lane-with-work>."
                         + _unresolved_suffix),
                 free_clusters=[c for c in autopick_clusters if c not in live_lanes],
                 pick_count=0,
@@ -828,7 +828,7 @@ def arbitrate(
             "refuse",
             reason=("priority ladder exhausted; no lane is free with a tree "
                     "disjoint from every live lease. Wait for one to release, "
-                    "or pass --scope <free-lane> explicitly."
+                    "or pass --lane <free-lane> explicitly."
                     + _unresolved_suffix),
             free_clusters=[c for c in autopick_clusters if c not in live_lanes],
         )

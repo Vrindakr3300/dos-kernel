@@ -344,7 +344,7 @@ op names and ordering are real, run-ids/timestamps are placeholders):
 ```text
 ACQUIRE    lane=docs   run=<RUN>  loop_ts=<TS>   tree=["docs/**"]
 HEARTBEAT  lane=docs   run=<RUN>  loop_ts=<TS>                       # the beat that makes SPINNING reachable
-REFUSE     lane=docs   run=<RUN>  reason="lane docs is already held by a live loop — pick a different --scope or wait."
+REFUSE     lane=docs   run=<RUN>  reason="lane docs is already held by a live loop — pick a different --lane or wait."
 RELEASE    lane=docs   run=<RUN>  loop_ts=<TS>
 ```
 
