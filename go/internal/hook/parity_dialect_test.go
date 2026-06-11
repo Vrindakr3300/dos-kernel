@@ -53,6 +53,12 @@ func TestDialectTranscodeMatchesPythonGoldenBytes(t *testing.T) {
 			wantWarn: `{"hookSpecificOutput": {"additionalContext": "scope it to a lane", "hookEventName": "PreToolUse"}}`,
 		},
 		{
+			// Claude Cowork RUNS the CC harness (docs/298) → byte-identical to claude-code.
+			dialect:  "claude-cowork",
+			wantDeny: `{"hookSpecificOutput": {"additionalContext": "read it first", "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "DOS PRE-admission: SELF_MODIFY blocked"}}`,
+			wantWarn: `{"hookSpecificOutput": {"additionalContext": "scope it to a lane", "hookEventName": "PreToolUse"}}`,
+		},
+		{
 			// A BeforeTool (PRE) deny stops the tool via {"continue": false, …} — the
 			// field Gemini's shouldStopExecution() checks. {"decision":"deny"} here is a
 			// silent fail-open (docs/268); the Go decider only emits PRE denies, so this
@@ -91,7 +97,7 @@ func TestDialectTranscodeMatchesPythonGoldenBytes(t *testing.T) {
 // emits nothing on EVERY dialect (the fail-to-passthrough floor preserved per host).
 func TestDialectTranscodePassthroughStaysEmptyEverywhere(t *testing.T) {
 	d := Decision{Dialect: nil}
-	for _, dialect := range []string{"", "claude-code", "codex", "gemini", "antigravity", "cursor", "bogus"} {
+	for _, dialect := range []string{"", "claude-code", "codex", "gemini", "antigravity", "cursor", "claude-cowork", "bogus"} {
 		if got := d.RenderAs(dialect); got != "" {
 			t.Fatalf("passthrough should be empty on dialect %q, got %q", dialect, got)
 		}
@@ -115,7 +121,7 @@ func TestDialectTranscodeUnknownDegradesToCC(t *testing.T) {
 // key on any host. Cursor's preToolUse CAN return updated_input; DOS must NOT.
 func TestDialectTranscodeNeverEmitsRewriteKey(t *testing.T) {
 	for _, d := range []Decision{{Dialect: ccDenyDict()}, {Dialect: ccWarnDict()}} {
-		for _, dialect := range []string{"claude-code", "codex", "gemini", "antigravity", "cursor"} {
+		for _, dialect := range []string{"claude-code", "codex", "gemini", "antigravity", "cursor", "claude-cowork"} {
 			out := d.RenderAs(dialect)
 			for _, bad := range []string{"updatedInput", "updated_input", "updatedCommand"} {
 				if containsStr(out, bad) {

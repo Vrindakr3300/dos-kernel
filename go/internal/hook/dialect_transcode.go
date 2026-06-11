@@ -48,10 +48,11 @@ func transcodeCC(cc map[string]any, dialect string) map[string]any {
 		return nil
 	}
 	switch dialect {
-	case "", defaultDialect, "codex":
-		// claude-code is the neutral form; codex copied CC's envelope verbatim, so it
-		// is byte-identical — both emit the CC dict unchanged (matching the Python
-		// CodexDialect, which delegates to ClaudeCodeDialect).
+	case "", defaultDialect, "codex", "claude-cowork":
+		// claude-code is the neutral form; codex copied CC's envelope verbatim, and
+		// Claude Cowork RUNS the CC harness (docs/298) — so both are byte-identical
+		// and emit the CC dict unchanged (matching the Python CodexDialect /
+		// ClaudeCoworkDialect, which delegate to ClaudeCodeDialect).
 		return cc
 	case "gemini":
 		return renderGemini(parseCC(cc))
