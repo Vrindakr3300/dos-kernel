@@ -3,9 +3,22 @@
 > **Status:** 📋 **PLANNED** (commissioned 2026-06-10) — the operator asked for
 > this seam directly, after a session in which the guard worked exactly as
 > designed and the sanctioned escape hatch turned out not to exist as a
-> *mechanism*, only as a *sentence*. Phases below; Phase 1 touches the T1 set,
-> so its own application is the bootstrap case this plan exists to retire (see
-> "the bootstrap irony").
+> *mechanism*, only as a *sentence*.
+>
+> **Design revision (2026-06-10, same day, before any code):** the first cut
+> put the override evidence INTO the pure classify (`self_modify`, T1) — which
+> recreated the very problem this plan retires: its own Phase 1 needed an
+> out-of-band application ("the bootstrap irony"). The revision is the docs/293
+> move, again: the override is not *verdict* evidence, it is **enforcement
+> disposition**. The pure classify keeps saying SELF_MODIFY — that fact does
+> not stop being true because the operator armed a window — and the HOOK layer
+> (the PEP-side emitter, non-T1) consults the operator's armed window when
+> rendering the verdict to the host: ADMIT-with-note inside the window, the
+> byte-identical deny outside it. PDP decides; PEP disposes. Consequence: the
+> whole Python implementation is non-T1, buildable by an ordinary supervised
+> session with no bootstrap; the ONLY operator-gated step left is the live Go
+> hook binary (Phase 3), because rebuilding the running adjudicator is
+> self-modification in spirit regardless of which files the matcher lists.
 
 ## The gap this closes
 
@@ -73,17 +86,20 @@ reason = "issue #11 — refuse-reason rename"   # REQUIRED; lands in the audit r
   file; `dos override status` reports it. The asymmetry IS the security
   property: anyone may lower the drawbridge's gate; only the human raises it.
 
-### The verdict and the audit trail
+### The disposition and the audit trail
 
-`dos.self_modify` classify gains an optional evidence input (`OverrideFacts`:
-armed-until, scope, reason — a frozen value gathered at the boundary, the
-"I/O at the boundary, data to the pure core" rule). On a T1 hit with a live,
-in-scope, unexpired override the verdict is **ADMIT-with-note**, distinguishable
-from a plain admit: the hook emits `additionalContext` ("operator override
-armed until T — admitting supervised kernel edit: <reason>") instead of a
-silent pass, the observation log row carries `override=until-T`, and
-`dos stats` folds an "override-admitted" count. The path-mention matcher
-(issue #12) honors the same override, which retires the `--pathspec-from-file`
+The pure classify is **not edited and not consulted differently**: a T1 hit
+still produces the SELF_MODIFY refusal, because it still IS self-modification.
+The change is one rung up, at the hook boundary (the PEP-side emitter): before
+rendering that refusal to the host, the hook reads `OverrideFacts` (armed-until,
+scope, reason — a frozen value from the arm file + `now`, the "I/O at the
+boundary" rule) and, iff armed ∧ unexpired ∧ target-in-scope, emits **ALLOW
+with `additionalContext`** ("operator override armed until T — admitting
+supervised kernel edit: <reason>") instead of the deny. Never a silent pass:
+the observation log row carries `override=until-T`, and `dos stats` folds an
+"override-admitted" count, so every admitted call inside a window is on the
+record next to the verdict it overrode. The path-mention matcher (issue #12)
+honors the same disposition, which retires the `--pathspec-from-file`
 workaround inside the window.
 
 ### The threat model, stated honestly
@@ -102,39 +118,35 @@ nothing stronger.
 
 ## Phases
 
-### Phase 1 — the pure core: `OverrideFacts` + classify
+### Phase 1 — the boundary leaf + Python hook disposition
 
-`dos.self_modify` (T1): the frozen `OverrideFacts` value, the optional
-`override=` parameter on the classify path, the ADMIT-with-note verdict
-variant. PURE — no I/O, no clock read inside the verdict (the boundary passes
-`now`). Pinned by classify-level tests: armed/expired/out-of-scope/malformed ×
-T1-hit/no-hit.
+A new non-T1 leaf (`dos.override_facts`: tomllib read of the arm file +
+`now` capture → frozen `OverrideFacts | None`, fail-closed on every branch:
+missing, unparseable, missing `until`/`reason`, expired) and a PURE disposition
+helper (`disposition(verdict, facts, target, now) -> deny | admit-with-note`),
+wired into the Python `dos hook pretool` emission path; `.dos/override/` joins
+the hook's own deny set; the `additionalContext` note + observation-log field.
+Pinned by: armed/expired/out-of-scope/malformed × T1-hit/no-hit disposition
+tests, plus end-to-end hook tests (armed file → ALLOW with note; agent Write
+to the arm path → denied; expiry → deny restored byte-identical). No T1
+module is touched; the pure classify is unchanged.
 
-**The bootstrap irony, named:** this phase edits a T1 file, so its own
-application is the last ride of the out-of-band playbook (operator
-authorization on record → byte-exact apply script → pathspec-file staging).
-After it ships, that playbook retires in favor of the arm file.
-
-### Phase 2 — the boundary: reader + hook wiring + arm-path guarding
-
-A new non-T1 boundary leaf (`dos.override_facts`: tomllib read of the arm
-file + `now` capture → `OverrideFacts | None`, fail-closed) wired into the
-Python `dos hook pretool` path; `.dos/override/` joins the deny set; the
-`additionalContext` note + observation-log field. End-to-end tests: armed file
-→ admitted Edit with note; agent Write to the arm path → denied; expiry →
-deny restored.
-
-### Phase 3 — the operator surface: `dos override status|disarm`, doctor, stats, man page
+### Phase 2 — the operator surface: `dos override status|disarm`, doctor, stats, man page
 
 The read/disarm verb (no arm verb — see design), a `doctor` row
 (`self-modify override   disarmed` / `armed until T (reason)`), the `dos stats`
 fold, and the `dos man wedge SELF_MODIFY` TYPICAL FIX text gains the third
 path: "or arm the operator override (docs/296)".
 
-### Phase 4 — Go hook parity
+### Phase 3 — Go hook parity + the live-binary swap (operator-gated)
 
 `go/internal/hook/decide.go` learns the same arm-file read (same fail-closed
-branches), pinned by the existing Go/Python parity corpus pattern.
+branches), pinned by the existing Go/Python parity corpus pattern. The plugin
+hook command runs the Go binary first (`dos-hook pretool || python -m dos.cli
+hook pretool`), so the seam goes LIVE only when the bundled binary is rebuilt
+and swapped — and rebuilding the running adjudicator is the operator's act by
+definition, whatever the matcher says. Until then the Python implementation is
+the reference (and serves any wiring that falls through to the fallback arm).
 
 ## What this plan does NOT do
 
