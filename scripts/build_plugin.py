@@ -209,7 +209,8 @@ shows BOTH halves of DOS against real artifacts:
 - **MCP tools** (the `dos` server — check `/mcp` shows it connected): `dos_verify`
   (did a claim actually ship, from git not self-report), `dos_arbitrate` (may two
   workers run concurrently without colliding), `dos_commit_audit`, `dos_refuse_reasons`
-  / `dos_check_reason`, `dos_status`, `dos_recall`, `dos_doctor`.
+  / `dos_check_reason`, `dos_status`, `dos_recall`, `dos_citation_resolve` (does a
+  cited legal case exist in a third-party reporter), `dos_doctor`.
 - **The generic skill pack** — the domain-free dispatch screenplays, namespaced
   under this plugin. The usual first one to read is `/dos-kernel:dos-next-up` (snapshot
   the portfolio) or `/dos-kernel:dos-dispatch` (plan-and-ship one lane safely). And

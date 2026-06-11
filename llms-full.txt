@@ -516,7 +516,9 @@ first (`dos_verify` "did it ship?", `dos_commit_audit` "does this commit's claim
 match its diff?", `dos_status` one folded fact about a run), then
 `dos_arbitrate` (may two workers run without colliding?), the structured-refusal
 pair (`dos_refuse_reasons` / `dos_check_reason`), `dos_recall` (is this recalled
-memory still true?), and `dos_doctor` (the workspace report) — so any
+memory still true?), `dos_citation_resolve` (does this cited legal case exist in
+a third-party reporter? — the *Mata v. Avianca* witness), and `dos_doctor` (the
+workspace report) — so any
 MCP-speaking host — Claude Desktop, Claude Cowork, Cursor, Cline, Trae, an
 Agent-SDK app — can call the referee over JSON-on-stdio with zero Python coupling. Each verdict comes
 back with a one-line interpretation of what it means for the agent's next move.
@@ -973,6 +975,8 @@ for a copy-me skeleton.
 - **[CLAUDE.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/CLAUDE.md)** / **[CONTRIBUTING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/CONTRIBUTING.md)** — the
   architecture contract and how to send a change.
 - **[docs/releases/](https://github.com/anthony-chaudhary/dos-kernel/tree/master/docs/releases)** — per-version release notes (the changelog).
+- **[The website](https://anthony-chaudhary.github.io/dos-kernel/)** — this page,
+  condensed to one screen (good for sending to someone).
 
 ## Playbooks & examples
 
@@ -4201,7 +4205,7 @@ working surfaces in Cowork are advisory. Details and the per-surface state:
 |---|---|---|
 | **Hooks** | [`hooks/hooks.json`](hooks/hooks.json) | `PreToolUse` → `dos hook pretool` (DENY a structurally-refused call before it runs) · `PostToolUse` → `dos hook posttool` (re-surface a stalled tool stream, advisory) · `Stop` → `dos hook stop` (refuse to stop on an unverified claim). Served by the bundled native `dos-hook` binary (`bin/`) in ~10 ms, with a Python fallback. |
 | **Observability** | [`bin/dos-hook`](bin/) | the native binary counts and logs every hook call to `.dos/metrics/observations.jsonl`. Fold it into a report — counts by verb/outcome, the delegate + stop-block rates, per-verb latency — with `"${CLAUDE_PLUGIN_ROOT}/bin/dos-hook" stats` (or the `/dos-kernel:dos-stats` skill). Read-only; no scrape endpoint (a hook is one-shot — the durable log is the surface). |
-| **MCP server** | [`.mcp.json`](.mcp.json) | launches `python -m dos_mcp.server` — exposes `dos_verify`, `dos_arbitrate`, `dos_commit_audit`, `dos_refuse_reasons` / `dos_check_reason`, `dos_status`, `dos_recall`, `dos_doctor` as tools. |
+| **MCP server** | [`.mcp.json`](.mcp.json) | launches `python -m dos_mcp.server` — exposes `dos_verify`, `dos_arbitrate`, `dos_commit_audit`, `dos_refuse_reasons` / `dos_check_reason`, `dos_status`, `dos_recall`, `dos_citation_resolve`, `dos_doctor` as tools. |
 | **Skills** | [`skills/`](skills/) | the generic skill pack (`dos-next-up`, `dos-dispatch`, `dos-witness-claim`, …) + the plugin-only `dos-setup` (onboarding) and `dos-stats` (observability) skills. Namespaced as `/dos-kernel:<skill>`. |
 | **Catalog** | [`../.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) | the repo-root marketplace that `/plugin marketplace add` reads; its one plugin entry points back here (`source: ./claude-plugin`). |
 
@@ -4279,14 +4283,16 @@ structured reason.
 | `dos_check_reason(reason_class, workspace=".")` | `refuse()` | *Is this reason real?* — membership check, so a producer can only emit a reason the oracle can verify (an unknown one is `UNCLASSIFIED` drift). |
 | `dos_status(run_id, …, workspace=".")` | `liveness()` + `resume()` | *What is the state of run X right now?* — one folded, peer-readable fact: liveness (is it moving?), ledger-VERIFIED progress (never the agent's claim), the held-lease region, and the resume plan once it stopped. Fail-closed; the digest has **no `claimed` field** by construction. |
 | `dos_recall(name, …, workspace=".")` | — | *Is this recalled memory still TRUE?* — re-verify a memory against git + the working tree at read time, instead of trusting a frozen self-report. Returns `RECALL_FRESH`/`RECALL_STALE`/`RECALL_UNVERIFIABLE`. |
+| `dos_citation_resolve(cite, claimed_name="", quote="", …)` | — | *Does this cited legal case EXIST — and does the quote MATCH?* — the legal-citation witness for the *Mata v. Avianca* failure class (fabricated cases cited as real). Resolves the cite in a third-party reporter (CourtListener), checks the resolved case NAME against the claim (a real slot carrying a different case is `UNRESOLVED`), and checks an optional quoted holding. Returns `RESOLVED_MATCH`/`RESOLVED_MISMATCH`/`UNRESOLVED`/`ABSTAIN`; no corpus access (no token, no network) is an honest `ABSTAIN`, never a fabricated verdict. |
 | `dos_doctor(workspace=".")` | — | The machine-readable workspace report (paths / lanes / stamp grammar) an agent reads once to discover the layout. |
 
-Every tool takes an optional `workspace` (a repo path, default the server's cwd)
+Every workspace-scoped tool takes an optional `workspace` (a repo path, default the server's cwd)
 and honors that workspace's `dos.toml` — the same four-table readback
 (`[lanes]`/`[paths]`/`[stamp]`/`[reasons]`) the `dos` CLI does. So pointing the
 server at a foreign repo Just Works: its lane taxonomy drives `dos_arbitrate`, its
 ship-stamp grammar drives `dos_verify`, its declared reasons appear in
-`dos_refuse_reasons`.
+`dos_refuse_reasons`. (`dos_citation_resolve` is the one exception: it adjudicates
+against a third-party reporter, not a repo, so it takes no `workspace`.)
 
 `verify`, the reason tools, and `doctor` are **read-only** — they never create a
 `.dos/` directory in the served repo (pinned by the smoke test). `dos_arbitrate`

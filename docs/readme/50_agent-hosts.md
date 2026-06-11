@@ -12,7 +12,9 @@ first (`dos_verify` "did it ship?", `dos_commit_audit` "does this commit's claim
 match its diff?", `dos_status` one folded fact about a run), then
 `dos_arbitrate` (may two workers run without colliding?), the structured-refusal
 pair (`dos_refuse_reasons` / `dos_check_reason`), `dos_recall` (is this recalled
-memory still true?), and `dos_doctor` (the workspace report) — so any
+memory still true?), `dos_citation_resolve` (does this cited legal case exist in
+a third-party reporter? — the *Mata v. Avianca* witness), and `dos_doctor` (the
+workspace report) — so any
 MCP-speaking host — Claude Desktop, Claude Cowork, Cursor, Cline, Trae, an
 Agent-SDK app — can call the referee over JSON-on-stdio with zero Python coupling. Each verdict comes
 back with a one-line interpretation of what it means for the agent's next move.
