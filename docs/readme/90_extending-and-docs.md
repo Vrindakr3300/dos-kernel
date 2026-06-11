@@ -14,6 +14,9 @@ for a copy-me skeleton.
 ## Documentation
 
 - **[docs/QUICKSTART.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/QUICKSTART.md)** — runnable 5-minute hello-world. Start here.
+- **[docs/FAQ.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/FAQ.md)** — the arriving questions ("how do I
+  verify an agent's claim?", "does it need an LLM?"), each answered in one
+  self-contained block.
 - **[docs/README.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/README.md)** — the docs index (guides vs. design notes
   vs. the dated build-journal; the numbers are chronology, not a reading order).
 - **[docs/HACKING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/HACKING.md)** — extend DOS without forking it.
