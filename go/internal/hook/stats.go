@@ -53,8 +53,11 @@ type statsAgg struct {
 	// The pretool intervention rate — "what percent of tool calls did the kernel
 	// touch?" One pretool record = one tool call adjudicated, so this verb is the
 	// honest denominator (posttool/stop/marker firings are not tool-call admissions).
-	// A `delegate` outcome is excluded from the intervened count: the Python
-	// fallback decided that call, and this log never saw its verdict.
+	// A `delegate` outcome leaves BOTH sides of the rate (docs/297): it is a
+	// handoff, not an adjudication — the call's real verdict is another record,
+	// written by the runtime that decided it (the Python verbs write the same
+	// kernel-owned family since docs/297 P3), so counting the delegate row too
+	// would count that call twice in a mixed-writer log.
 	PretoolCalls     int `json:"pretool_calls"`
 	PretoolPassed    int `json:"pretool_passed"`
 	PretoolDelegated int `json:"pretool_delegated"`
@@ -246,10 +249,19 @@ func round2(f float64) float64 {
 	return float64(int64(f*100+0.5)) / 100
 }
 
+// pretoolAdjudicated is the rate's denominator: the pretool calls that got a REAL
+// verdict from this log's writers. Delegates are excluded — each delegated call's
+// verdict is (or will be) its own record from the runtime that decided it
+// (docs/297), so this is the count that stays double-count-free when the Go
+// binary and the Python verbs write the same log.
+func (a statsAgg) pretoolAdjudicated() int {
+	return a.PretoolCalls - a.PretoolDelegated
+}
+
 // pretoolIntervened is the count of tool calls the hook actually changed (denied,
-// warned, …): everything that neither passed through nor was delegated to Python.
+// warned, …): everything adjudicated that did not pass through untouched.
 func (a statsAgg) pretoolIntervened() int {
-	return a.PretoolCalls - a.PretoolPassed - a.PretoolDelegated
+	return a.pretoolAdjudicated() - a.PretoolPassed
 }
 
 // pctOf renders n as a percent of d ("3.2%"); a zero denominator renders "0.0%"
@@ -266,8 +278,8 @@ func pctOf(n, d int) string {
 // the empty-map omission is honored consistently with the human form.
 func renderStatsJSON(agg statsAgg) string {
 	intervenedPct := 0.0
-	if agg.PretoolCalls > 0 {
-		intervenedPct = round2(float64(agg.pretoolIntervened()) * 100 / float64(agg.PretoolCalls))
+	if agg.pretoolAdjudicated() > 0 {
+		intervenedPct = round2(float64(agg.pretoolIntervened()) * 100 / float64(agg.pretoolAdjudicated()))
 	}
 	m := map[string]any{
 		"total_observations": agg.Total,
@@ -280,6 +292,7 @@ func renderStatsJSON(agg statsAgg) string {
 		"marker_refuse":      agg.MarkerRefuse,
 		"marker_allow":       agg.MarkerAllow,
 		"pretool_calls":      agg.PretoolCalls,
+		"pretool_adjudicated": agg.pretoolAdjudicated(),
 		"pretool_passed":     agg.PretoolPassed,
 		"pretool_intervened": agg.pretoolIntervened(),
 		"pretool_intervened_pct": intervenedPct,
@@ -311,12 +324,20 @@ func renderStatsHuman(agg statsAgg, workspace, path string) string {
 		return strings.TrimRight(b.String(), "\n")
 	}
 	fmt.Fprintf(&b, "  observations   %d\n", agg.Total)
-	if agg.PretoolCalls > 0 {
+	if agg.pretoolAdjudicated() > 0 {
 		iv := agg.pretoolIntervened()
-		fmt.Fprintf(&b, "  tool calls     %d adjudicated — %d passed untouched (%s), %d intervened (%s)\n",
-			agg.PretoolCalls,
-			agg.PretoolPassed, pctOf(agg.PretoolPassed, agg.PretoolCalls),
-			iv, pctOf(iv, agg.PretoolCalls))
+		adj := agg.pretoolAdjudicated()
+		fmt.Fprintf(&b, "  tool calls     %d adjudicated — %d passed untouched (%s), %d intervened (%s)",
+			adj,
+			agg.PretoolPassed, pctOf(agg.PretoolPassed, adj),
+			iv, pctOf(iv, adj))
+		if agg.PretoolDelegated > 0 {
+			// Delegated handoffs are counted at the runtime that decided them
+			// (their verdicts are their own records, docs/297) — say so rather
+			// than letting "adjudicated" silently undercount the raw rows.
+			fmt.Fprintf(&b, "  (+%d delegated, counted where decided)", agg.PretoolDelegated)
+		}
+		fmt.Fprintf(&b, "\n")
 	}
 	renderCountLine(&b, "  by verb       ", agg.ByVerb)
 	renderCountLine(&b, "  by outcome    ", agg.ByOutcome)

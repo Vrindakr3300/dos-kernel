@@ -59,8 +59,10 @@ func TestFoldCountsByDimension(t *testing.T) {
 }
 
 // The pretool intervention rate — the "percent of overall tool calls touched"
-// headline. One pretool record = one tool call; a delegate is excluded from the
-// intervened count (Python decided it); other verbs never enter the denominator.
+// headline. One pretool record = one tool call; a delegate leaves BOTH sides of
+// the rate (docs/297: its real verdict is another record, written by the runtime
+// that decided it — counting the handoff row too would double-count the call in
+// a mixed Go+Python log); other verbs never enter the denominator.
 func TestPretoolInterventionRate(t *testing.T) {
 	ws := writeObsLog(t,
 		obsLine(map[string]any{"verb": "pretool", "outcome": "passthrough", "exit": 0, "latency_ms": 1.0}),
@@ -74,14 +76,19 @@ func TestPretoolInterventionRate(t *testing.T) {
 		t.Fatalf("pretool tallies wrong: calls=%d passed=%d delegated=%d",
 			agg.PretoolCalls, agg.PretoolPassed, agg.PretoolDelegated)
 	}
+	if agg.pretoolAdjudicated() != 3 {
+		t.Fatalf("adjudicated = %d, want 3 (4 records − 1 delegate handoff)",
+			agg.pretoolAdjudicated())
+	}
 	if agg.pretoolIntervened() != 1 {
 		t.Fatalf("intervened = %d, want 1 (the deny; the delegate is Python's verdict)",
 			agg.pretoolIntervened())
 	}
 	human := renderStatsHuman(agg, "ws", "p")
-	if !strings.Contains(human, "4 adjudicated") ||
-		!strings.Contains(human, "2 passed untouched (50.0%)") ||
-		!strings.Contains(human, "1 intervened (25.0%)") {
+	if !strings.Contains(human, "3 adjudicated") ||
+		!strings.Contains(human, "2 passed untouched (66.7%)") ||
+		!strings.Contains(human, "1 intervened (33.3%)") ||
+		!strings.Contains(human, "(+1 delegated, counted where decided)") {
 		t.Fatalf("human render missing the rate line:\n%s", human)
 	}
 	out := renderStatsJSON(agg)
@@ -90,9 +97,22 @@ func TestPretoolInterventionRate(t *testing.T) {
 		t.Fatalf("stats JSON not valid: %v\n%s", err, out)
 	}
 	if o["pretool_calls"].(float64) != 4 ||
+		o["pretool_adjudicated"].(float64) != 3 ||
 		o["pretool_intervened"].(float64) != 1 ||
-		o["pretool_intervened_pct"].(float64) != 25 {
+		o["pretool_intervened_pct"].(float64) != 33.33 {
 		t.Fatalf("JSON rate fields wrong: %s", out)
+	}
+}
+
+// A delegate-only log has zero adjudicated calls — no honest rate exists, so the
+// line is absent (the same graceful absence the Python `dos helped` fold renders).
+func TestPretoolRateAbsentWhenDelegateOnly(t *testing.T) {
+	ws := writeObsLog(t,
+		obsLine(map[string]any{"verb": "pretool", "outcome": "delegate", "exit": 3, "latency_ms": 1.0}),
+	)
+	agg := foldObservations(obsLogPath(ws))
+	if human := renderStatsHuman(agg, "ws", "p"); strings.Contains(human, "tool calls") {
+		t.Fatalf("rate line should be absent for a delegate-only log:\n%s", human)
 	}
 }
 
