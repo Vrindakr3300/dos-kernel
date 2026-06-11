@@ -178,12 +178,16 @@ the preference is to land promptly, not defer. A few specifics:
   add a `Co-Authored-By` or other agent-attribution trailer — commits here carry
   no agent co-author, even if your harness appends one by default.
 - **Out of scope? File an issue, don't widen the commit.** A finding that isn't
-  your current task goes to `gh issue create` — with a checkable done-condition,
+  your current task goes to `gh issue create` — dedupe first
+  (`gh issue list --search "…"`), then file with a checkable done-condition,
   a lane guess, and where you found it. Issue text is public and the leak gate
-  never scans it: no private paths or hostnames. Never close an issue off your
-  own narration — put `Fixes #N` in the commit body and let the landing close
-  it (or use the `issue-verify` skill for an evidenced manual close). The full
-  rule is the "Out-of-scope findings" section of [CLAUDE.md](CLAUDE.md).
+  never scans it: no private paths or hostnames — when `scripts/leak_scan.py`
+  is present, pipe the drafted body through it (`--stdin`, or `--text-file` on
+  a draft written outside the repo) before posting; a hit is a refusal. Never
+  close an issue off your own narration — put `Fixes #N` in the commit body and
+  let the landing close it (or use the `issue-verify` skill for an evidenced
+  manual close). The full rule is the "Out-of-scope findings" section of
+  [CLAUDE.md](CLAUDE.md).
 - **Ask first only for the hard-to-reverse / outward-facing** — pushing, tagging, a
   release, history rewrites. A local commit on `master` is none of those.
 

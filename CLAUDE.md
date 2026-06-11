@@ -377,7 +377,14 @@ then back to your lane. Three rules keep the tracker honest:
 - **Issue text is public, and the leak gate never sees it** — the pre-push scan
   reads tracked files, not `gh` calls. The route-privacy-at-AUTHORING-time rule
   applies verbatim: no dev-machine paths, hostnames, or private-process prose
-  in any issue body or comment.
+  in any issue body or comment. **Mechanical check before posting:** pipe the
+  drafted body through the leak scanner — `python scripts/leak_scan.py --stdin
+  < draft.md`, or `--text-file <path>` for a body written outside the repo (the
+  right place: a Bash command that merely *names* a guarded kernel path gets
+  refused, so draft outside, scan, then `gh issue create --body-file`). A hit
+  is a refusal: scrub and re-scan, never post over it. The scanner is the
+  gitignored private-side sync; if it is absent, the hand rule above is the
+  floor.
 - **Never close an issue on your own say-so.** Put `Fixes #N` in the commit
   BODY (the subject keeps its grammar); GitHub closes the issue when that
   commit lands on `master` — an ancestry check, the same witness `dos verify`
