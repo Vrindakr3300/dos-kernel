@@ -551,12 +551,15 @@ reads (wire it in `cli-config.yaml`). A new host's dialect is a driver, never a
 kernel edit.
 
 The flip side of that honesty: a host with **no** hook seam gets **no** dialect.
-ByteDance's **Trae** was proved out and has no hook system at all (no lifecycle
-events, no deny/allow stdout contract), so DOS binds to it advisory-only — the
-MCP server in `.trae/mcp.json`, a verify-before-"done" rule in
-`.trae/rules/project_rules.md`, the generic skills in `.trae/skills/` — and
-`dos init --hooks trae` fails loud rather than writing config Trae would never
-read ([docs/294](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/294_trae-advisory-only-the-host-with-no-hook-seam.md)).
+ByteDance's **Trae** was proved out and ships no user-scriptable hook system in
+its personal/international editions (no lifecycle events, no deny/allow stdout
+contract; its CN-enterprise edition announced one on 2026-06-09 with no
+published grammar yet), so DOS binds to it advisory-only — the MCP server in
+`.trae/mcp.json` (read alike by IDE-mode Agent, SOLO mode, and TRAE CLI), a
+verify-before-"done" rule in `.trae/rules/project_rules.md`, the generic
+skills in `.trae/skills/` — and `dos init --hooks trae` fails loud rather than
+writing config Trae would never read
+([docs/294](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/294_trae-advisory-only-the-host-with-no-hook-seam.md)).
 An invented envelope would be fake enforcement, which is the exact failure the
 dialect seam exists to prevent.
 

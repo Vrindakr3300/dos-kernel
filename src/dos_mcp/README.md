@@ -192,9 +192,11 @@ tool call on a DOS verdict, wire its `PreToolUse` hook with `dos init --hooks an
 
 ### Trae (`.trae/mcp.json` at the project root, or via the MCP UI)
 
-ByteDance's Trae (the IDE, SOLO mode, and TRAE CLI) auto-loads a project-level
-`.trae/mcp.json` with the standard `mcpServers` map (stdio `command`/`args`/`env`;
-Trae substitutes `${workspaceFolder}` with the project root):
+ByteDance's Trae auto-loads a project-level `.trae/mcp.json` with the standard
+`mcpServers` map (stdio `command`/`args`/`env`; Trae substitutes
+`${workspaceFolder}` with the project root). The one file covers IDE-mode
+Agent, SOLO mode, and TRAE CLI alike; the standalone TRAE Work workspace's
+web/cloud clients instead take MCP from the enterprise admin console:
 
 ```json
 {
@@ -207,10 +209,13 @@ Trae substitutes `${workspaceFolder}` with the project root):
 }
 ```
 
-> **Trae is advisory-ONLY (docs/294).** Trae has no hook system — no lifecycle
-> events, no deny/allow stdout contract — so there is no enforcement half to wire
-> and **no `--hooks trae` / `--dialect trae`** (deliberately: an envelope nothing
-> parses would be fake enforcement; `dos init --hooks trae` fails loud instead).
+> **Trae is advisory-ONLY (docs/294).** Trae's personal/international editions
+> have no hook system — no lifecycle events, no deny/allow stdout contract — so
+> there is no enforcement half to wire and **no `--hooks trae` / `--dialect
+> trae`** (deliberately: an envelope nothing parses would be fake enforcement;
+> `dos init --hooks trae` fails loud instead). Its CN-enterprise edition
+> announced a lifecycle-hooks mechanism on 2026-06-09 with no published grammar
+> yet — docs/294 §4 tracks that trigger.
 > Make the advisory discipline sticky in Trae's own config surface instead: a
 > `.trae/rules/project_rules.md` rule telling the agent to `dos_verify` every
 > claim before "done" (snippet in docs/294 §3b), and the generic skill pack

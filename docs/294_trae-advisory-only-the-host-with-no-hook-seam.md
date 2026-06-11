@@ -42,7 +42,8 @@ Like every vendor's surface these churn per release — pin and re-verify.
 
 | Facet | Trae |
 |---|---|
-| Lifecycle hooks (PreToolUse/Stop analogues) | **None.** No Hooks page anywhere in the full doc index; `docs.trae.ai/ide/hooks` does not exist; no hooks entry in any 2025–2026 changelog release. The TRAE CLI doc set enumerates slash commands / custom agents / MCP / skills / memory / tool permissions / permission modes / ACP — a taxonomy that otherwise mirrors Claude Code's, with hooks conspicuously absent. |
+| Lifecycle hooks (PreToolUse/Stop analogues) | **None in the personal/international editions.** No Hooks page anywhere in the doc index; `docs.trae.ai/ide/hooks` does not exist; no hooks entry in any international 2025–2026 changelog release. The TRAE CLI doc set enumerates slash commands / custom agents / MCP / skills / memory / tool permissions / permission modes / ACP — a taxonomy that otherwise mirrors Claude Code's, with hooks conspicuously absent. **One edition is the exception**: the TRAE Enterprise (CN) changelog dated 2026-06-09 announces, for IDE Enterprise v3.3.65, "Hooks — a lifecycle hook mechanism … interception, validation, and extension of agent behavior" — enterprise-CN-only, with **no detail page published** (no config path, no event names, no output grammar, no exit codes). See §4: the trigger has fired; the grammar has not. |
+| Modes (where the §3 wiring applies) | The IDE's two top-level modes (**IDE mode** with its Agent, **SOLO mode**) and **TRAE CLI** all load the SAME project surfaces — `.trae/mcp.json`, `.trae/rules/`, `.trae/skills/` (CLI compatibility is documented explicitly). SOLO's `/plan` & `/spec` sub-modes add confirmation pauses, not gates. **TRAE Work** — the standalone enterprise workspace (web/desktop/mobile, launched 2026-06-09, built on SOLO) with its **Work / Code modes** — is the exception: its web/cloud clients take MCP from the enterprise admin console, not the project file, and rules/skills loading there is undocumented. |
 | Hook output grammar / exit codes | **N/A** — no hook executes user code, so there is no deny/allow JSON shape and no exit-code contract to target. |
 | Closest built-in gates | UI-configured only: the Agent "Auto-Run & security" command denylist (deny → manual approval in the IDE), TRAE CLI tool permissions / permission modes, enterprise command-blacklist + MCP-whitelist policies. None runs user code; none reads JSON. |
 | MCP | **Yes** (since v1.3.0, ~April 2025). Project config: **`.trae/mcp.json`**, standard `mcpServers` object map (`command`/`args`/`env`); stdio, SSE, and Streamable HTTP; `${workspaceFolder}` substitution. |
@@ -110,7 +111,11 @@ IDE's MCP UI):
 mounted, Trae's agent can call `dos_verify` ("did that actually ship?"),
 `dos_commit_audit`, `dos_arbitrate`, `dos_refuse_reasons`/`dos_check_reason`,
 `dos_status`, `dos_doctor` — the same advisory surface every other MCP host
-gets. The per-host snippet also lives in `src/dos_mcp/README.md` alongside
+gets. The one file covers IDE-mode Agent, SOLO mode, and TRAE CLI alike (the
+CLI's compatibility with project-level `.trae/mcp.json` is documented); the
+standalone TRAE Work workspace's web/cloud clients are the exception — they
+take MCP from the enterprise admin console instead (§1 modes row). The
+per-host snippet also lives in `src/dos_mcp/README.md` alongside
 Cursor/Gemini/Antigravity.
 
 ### 3b. Rules — make the discipline sticky
@@ -143,17 +148,30 @@ python -c "import dos, pathlib, shutil; src = pathlib.Path(dos.__file__).parent 
 (`dos init --skills` writes to `.claude/skills/` today; a host-aware skills
 destination is future surface, noted in §5 — the copy above is the same bytes.)
 
-## 4. The revisit trigger
+## 4. The revisit trigger — PARTIALLY FIRED 2026-06-09 (enterprise CN)
 
-Re-run the §1 probe when any of these fires; if Trae ships hooks, implement the
-docs/269 playbook (driver renderer + install spec + two entry-point rows + Go
-transcode case + parity bytes) and delete the §2 absence pins:
+The TRAE Enterprise (CN) changelog (volcengine doc 2529909, 2026-06-09)
+announces Hooks for IDE Enterprise v3.3.65: "a lifecycle hook mechanism …
+allowing enterprise users to insert custom logic at key nodes of agent
+execution — interception, validation, and extension of agent behavior." That
+is exactly the seam this note found missing. What is still missing is the
+CONTRACT: no config-file path, no event vocabulary, no stdout grammar, no
+exit-code semantics are published, and the international/personal editions
+have nothing. A dialect is bytes a host parses — with no documented bytes
+there is still nothing to render, so the §2 decision stands unchanged.
 
-- the Trae changelog (`docs.trae.ai/ide/changelog`) announces hooks / lifecycle
-  events / a scriptable permission gate;
+Implement the docs/269 playbook (driver renderer + install spec + two
+entry-point rows + Go transcode case + parity bytes) and delete the §2
+absence pins when any of these lands:
+
+- Trae publishes the hooks detail page (config path, events, output/exit
+  grammar) — for ANY edition; an enterprise-only dialect is still a dialect,
+  shipped with an "enterprise-only" note like Codex's coverage caveat;
+- the international changelog (`docs.trae.ai/ide/changelog`) ships hooks;
 - Trae-AI/TRAE #2169 (deterministic enforcement) closes as shipped;
 - a `.trae/hooks.json` (or hooks key in any Trae settings file) appears in the
-  official docs.
+  official docs — or the grammar is verified directly against an enterprise
+  build.
 
 ## 5. Change set + scope fence
 
