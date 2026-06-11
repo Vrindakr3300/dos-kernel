@@ -1,5 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/anthony-chaudhary/dos-kernel",
+  "public_key": "pk_QfN0rP7BEcCZNy1y6RWLp",
   "projectTitle": "DOS — the Dispatch Operating System (dos-kernel)",
   "description": "Trust kernel for fleets of AI agents: verifies what an agent actually shipped from git evidence, arbitrates concurrent file access with leases, and refuses with structured reasons — never believing the agent's self-report.",
   "folders": [],
