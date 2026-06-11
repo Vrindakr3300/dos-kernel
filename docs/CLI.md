@@ -1222,7 +1222,7 @@ prints the host's WARN dialect — by default the Claude-Code shape
                             "additionalContext": "<re-surfaced value>"}}
 
 so CC feeds the unchanged env value back into the next turn (the docs/144
-turn-preserving re-surface). `--dialect {gemini,cursor,codex,antigravity}` re-renders the same
+turn-preserving re-surface). `--dialect {gemini,cursor,codex,antigravity,claude-cowork}` re-renders the same
 verdict into another runtime's envelope (docs/217); the default `claude-code` is
 byte-for-byte the shape above. On ADVANCING — or ANY failure mode (no stdin, bad
 JSON, no `tool_name`, no `session_id`, an accumulator I/O error) — it prints
@@ -1245,7 +1245,7 @@ deny-power (the actuation×evidence crossing, docs/191 §0). Reads the host's Pr
 event JSON on STDIN ({session_id, tool_name, tool_input, cwd, …} — and CRUCIALLY no
 `tool_response`, the structural PRE marker), runs the two PRE-sound rungs
 (`pretool_sensor.decide`), and emits the host's PreToolUse dialect — by default the
-Claude-Code shape (`--dialect {gemini,cursor,codex,antigravity}` re-renders the same verdict into
+Claude-Code shape (`--dialect {gemini,cursor,codex,antigravity,claude-cowork}` re-renders the same verdict into
 another runtime's envelope, docs/217; the default `claude-code` is byte-for-byte below):
 
   DENY:  {"hookSpecificOutput": {"hookEventName": "PreToolUse",
@@ -3619,7 +3619,7 @@ Named skills go through the repeatable `--skill NAME`; `--all` copies the pack.
 docs/134 §6 / docs/165 / docs/221 — bind the verdict to an agent runtime by
 wiring the three shipped DOS hooks into THAT host's own config file (merged,
 never clobbering the user's own hooks). `--hooks <host>` is the cross-vendor
-form (claude-code/cursor/codex/gemini/antigravity); `--with-hooks` is the back-compat alias
+form (claude-code/cursor/codex/gemini/antigravity/claude-cowork); `--with-hooks` is the back-compat alias
 for `--hooks claude-code`. Works on an already-init'd workspace too.
 
 ### § verify-receipt (docs/246) — the third-party check, NO loop access. Re-derives

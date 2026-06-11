@@ -4,7 +4,7 @@
 > MCP-speaking agent reaches it.
 
 `dos-mcp` exposes the DOS trust substrate over the **Model Context Protocol**, so
-a host like Claude Desktop, Cursor, Cline, Continue, or an Agent-SDK app can call
+a host like Claude Desktop, Claude Cowork, Cursor, Cline, Continue, or an Agent-SDK app can call
 the referee with **zero Python coupling** — it speaks JSON over stdio, never
 `import dos`. It is the lowest-friction way to adopt DOS: install, point your host
 at it, and your agents can verify claims, arbitrate leases, and refuse with a
@@ -97,7 +97,7 @@ pull the MCP framework; the `[mcp]` extra adds it only when you want the server.
 
 ## Wire it into a host
 
-### Claude Desktop / Claude Code (`claude_desktop_config.json` / `.mcp.json`)
+### Claude Desktop / Claude Code / Claude Cowork (`claude_desktop_config.json` / `.mcp.json`)
 
 ```json
 {
@@ -113,6 +113,13 @@ pull the MCP framework; the `[mcp]` extra adds it only when you want the server.
 `DISPATCH_WORKSPACE` sets the default `workspace` for every tool (a tool call can
 still override it per-call with the `workspace` argument). Omit it to default to
 the server's working directory.
+
+**Claude Cowork** reads the same `claude_desktop_config.json` and passes its MCP
+servers into the session (local servers run on the host, outside Cowork's VM) — so
+the snippet above is Cowork's wiring too, unchanged. This advisory surface is
+Cowork's *working* DOS surface today: the enforcement half exists
+(`dos init --hooks claude-cowork` wires the shared `.claude/settings.json`), but
+the Cowork app does not fire hooks yet (anthropics/claude-code#63360 — docs/298).
 
 If `dos-mcp` isn't on `PATH`, use the module form:
 
@@ -245,6 +252,7 @@ web/cloud clients instead take MCP from the enterprise admin console:
 > dos init --hooks codex .         # .codex/config.toml
 > dos init --hooks gemini .        # .gemini/settings.json
 > dos init --hooks antigravity .   # .agents/hooks.json
+> dos init --hooks claude-cowork . # the SAME .claude/settings.json (shared harness, docs/298)
 > ```
 >
 > Wire **both**: MCP lets the agent check its own work; the hooks stop a bad action

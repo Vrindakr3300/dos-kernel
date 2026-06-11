@@ -363,6 +363,20 @@ guide). Pinned by the `antigravity` cases in `tests/test_hook_dialect.py` +
 (`tests/test_vendor_agnostic_kernel.py`) stays green because every Antigravity token
 lives in the driver.
 
+## 7b. As-built addendum (2026-06-10) — Claude Cowork, the *shared-surface* host
+
+Anthropic's **Claude Cowork** (the agentic desktop app) is the sixth host — and the
+degenerate row that proves the seam's other end: it runs the **same Claude Code
+agent harness** (in a Linux VM), so its envelope is not "like" CC's, it IS CC's.
+`ClaudeCoworkDialect` delegates to the CC renderer (the Codex precedent: an
+explicit by-name entry + a home for future divergence), and its install spec wires
+the **same `.claude/settings.json`** Claude Code reads, with NO `--dialect` flag —
+a shared file must serve both runtimes, and the default IS the envelope. The one
+Cowork-specific fact rides the spec's `note` as data: the Cowork app does not
+*fire* hooks yet (anthropics/claude-code#63360, as of 2026-06-10) — a host
+coverage limit (the Codex kind), not a missing seam (the Trae kind, docs/294).
+Full reasoning + facts: [docs/298](298_claude-cowork-the-sixth-host-shared-surface.md).
+
 ## 8. Provenance
 
 Audit + probe done 2026-06-07. Vendor facts web-grounded on the three runtimes' then-current

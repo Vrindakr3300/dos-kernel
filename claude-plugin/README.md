@@ -42,6 +42,15 @@ To test a local clone before publishing, point Claude Code at this directory:
 claude --plugin-dir ./claude-plugin
 ```
 
+### Claude Cowork
+
+Cowork runs the same Claude Code agent harness, and plugins (skills + MCP) work
+there too — so this bundle's **MCP server and skills** serve a Cowork session as
+they do a Claude Code one. The **hooks half is wired but dormant**: Cowork does not
+fire hooks yet (anthropics/claude-code#63360), so until that closes the plugin's
+working surfaces in Cowork are advisory. Details and the per-surface state:
+[docs/298](../docs/298_claude-cowork-the-sixth-host-shared-surface.md).
+
 ## What's in the bundle
 
 | Surface | File | What it does |

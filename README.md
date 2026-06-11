@@ -501,8 +501,8 @@ match its diff?", `dos_status` one folded fact about a run), then
 `dos_arbitrate` (may two workers run without colliding?), the structured-refusal
 pair (`dos_refuse_reasons` / `dos_check_reason`), `dos_recall` (is this recalled
 memory still true?), and `dos_doctor` (the workspace report) — so any
-MCP-speaking host — Claude Desktop, Cursor, Cline, Trae, an Agent-SDK app — can
-call the referee over JSON-on-stdio with zero Python coupling. Each verdict comes
+MCP-speaking host — Claude Desktop, Claude Cowork, Cursor, Cline, Trae, an
+Agent-SDK app — can call the referee over JSON-on-stdio with zero Python coupling. Each verdict comes
 back with a one-line interpretation of what it means for the agent's next move.
 (See **[the MCP server surface](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/80_mcp-server-surface.md)**.)
 
@@ -529,17 +529,24 @@ dos init --hooks cursor .        # .cursor/hooks.json
 dos init --hooks codex .         # .codex/config.toml
 dos init --hooks gemini .        # .gemini/settings.json
 dos init --hooks antigravity .   # .agents/hooks.json
+dos init --hooks claude-cowork . # the SAME .claude/settings.json Claude Code reads
 ```
 
 That binds three shipped hooks: `pretool` denies a structurally-refused call
 before it runs, `stop` refuses a stop on an unverified "done," `posttool`
 re-surfaces a stalled stream. This is the **enforcement** path (the *host*
 denies on a DOS verdict) — the complement to MCP's advisory path. Until
-recently this spoke only Claude Code; it now installs across five hosts —
-Claude Code, Cursor, Codex, Gemini, and Antigravity
+recently this spoke only Claude Code; it now installs across six hosts —
+Claude Code, Cursor, Codex, Gemini, Antigravity, and Claude Cowork
 ([docs/221](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/221_the-cross-vendor-hook-installer.md),
-[docs/269](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/269_antigravity-the-fifth-host.md)).
-`--with-hooks` is the back-compat alias for `--hooks claude-code`.
+[docs/269](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/269_antigravity-the-fifth-host.md),
+[docs/298](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/298_claude-cowork-the-sixth-host-shared-surface.md)).
+`--with-hooks` is the back-compat alias for `--hooks claude-code`. Claude
+Cowork is the *shared-surface* host: it runs the same agent harness as Claude
+Code, so wiring either name binds both — one file, one set of hooks. (One
+honest caveat, carried on the install note itself: the Cowork app doesn't
+*fire* hooks yet — anthropics/claude-code#63360 — so until that closes,
+Cowork's working DOS surface is the advisory one above.)
 
 Under the installer sits a pluggable dialect seam: the verdict is decided
 once, then rendered into whatever JSON shape the host parses

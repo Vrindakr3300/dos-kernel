@@ -40,6 +40,7 @@ dos init --hooks codex  .      # writes .codex/config.toml
 dos init --hooks gemini .      # writes .gemini/settings.json
 dos init --hooks antigravity . # writes .agents/hooks.json
 dos init --hooks claude-code . # writes .claude/settings.json (== today's --with-hooks)
+dos init --hooks claude-cowork . # writes the SAME .claude/settings.json (shared harness, §3d)
 ```
 
 ## 1. The design — `hook_install.py`, the install-facts sibling of `hook_dialect.py`
@@ -93,6 +94,7 @@ deferred) is the eventual override seam so drift becomes a data change.
 | **codex** | `.codex/config.toml` | TOML | `PreToolUse` | `PostToolUse` | `Stop` | `[[hooks.EVENT]]` + nested `[[hooks.EVENT.hooks]]` `type/command` |
 | **gemini** | `.gemini/settings.json` | JSON | `BeforeTool` | `AfterTool` | `AfterAgent` | `{"type":"command","command":C}` (flat list) |
 | **antigravity** | `.agents/hooks.json` | JSON | `PreToolUse` | `PostToolUse` | `Stop` | `{"hooks":[{"type":"command","command":C}]}` (group list, CC-shaped) — but the hook **output** is Gemini-shaped `{"decision":"deny"}` (§3c) |
+| **claude-cowork** | `.claude/settings.json` — the **same file** as claude-code (same harness) | JSON | `PreToolUse` | `PostToolUse` | `Stop` | CC group-shaped; the wired command carries **no** `--dialect` (a shared file must serve both runtimes — §3d; the app doesn't fire hooks yet, #63360) |
 
 Notes that shape the installer (each a real per-vendor constraint):
 
@@ -278,6 +280,22 @@ key) and the fail-LOUD-on-unknown-host discipline are inherited unchanged. Facts
 web-grounded 2026-06-09; pinned by the `antigravity` cases in
 `test_init_hooks_crossvendor.py` (CC-shaped config + the `--dialect antigravity` flag +
 idempotency) and `test_hook_dialect.py` (the Gemini-shaped output bytes).
+
+## 3d. As-built (2026-06-10) — Claude Cowork, the shared-surface host (a row that equals the default)
+
+**Claude Cowork** (Anthropic's agentic desktop app) was added as the sixth host —
+the inverse stress of Antigravity's hybrid: every facet of
+`claude_cowork_install_spec()` equals `claude_code_spec()` (file, format, shape,
+events, and a deliberately EMPTY `dialect_flag`), because Cowork runs the same
+Claude Code harness and reads the same workspace `.claude/settings.json`. So
+wiring either host name wires both (the merge is idempotent on the `dos hook `
+prefix — pinned in both orders), `dos doctor` truthfully reports both bindings,
+and the row's whole value is the NAME resolving plus the `note` carrying Cowork's
+one host-specific fact: the app does not fire hooks yet
+(anthropics/claude-code#63360) — the "coverage limit as data" discipline (§1a's
+Codex note) at its maximum. Zero kernel change, two entry-point rows, the
+docs/269 playbook verbatim. Facts web-grounded 2026-06-10; details in
+[docs/298](298_claude-cowork-the-sixth-host-shared-surface.md).
 
 ## 4. The litmus tests this plan keeps green
 
