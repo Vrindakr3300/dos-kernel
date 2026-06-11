@@ -58,6 +58,7 @@ def test_server_registers_the_syscall_tools():
     assert names == {
         "dos_verify", "dos_commit_audit", "dos_arbitrate", "dos_refuse_reasons",
         "dos_check_reason", "dos_doctor", "dos_recall", "dos_status",
+        "dos_citation_resolve",
     }
     # Every tool carries a docstring-derived description (the agent-facing prose).
     assert all(t.description for t in listed)
@@ -525,6 +526,102 @@ def test_server_and_cli_resolve_identical_config(tmp_path: Path):
     assert server_cfg.reasons.tokens() == cli_cfg.reasons.tokens()
     assert "LANE_PARKED_FOR_BUDGET" in server_cfg.reasons.tokens()
     assert str(server_cfg.paths.root) == str(cli_cfg.paths.root)
+
+
+# ---------------------------------------------------------------------------
+# dos_citation_resolve — the legal-citation witness, through the tool (issue #42).
+# The corpus transport is FAKED from the frozen Mata v. Avianca sample
+# (benchmark/legalcite/frozen_corpus.json), so the suite stays deterministic and
+# never touches the network; the no-network case poisons the transport entirely.
+# ---------------------------------------------------------------------------
+_FROZEN_CORPUS = (Path(__file__).resolve().parents[1]
+                  / "benchmark" / "legalcite" / "frozen_corpus.json")
+
+
+def _corpus_entry(section: str, cite: str) -> dict:
+    import json
+    return json.loads(_FROZEN_CORPUS.read_text(encoding="utf-8"))[section][cite]
+
+
+def _fake_search_transport(monkeypatch, cluster: dict | None) -> None:
+    """Serve a frozen-corpus cluster through the driver's /search/ rung.
+
+    `cluster=None` (the corpus's record of a fabrication) serves an EMPTY result
+    set — exactly what the live reporter index returns for a cite it does not
+    carry. Clearing COURTLISTENER_TOKEN forces the unauthenticated search rung,
+    so the fake payload shape matches the rung the server will parse.
+    """
+    import io
+    import json
+
+    from dos.drivers import citation_resolve as cr
+
+    results = []
+    if cluster:
+        results.append({"caseName": cluster["name"],
+                        "citation": list(cluster["citations"]),
+                        "snippet": cluster.get("opinion_text", "")})
+
+    class _Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(cr.urllib.request, "urlopen",
+                        lambda req, *a, **k: _Resp(
+                            json.dumps({"results": results}).encode()))
+    monkeypatch.delenv("COURTLISTENER_TOKEN", raising=False)
+
+
+def test_citation_tool_flags_a_mata_fabrication(monkeypatch):
+    """The issue #42 done-condition: the documented lead *Mata v. Avianca*
+    fabrication returns UNRESOLVED through the MCP tool."""
+    entry = _corpus_entry("fabricated", "925 F.3d 1339")
+    assert entry["cluster"] is None  # the frozen ground truth: no reporter carries it
+    _fake_search_transport(monkeypatch, entry["cluster"])
+    tool = _tools(build_server())["dos_citation_resolve"]
+    out = tool(cite="925 F.3d 1339", claimed_name=entry["claimed_name"])
+    assert out["verdict"] == "UNRESOLVED"
+    assert "does not resolve" in out["reason"]
+
+
+def test_citation_tool_flags_the_collision_slot(monkeypatch):
+    """A REAL reporter slot carrying a DIFFERENT case than claimed is UNRESOLVED
+    (the docs/279 §3 collision — resolution alone would rubber-stamp it)."""
+    entry = _corpus_entry("fabricated", "92 F.3d 1074")  # claimed Hyatt, really Grilli
+    _fake_search_transport(monkeypatch, entry["cluster"])
+    tool = _tools(build_server())["dos_citation_resolve"]
+    out = tool(cite="92 F.3d 1074", claimed_name=entry["claimed_name"])
+    assert out["verdict"] == "UNRESOLVED"
+    assert "DIFFERENT case" in out["reason"]
+    assert "Grilli" in out["matched_name"]
+
+
+def test_citation_tool_resolves_a_real_case(monkeypatch):
+    entry = _corpus_entry("real", "576 U.S. 644")
+    _fake_search_transport(monkeypatch, entry["cluster"])
+    tool = _tools(build_server())["dos_citation_resolve"]
+    out = tool(cite="576 U.S. 644", claimed_name=entry["claimed_name"])
+    assert out["verdict"] == "RESOLVED_MATCH"
+    assert "Obergefell" in out["matched_name"]
+
+
+def test_citation_tool_abstains_with_no_network_no_token(monkeypatch):
+    """The other issue #42 done-condition half: no token + no network → ABSTAIN,
+    never a fabricated verdict (the fail-safe floor, through the MCP surface)."""
+    import urllib.error
+
+    from dos.drivers import citation_resolve as cr
+
+    def boom(*a, **k):
+        raise urllib.error.URLError("network unreachable")
+
+    monkeypatch.setattr(cr.urllib.request, "urlopen", boom)
+    monkeypatch.delenv("COURTLISTENER_TOKEN", raising=False)
+    tool = _tools(build_server())["dos_citation_resolve"]
+    out = tool(cite="925 F.3d 1339",
+               claimed_name="Varghese v. China Southern Airlines")
+    assert out["verdict"] == "ABSTAIN"
+    assert out["evidence"]["reachable"] is False
 
 
 # ---------------------------------------------------------------------------

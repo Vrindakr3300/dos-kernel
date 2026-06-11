@@ -21,14 +21,16 @@ structured reason.
 | `dos_check_reason(reason_class, workspace=".")` | `refuse()` | *Is this reason real?* — membership check, so a producer can only emit a reason the oracle can verify (an unknown one is `UNCLASSIFIED` drift). |
 | `dos_status(run_id, …, workspace=".")` | `liveness()` + `resume()` | *What is the state of run X right now?* — one folded, peer-readable fact: liveness (is it moving?), ledger-VERIFIED progress (never the agent's claim), the held-lease region, and the resume plan once it stopped. Fail-closed; the digest has **no `claimed` field** by construction. |
 | `dos_recall(name, …, workspace=".")` | — | *Is this recalled memory still TRUE?* — re-verify a memory against git + the working tree at read time, instead of trusting a frozen self-report. Returns `RECALL_FRESH`/`RECALL_STALE`/`RECALL_UNVERIFIABLE`. |
+| `dos_citation_resolve(cite, claimed_name="", quote="", …)` | — | *Does this cited legal case EXIST — and does the quote MATCH?* — the legal-citation witness for the *Mata v. Avianca* failure class (fabricated cases cited as real). Resolves the cite in a third-party reporter (CourtListener), checks the resolved case NAME against the claim (a real slot carrying a different case is `UNRESOLVED`), and checks an optional quoted holding. Returns `RESOLVED_MATCH`/`RESOLVED_MISMATCH`/`UNRESOLVED`/`ABSTAIN`; no corpus access (no token, no network) is an honest `ABSTAIN`, never a fabricated verdict. |
 | `dos_doctor(workspace=".")` | — | The machine-readable workspace report (paths / lanes / stamp grammar) an agent reads once to discover the layout. |
 
-Every tool takes an optional `workspace` (a repo path, default the server's cwd)
+Every workspace-scoped tool takes an optional `workspace` (a repo path, default the server's cwd)
 and honors that workspace's `dos.toml` — the same four-table readback
 (`[lanes]`/`[paths]`/`[stamp]`/`[reasons]`) the `dos` CLI does. So pointing the
 server at a foreign repo Just Works: its lane taxonomy drives `dos_arbitrate`, its
 ship-stamp grammar drives `dos_verify`, its declared reasons appear in
-`dos_refuse_reasons`.
+`dos_refuse_reasons`. (`dos_citation_resolve` is the one exception: it adjudicates
+against a third-party reporter, not a repo, so it takes no `workspace`.)
 
 `verify`, the reason tools, and `doctor` are **read-only** — they never create a
 `.dos/` directory in the served repo (pinned by the smoke test). `dos_arbitrate`

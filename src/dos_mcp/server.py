@@ -195,10 +195,12 @@ def build_server() -> FastMCP:
             "Use `dos_verify` to confirm a claim landed from git evidence rather "
             "than a worker's self-report; `dos_arbitrate` to decide whether two "
             "workers may run concurrently without colliding on the same files; "
-            "and `dos_refuse_reasons` / `dos_check_reason` to refuse with a "
+            "`dos_refuse_reasons` / `dos_check_reason` to refuse with a "
             "structured, verifiable reason from a closed vocabulary instead of "
-            "free-text. All tools take an optional `workspace` (a repo path); it "
-            "defaults to the server's working directory."
+            "free-text; and `dos_citation_resolve` to check that a cited legal "
+            "case actually exists in a third-party reporter before relying on "
+            "it. Workspace-scoped tools take an optional `workspace` (a repo "
+            "path); it defaults to the server's working directory."
         ),
     )
 
@@ -643,6 +645,67 @@ def build_server() -> FastMCP:
             live_region=live_region, resume_plan=resume_plan,
         )
         return digest.to_dict()      # the same no-`claimed` shape as the CLI --json
+
+    @mcp.tool()
+    def dos_citation_resolve(
+        cite: str,
+        claimed_name: str = "",
+        quote: str = "",
+        base: str = "",
+        token: str = "",
+    ) -> dict[str, Any]:
+        """Does this cited case EXIST — and does the quote MATCH? — the legal-citation witness.
+
+        USE THIS WHEN: a legal citation (e.g. "925 F.3d 1339") is about to be
+        relied on — in a brief, a memo, a worker's summary — and you want to know
+        whether it resolves in a third-party reporter BEFORE trusting it. This is
+        the witness for the *Mata v. Avianca* failure class: fabricated cases
+        cited as real. The verdict comes from the Free Law Project's reporter
+        index (CourtListener) — bytes the citing agent authored zero of — never
+        from how plausible the citation looks.
+
+        Two operands are checked: the citation STRING must resolve to a reporter
+        cluster, AND that cluster's case NAME must agree with the claimed party
+        names — a real reporter slot carrying a DIFFERENT case than claimed is a
+        documented fabrication pattern, and returns UNRESOLVED. An optional
+        quoted holding is checked against the resolved opinion text where the
+        full text is available. It witnesses EXISTENCE + quote-fidelity only; it
+        does NOT judge whether the legal argument is correct.
+
+        Args:
+            cite: the reporter citation as claimed, e.g. "925 F.3d 1339".
+            claimed_name: the case name as claimed (e.g. "Varghese v. China
+                Southern Airlines"); arms the name-collision guard. "" checks
+                the bare citation string only.
+            quote: the quoted holding to check against the resolved opinion
+                ("" skips the quote rung).
+            base: the CourtListener-compatible API base URL (default: the
+                public Free Law Project instance). Point it at a mirror if you
+                run one.
+            token: a CourtListener API token (default: the COURTLISTENER_TOKEN
+                env var). With a token the purpose-built citation-lookup
+                endpoint answers; without one, the noisier unauthenticated
+                search.
+
+        Returns the typed CitationVerdict dict {verdict, reason, matched_name,
+        evidence: {cite, claimed_name, quote, reachable, detail, clusters}}.
+        `verdict` is one of RESOLVED_MATCH (exists; quote matched or not
+        applicable) / RESOLVED_MISMATCH (exists, but the quoted holding is NOT
+        in the opinion — a mis-quote) / UNRESOLVED (no reporter carries it as
+        claimed — treat as fabricated) / ABSTAIN (no corpus access: no token
+        and the network read failed — never a fabricated verdict). The network
+        call happens here at the tool boundary; a slow corpus read past the
+        server's per-tool deadline returns the typed STALLED envelope, and the
+        driver CLI (`python -m dos.drivers.citation_resolve`) is the fallback.
+        """
+        # dos_mcp sits outside the kernel, so importing a driver is allowed
+        # (the kernel itself never imports either — the one-way arrow holds).
+        # No workspace config: the witness adjudicates against a third-party
+        # corpus, not a repo, so there is nothing in dos.toml to honor.
+        from dos.drivers import citation_resolve as _cr
+        evidence = _cr.gather(cite, claimed_name=claimed_name, quote=quote,
+                              base=base or _cr.DEFAULT_BASE, token=token)
+        return _cr.classify(evidence).to_dict()
 
     # -----------------------------------------------------------------------
     # Resources — browsable context, not just callable tools. A host (and the
