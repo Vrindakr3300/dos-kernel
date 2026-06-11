@@ -10,7 +10,7 @@ the uninstalled-source-tree case (running from a bare checkout that was never
 shipped `0.2.0`, so every `dos` CLI command misreported its version from a
 source checkout), and the comment in `__init__.py` records the scar.
 
-So there are five targets, and the whole point of this script over five hand
+So there are six targets, and the whole point of this script over six hand
 edits is that it keeps them in lockstep:
 
   1. pyproject.toml          — `version = "X.Y.Z"`  (the source of truth)
@@ -20,6 +20,16 @@ edits is that it keeps them in lockstep:
   5. the FTUE doc banners + skill-pack samples — every `DOS vX.Y.Z` /
      `dos_version "X.Y.Z"` literal a newcomer reads (the surface
      `tests/test_docs_version_drift.py` guards).
+  6. server.json — the MCP Registry manifest's three version references
+     (`.version`, `.packages[0].version`, and the `dos-kernel[mcp]==X.Y.Z`
+     `--from` pin), the surface `tests/test_server_json_version.py` guards.
+
+Target 6 was added after the SAME class of drift recurred on the registry surface
+(issue #30): server.json was authored for the registry publish but never on the
+bumper's leash, so every `/release` after the first publish stranded it at the
+previous version and a later `mcp-registry-publish.yml` dispatch refused at its
+version-skew preflight until someone hand-bumped it. Teaching the ONE bumper about
+it is the durable fix — the same move as targets 3–4.
 
 Targets 3–4 were added after the plugin bundle drifted: the v0.14/v0.15 cuts
 bumped 1–2 but left the plugin manifest at 0.13.0, reddening
@@ -216,6 +226,46 @@ def bump_marketplace(root: Path, new: str, *, dry_run: bool) -> dict:
     return {"path": rel, "old": old, "new": new, "changed": changed, "ok": True}
 
 
+def bump_server_json(root: Path, new: str, *, dry_run: bool) -> dict:
+    """Bump every version reference in the MCP Registry manifest (server.json).
+
+    The registry publish (`mcp-registry-publish.yml`) refuses on version skew, so
+    server.json's version literals must track the package the same way the plugin
+    manifest does. The file carries the version in THREE places, all equal to the
+    package version:
+
+      * `.version`              — the server release version
+      * `.packages[0].version`  — the PyPI package pin
+      * the `dos-kernel[mcp]==X.Y.Z` value of the `--from` runtimeArgument
+
+    The two `"version"` keys are always the package version, so a single regex
+    rewrites both; the `==` pin is rewritten by a second. Targeted subs (not a JSON
+    round-trip) preserve the file's formatting — the same choice, and reason, as
+    bump_plugin_manifest. Pinned by `tests/test_server_json_version.py`.
+    """
+    rel = "server.json"
+    path = root / "server.json"
+    if not path.exists():
+        return {"path": rel, "ok": False, "reason": "not found"}
+    text = read(path)
+    ver_pat = re.compile(r'("version"\s*:\s*)"([^"]+)"')
+    first = ver_pat.search(text)
+    if not first:
+        return {"path": rel, "ok": False, "reason": 'no "version" key found'}
+    old = first.group(2)
+    # Rewrite BOTH `"version"` keys (top-level + package): they are the same package
+    # version, and a future second package version should track the release too.
+    new_text, n_ver = ver_pat.subn(rf'\g<1>"{new}"', text)
+    # The `dos-kernel[mcp]==X.Y.Z` pin inside the `--from` runtimeArgument value.
+    from_pat = re.compile(r"(dos-kernel\[mcp\]==)(\d+\.\d+\.\d+)")
+    new_text, n_from = from_pat.subn(rf"\g<1>{new}", new_text)
+    changed = new_text != text
+    if changed:
+        write(path, new_text, dry_run=dry_run)
+    return {"path": rel, "old": old, "new": new, "changed": changed, "ok": True,
+            "refs_rewritten": n_ver + n_from}
+
+
 # The live, newcomer-facing docs that render a `DOS v…` banner, plus the skill
 # pack samples — the SAME surface `tests/test_docs_version_drift.py` guards. They
 # are NOT on the lockstep leash that pyproject/__init__/plugin/marketplace are, so
@@ -348,13 +398,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=("Bump the DOS version markers (pyproject + __init__ fallback "
                      "+ the plugin manifest + marketplace entry + the FTUE "
-                     "doc/skill version literals).")
+                     "doc/skill version literals + the server.json registry manifest).")
     )
     parser.add_argument("version", help="New semver, e.g. 0.3.0 (no leading v)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print JSON plan without writing")
     parser.add_argument("--skip", action="append", default=[],
-                        choices=["pyproject", "init", "plugin", "marketplace", "docs"],
+                        choices=["pyproject", "init", "plugin", "marketplace", "server", "docs"],
                         help="Skip a target (repeatable)")
     args = parser.parse_args()
 
@@ -376,6 +426,7 @@ def main() -> int:
         "init": lambda: bump_init(root, new_version, dry_run=args.dry_run),
         "plugin": lambda: bump_plugin_manifest(root, new_version, dry_run=args.dry_run),
         "marketplace": lambda: bump_marketplace(root, new_version, dry_run=args.dry_run),
+        "server": lambda: bump_server_json(root, new_version, dry_run=args.dry_run),
         # The FTUE doc/skill sweep is the ONE target keyed on the old→new pair (the
         # others write `new` unconditionally). It is intentionally LAST so a dry-run
         # plan reads top-down as code-markers-then-prose, and excluded from the
@@ -415,8 +466,9 @@ def main() -> int:
     if drift:
         report["drift_reason"] = (
             "the version markers disagree after the bump (pyproject / __init__ "
-            "fallback / plugin manifest / marketplace entry) — a source checkout "
-            f"would misreport, or the plugin bundle would front the wrong version. "
+            "fallback / plugin manifest / marketplace entry / server.json) — a "
+            "source checkout would misreport, the plugin bundle would front the "
+            "wrong version, or the registry publish would refuse on skew. "
             f"Reconcile all to the same value. Saw: {sorted(set(final_values))}"
         )
 
