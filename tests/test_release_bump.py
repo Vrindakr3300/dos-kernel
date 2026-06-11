@@ -1,13 +1,15 @@
 """The release-bump tooling keeps EVERY version marker in lockstep.
 
 `scripts/release_bump.py` is the one place a version is bumped. It single-sources
-the package version across four markers (pyproject, the __init__ fallback, the
-Claude Code plugin manifest, the marketplace plugin entry). This test pins the
-DURABLE half of a fix: the v0.14/v0.15 cuts bumped pyproject + __init__ but left
-the plugin bundle at 0.13.0, reddening `tests/test_plugin_manifest.py`. The cause
-was that the bumper didn't know about the plugin files at all. So the regression
-guard is structural — assert the bumper TARGETS all four markers and drives them
-to one value — not just "today they happen to match" (that is
+the package version across five lockstep markers (pyproject, the __init__ fallback,
+the Claude Code plugin manifest, the marketplace plugin entry, and the server.json
+registry manifest). This test pins the DURABLE half of a fix: the v0.14/v0.15 cuts
+bumped pyproject + __init__ but left the plugin bundle at 0.13.0, reddening
+`tests/test_plugin_manifest.py`; later, server.json (the registry manifest) was
+authored without a bumper target and stranded the registry publish (issue #30). The
+cause is always the same — the bumper didn't know about a file at all. So the
+regression guard is structural — assert the bumper TARGETS every marker and drives
+them to one value — not just "today they happen to match" (that is
 test_plugin_manifest's job; this is "they can't drift on the next release").
 
 Like test_plugin_manifest, this loads the script by path (scripts/ is not an
@@ -30,13 +32,13 @@ import dos
 _REPO_ROOT = Path(dos.__file__).resolve().parents[2]
 _BUMP_PY = _REPO_ROOT / "scripts" / "release_bump.py"
 
-# The five markers the bumper must keep on the package's leash — the keys it
-# reports under `targets`. The first four are LOCKSTEP markers (one canonical
-# value, fed to the drift guard); `docs` is the FTUE doc/skill literal sweep,
-# keyed on the old→new pair and excluded from the drift guard. If a refactor drops
-# one (the exact way the plugin — then the docs — drifted), this set stops
+# The six markers the bumper must keep on the package's leash — the keys it
+# reports under `targets`. The five LOCKSTEP markers carry one canonical value, fed
+# to the drift guard; `docs` is the FTUE doc/skill literal sweep, keyed on the
+# old→new pair and excluded from the drift guard. If a refactor drops one (the exact
+# way the plugin — then the docs, then server.json — drifted), this set stops
 # matching and the test fails loudly.
-_LOCKSTEP_TARGETS = {"pyproject", "init", "plugin", "marketplace"}
+_LOCKSTEP_TARGETS = {"pyproject", "init", "plugin", "marketplace", "server"}
 _EXPECTED_TARGETS = _LOCKSTEP_TARGETS | {"docs"}
 
 
@@ -58,13 +60,14 @@ def _dry_run(version: str) -> dict:
     return json.loads(proc.stdout)
 
 
-def test_bump_covers_all_five_version_markers():
-    """The bumper targets pyproject + __init__ + plugin + marketplace + docs.
+def test_bump_covers_all_six_version_markers():
+    """The bumper targets pyproject + __init__ + plugin + marketplace + server + docs.
 
     This is the structural regression guard: the plugin bundle drifted because the
-    bumper had no `plugin`/`marketplace` target, then the FTUE docs/skills drifted
-    because it had no `docs` target. Pin the full set so dropping one is caught
-    here, not by a red plugin/version-drift test two releases later.
+    bumper had no `plugin`/`marketplace` target, the FTUE docs/skills drifted because
+    it had no `docs` target, and server.json stranded the registry publish because it
+    had no `server` target (issue #30). Pin the full set so dropping one is caught
+    here, not by a red plugin/version-drift/registry-preflight failure later.
     """
     report = _dry_run("9.9.9")
     assert set(report["targets"]) == _EXPECTED_TARGETS, (
@@ -75,7 +78,7 @@ def test_bump_covers_all_five_version_markers():
 def test_bump_drives_every_marker_to_one_value():
     """A dry-run bump reports the SAME new value for every marker (no drift).
 
-    The four LOCKSTEP markers are driven to the requested value and feed the drift
+    The five LOCKSTEP markers are driven to the requested value and feed the drift
     guard; the `docs` sweep is checked separately (it is keyed on old→new and is not
     a single-valued marker), so it is asserted only for `ok` + a `new` echo here.
     """
