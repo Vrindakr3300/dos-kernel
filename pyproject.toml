@@ -300,6 +300,7 @@ claude-cowork = "dos.drivers.hook_dialects:claude_cowork_install_spec"
 
 [project.urls]
 Homepage = "https://github.com/anthony-chaudhary/dos-kernel"
+Website = "https://anthony-chaudhary.github.io/dos-kernel/"
 Documentation = "https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/QUICKSTART.md"
 FAQ = "https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/FAQ.md"
 # The agent-facing index (docs/299): the raw URL is the fetchable spelling.
