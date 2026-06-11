@@ -387,7 +387,30 @@ def decide(
     """
     # ---- Rung A: structural admission (auto-deny-safe, fail-CLOSED-to-refuse) ----
     from dos import admission
+    from dos import override_facts as _ovr
     tree, tree_known = _tree_from_event(event)
+
+    # docs/296 — the override-arm PERIMETER, before admission and never subject
+    # to the disposition below: an agent write that touches the operator's arm
+    # file (`.dos/override/`) is denied outright. Arming is the operator's hand
+    # on the file by design (there is no arm verb), and a window must not be
+    # able to extend itself.
+    if tree and is_mutating_tool(event) and _ovr.touches_arm_path(tree):
+        reason = (
+            f"this call would write the operator's SELF_MODIFY override arm file "
+            f"({_ovr.ARM_RELPATH}) — only the operator arms a window, by hand "
+            f"(docs/296). `dos override status` reports it; `dos override disarm` "
+            f"is always allowed."
+        )
+        outcome = {
+            "rung": "admission",
+            "decision": "deny",
+            "reason_class": "SELF_MODIFY",
+            "reason": reason,
+            "tree_known": tree_known,
+        }
+        return deny_payload(f"DOS PRE-admission: {reason}"), outcome
+
     request = admission.AdmissionRequest(
         lane=str(event.get("tool_name") or "tool"),
         kind="tool-call",
@@ -427,6 +450,38 @@ def decide(
         reason = averdict.reason or "DOS admission refused this call (no lane available)."
         provable = bool(averdict.reason_class) or (tree_known and bool(tree))
         if provable:
+            # docs/296 — the operator's armed override window, consulted at the
+            # ENFORCEMENT boundary only (the verdict above is unchanged and still
+            # says SELF_MODIFY). Boundary I/O beside the lease read: the arm file
+            # + the clock, both fail-closed — a broken reader never admits. Only
+            # a SELF_MODIFY refusal is ever converted (`dispose` enforces that),
+            # and the admit is emitted as ALLOW-with-note, never a silent pass.
+            if (averdict.reason_class or "") == "SELF_MODIFY":
+                note = None
+                try:
+                    import datetime as _dt
+                    facts = _ovr.read_override(cfg.root)
+                    note = _ovr.dispose(
+                        averdict.reason_class or "", tuple(tree), facts,
+                        now=_dt.datetime.now(_dt.timezone.utc))
+                except Exception:  # noqa: BLE001 — fail-closed: the deny stands
+                    note = None
+                if note is not None:
+                    outcome = {
+                        "rung": "admission",
+                        "decision": "override-admit",
+                        "reason_class": averdict.reason_class or "",
+                        "reason": reason,
+                        "override_note": note,
+                        "tree_known": tree_known,
+                    }
+                    return (
+                        warn_payload(
+                            f"DOS PRE-admission (operator override): {note} "
+                            f"[the refused verdict was: {reason}]"
+                        ),
+                        outcome,
+                    )
             outcome = {
                 "rung": "admission",
                 "decision": "deny",
