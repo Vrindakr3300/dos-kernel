@@ -20,6 +20,7 @@ job or an agent loop can gate on it directly.
 
 ## Start here
 
+- [llms-full.txt](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/llms-full.txt): every document below (outside Optional) concatenated — fetch one file, get the whole story
 - [README](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/README.md): the full story, shallow to deep — what DOS catches, the 60-second demo, who it is for
 - [AGENTS.md](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/AGENTS.md): orientation written for an AI agent — build/test commands, the consumer-moves table, the rules a change must satisfy
 - [FAQ](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/docs/FAQ.md): direct answers to the questions that lead here — verifying agent claims, stopping collisions, detecting spinning loops
