@@ -11,10 +11,16 @@ package-lock.json
 # Replay output: ignore everything by default (regenerable)...
 _results/*
 # ...EXCEPT the durable, small, self-contained deliverables — kept in-repo so the study survives
-# across agents (the operator's "data in a durable format to explore" requirement):
-!_results/replay_all_rows.csv      # the flat per-run rows — the explorable unit
-!_results/replay_all.json          # the aggregate + per-model grids (what viz.py reads)
-!_results/schema.md                # the rows' column documentation
+# across agents (the operator's "data in a durable format to explore" requirement).
+# Negation paths stay BARE — a trailing inline comment becomes part of the pattern
+# and silently breaks the match (these three carried comments until 2026-06-10 and
+# were silently NOT tracked; the public seed shipped without them):
+# the flat per-run rows — the explorable unit:
+!_results/replay_all_rows.csv
+# the aggregate + per-model grids (what viz.py reads):
+!_results/replay_all.json
+# the rows' column documentation:
+!_results/schema.md
 !_results/fig1_purchase_vs_capability.png
 !_results/fig2_per_model_grid.png
 !_results/fig3_simpson.png
