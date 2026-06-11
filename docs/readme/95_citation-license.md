@@ -18,3 +18,8 @@ preparation. Until the arXiv ID lands, cite the repository:
 ## License
 
 MIT — see [LICENSE](https://github.com/anthony-chaudhary/dos-kernel/blob/master/LICENSE).
+
+<!-- The marker below is the official MCP Registry's PyPI ownership proof: the
+     registry only accepts a server.json naming the `dos-kernel` PyPI package if
+     this exact token appears in the published package README. Keep it intact. -->
+<!-- mcp-name: io.github.anthony-chaudhary/dos-kernel -->

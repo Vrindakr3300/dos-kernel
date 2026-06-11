@@ -1,0 +1,41 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.anthony-chaudhary/dos-kernel",
+  "title": "DOS — the trust substrate for agent fleets",
+  "description": "Verify what agents actually shipped, arbitrate file collisions, refuse with structured reasons.",
+  "version": "0.23.5",
+  "websiteUrl": "https://github.com/anthony-chaudhary/dos-kernel",
+  "repository": {
+    "url": "https://github.com/anthony-chaudhary/dos-kernel",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "dos-kernel",
+      "version": "0.23.5",
+      "runtimeHint": "uvx",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--from",
+          "value": "dos-kernel[mcp]==0.23.5",
+          "description": "The [mcp] extra carries the MCP server framework; the core install is near-stdlib and does not include it.",
+          "isRequired": true
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISPATCH_WORKSPACE",
+          "description": "Path of the git workspace the server should adjudicate (defaults to its working directory; every tool also takes a per-call `workspace` argument).",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

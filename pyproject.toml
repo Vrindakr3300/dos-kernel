@@ -136,6 +136,12 @@ dos = "dos.cli:main"
 # launches. Requires the `mcp` extra (`pip install dos-kernel[mcp]`); the import
 # of `mcp.server.fastmcp` fails loudly with an install hint if the extra is absent.
 dos-mcp = "dos_mcp.server:main"
+# A dist-name alias for the SAME server, so the uvx convention works: `uvx
+# "dos-kernel[mcp]"` runs the script named after the package (and the MCP
+# Registry's `uvx --from "dos-kernel[mcp]==X.Y.Z" dos-kernel` launch composes to
+# a real command — see server.json). Without the [mcp] extra it fails loudly
+# with the same install hint as `dos-mcp`. The umbrella CLI stays `dos`.
+dos-kernel = "dos_mcp.server:main"
 
 # The shipped LLM judge — the reference occupant of the JUDGE rung (`dos.judges`,
 # Axis 6). Registered as a discoverable judge (NOT a built-in: only `abstain` is

@@ -82,7 +82,15 @@ and taxonomy as context, not just call tools:
 # [mcp] extra pulls the server framework; the core kernel stays near-stdlib:
 pip install 'dos-kernel[mcp]'
 dos-mcp                       # serve over stdio (what an MCP host launches)
+
+# Or zero-install with uv (the `dos-kernel` script is the same server):
+uvx --from 'dos-kernel[mcp]' dos-kernel
 ```
+
+The server is also published to the official MCP Registry as
+[`io.github.anthony-chaudhary/dos-kernel`](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.anthony-chaudhary%2Fdos-kernel/versions/latest)
+(the repo-root `server.json`), so hosts and directories that ingest the
+registry can discover it without this README.
 
 The kernel itself stays near-stdlib — a core install (no `[mcp]`) does **not**
 pull the MCP framework; the `[mcp]` extra adds it only when you want the server.
