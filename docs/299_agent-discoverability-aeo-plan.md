@@ -12,7 +12,7 @@
 > there is no `llms.txt`, no question-shaped FAQ for an answer engine to lift,
 > and the PyPI/GitHub metadata is missing terms an agent actually types.
 
-*Status: IN FLIGHT. Opened 2026-06-11.*
+*Status: SHIPPED — P1–P3 oracle-verified (`dos verify docs/299_agent-discoverability-aeo-plan P1|P2|P3` → SHIPPED). As of 2026-06-11.*
 
 ## 0. What exists, what's missing
 
