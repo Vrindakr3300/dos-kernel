@@ -1682,6 +1682,21 @@ kernel's own running code, e.g. src/dos/arbiter.py". `--session SID` scopes to
 one session's helps (the OP_ENFORCE `holder` is the session id); `--since TS`
 keeps only records at/after an ISO timestamp. `--json` is machine-readable.
 
+The rate (docs/297, issue #24): when the workspace has a hook observation log
+(`.dos/metrics/observations.jsonl`, the kernel-owned `hook-observation` family
+— the native binary and the Python hook verbs are both conforming writers), the
+rollup adds the denominator the absolute counts lack: "of N tool calls
+adjudicated by the hooks, X passed untouched and Y were intervened on". Both
+sides of that ratio come from the ONE observation log, never the lane journal —
+the two records have different windows and scopes, so the rate line names its
+source and shares no number with the catch counts above it (like-for-like is
+structural: `hook_observation.intervention_rate` admits observation records
+only, and a `delegate` handoff leaves the denominator — its real verdict is the
+deciding runtime's own record). A workspace with no log renders the rate-less
+output byte-identically; `--session` suppresses the rate (observation records
+carry no session key); `--json` gains an additive `tool_calls` object only when
+the log exists.
+
 Byte-clean (docs/138): every field counted — the rung, the reason class, the
 tool, the withheld bit — is env-authored (the kernel wrote the record downstream
 of an already-decided verdict). No agent narration enters the count, so a run
