@@ -2248,6 +2248,51 @@ def cmd_efficiency_trend(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# work-account  (the work-kind account — what KINDS of work did this iteration land?)
+#   (docs/306 — the composition sibling: productivity reads a trend, efficiency a
+#   ratio, this reads a typed account by witnessed kind. The healthy kinds all
+#   exit 0; CAUGHT is the actionable 3 — a worker over-claimed and the oracle
+#   refused it; IDLE is the honest-nothing 4.)
+_WORK_ACCOUNT_EXITS = ExitMap(
+    {"SHIPPED": 0, "ADVANCED": 0, "GROOMED": 0, "SURFACED": 0, "CAUGHT": 3, "IDLE": 4},
+    unknown=5,  # a future verdict the CLI hasn't caught up to — non-zero, distinct
+    syscall="work_account",  # docs/262 P2 — auto-record when observing
+)
+_WORK_ACCOUNT_EXIT_CODES = _WORK_ACCOUNT_EXITS.codes
+_WORK_ACCOUNT_EXIT_UNKNOWN = _WORK_ACCOUNT_EXITS.unknown
+_WORK_ACCOUNT_EXIT_CONTRACT_ERROR = _WORK_ACCOUNT_EXITS.contract_error
+
+
+def cmd_work_account(args: argparse.Namespace) -> int:
+    """Name the dominant KIND of work one iteration landed (docs/306, WKA).
+
+    Each count comes from the witness that owns it (the oracle's verified
+    count, git's commit count, the decisions-queue delta) — gathered by the
+    caller at the boundary; the classifier is pure.
+    """
+    _apply_workspace(args)
+    from dos import work_account
+
+    try:
+        account = work_account.WorkAccount(
+            verified_ships=args.verified_ships,
+            claimed_ships=args.claimed_ships,
+            catches=args.catches,
+            advance_commits=args.advance_commits,
+            grooms=args.grooms,
+            unblocks=args.unblocks,
+            surfaced=args.surfaced,
+        )
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return _WORK_ACCOUNT_EXIT_CONTRACT_ERROR
+
+    verdict = work_account.classify_work(account)
+
+    return _WORK_ACCOUNT_EXITS.emit(args, verdict, verdict.kind.value)
+
+
+# ---------------------------------------------------------------------------
 # improve  (the self-improving-loop keep-gate — may this loop KEEP this candidate?)
 #   (full prose: docs/CLI.md § "improve  (the self-improving-loop keep-gate — may this loop")
 _IMPROVE_EXITS = ExitMap(
@@ -5960,6 +6005,7 @@ def _exit_code_contract() -> dict:
         "productivity": _PRODUCTIVITY_EXITS.contract(),
         "efficiency": _EFFICIENCY_EXITS.contract(),
         "efficiency-trend": _EFFICIENCY_TREND_EXITS.contract(),
+        "work-account": _WORK_ACCOUNT_EXITS.contract(),
         "improve": _IMPROVE_EXITS.contract(),
         "breaker": _BREAKER_EXITS.contract(),
         "exec-capability": _EXEC_CAPABILITY_EXITS.contract(),
@@ -7277,6 +7323,31 @@ median of the runs before them (sustained — one outlier run cannot trip it).
 Advisory: it reports, it never stops a loop. The verdict IS the exit code:
 0 IMPROVING/STEADY, 3 DEGRADING, 2 contract error (a bad --samples / both sources)."""
 
+_HELP_WORK_ACCOUNT = """the work-kind account — what KINDS of work did this iteration land?
+
+USE THIS WHEN: an iteration's stats would otherwise collapse to one bit ("did a
+pick ship?") and you want the honest composition instead. A 0-pick iteration that
+landed commits, reconciled stamps, raised decisions, or CAUGHT a false "done"
+claim is not nothing — this names its dominant kind and renders the composed
+headline ("1 pick shipped · 4 commits advanced"). The composition sibling of
+`productivity` (a trend) and `efficiency` (a ratio) — docs/306.
+
+Feed it the per-kind counts the WITNESSES recorded (never the worker's narration):
+the oracle's verified-ship count, git's lane-commit count, the oracle-REFUTED
+claim count, the decisions-queue delta:
+  dos work-account --verified-ships 1 --advance-commits 4       →  SHIPPED, exit 0
+  dos work-account --catches 1 --claimed-ships 2                →  CAUGHT,  exit 3
+  dos work-account                                              →  IDLE,    exit 4
+
+Claims alone classify IDLE — a self-reported ship with no oracle answer cannot
+climb the ladder (the docs/138 invariant); the unadjudicated over-claim count is
+echoed in the reason, visible but powerless. Two axes, two words: IDLE is about
+THIS ITERATION's work; the backlog's word (DRAIN) belongs to `dos gate`.
+
+Advisory and observability-only: it changes what the stats SAY, never what the
+loop DOES. The verdict IS the exit code: 0 SHIPPED/ADVANCED/GROOMED/SURFACED,
+3 CAUGHT (a worker over-claimed — actionable), 4 IDLE, 2 contract error."""
+
 _HELP_IMPROVE = """the self-improving-loop keep-gate — may this loop KEEP this candidate?
 
 USE THIS WHEN: you are running a self-improving work loop (propose → verify → measure →
@@ -8032,6 +8103,44 @@ def build_parser() -> argparse.ArgumentParser:
                       help="machine-readable verdict {verdict, reason, history}")
     _add_output_flag(ptrd)
     ptrd.set_defaults(func=cmd_efficiency_trend)
+
+    # work-account (docs/306) — the composition sibling: where productivity reads a
+    # trend and efficiency a ratio, this reads a typed account of one iteration's
+    # work BY KIND and names the dominant kind + the composed headline.
+    pwka = sub.add_parser(
+        "work-account",
+        help="the work-kind account: what KINDS of work did this iteration land "
+             "(SHIPPED/CAUGHT/ADVANCED/GROOMED/SURFACED/IDLE)?",
+        description=_HELP_WORK_ACCOUNT,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    _add_workspace_flags(pwka)
+    pwka.add_argument("--verified-ships", dest="verified_ships", type=int, default=0,
+                      metavar="N",
+                      help="phases the ORACLE confirmed closed (dos verify / "
+                           "dos reconcile VERIFIED) — never the claim")
+    pwka.add_argument("--claimed-ships", dest="claimed_ships", type=int, default=0,
+                      metavar="N",
+                      help="phases the iteration SAID it closed — the self-report, "
+                           "carried so the over-claim gap stays visible; alone it "
+                           "classifies IDLE (claims cannot climb the ladder)")
+    pwka.add_argument("--catches", type=int, default=0, metavar="N",
+                      help="claims the oracle REFUTED (reconcile QUIET_INCOMPLETE, a "
+                           "commit-audit drift) — a caught lie is counted work, exit 3")
+    pwka.add_argument("--advance-commits", dest="advance_commits", type=int, default=0,
+                      metavar="N",
+                      help="commits git recorded on the leased lane that closed no "
+                           "phase — partial progress, no longer graded zero")
+    pwka.add_argument("--grooms", type=int, default=0, metavar="N",
+                      help="durable plan-state bookkeeping (stamps reconciled, "
+                           "findings closed/added, inbox promotions)")
+    pwka.add_argument("--unblocks", type=int, default=0, metavar="N",
+                      help="units that flipped HELD/BLOCKED → OFFERABLE this iteration")
+    pwka.add_argument("--surfaced", type=int, default=0, metavar="N",
+                      help="operator-decision entries raised")
+    pwka.add_argument("--json", action="store_true",
+                      help="machine-readable verdict {verdict, reason, account}")
+    _add_output_flag(pwka)
+    pwka.set_defaults(func=cmd_work_account)
 
     # improve (docs/280) — the keep-gate of the first self-improving work loop for
     #   (full prose: docs/CLI.md § "improve (docs/280) — the keep-gate of the first self-improvi")

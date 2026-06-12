@@ -23,6 +23,11 @@ These tests pin:
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from dos.work_account import (
@@ -229,3 +234,74 @@ def test_to_dict_round_trip_shape():
     assert d["verdict"] == "SHIPPED"
     assert d["account"]["overclaim"] == 1
     assert d["account"]["verified_ships"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 7. The CLI verb — the verdict IS the exit code (no plan, no git needed).
+# ---------------------------------------------------------------------------
+
+
+def _run_cli(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-m", "dos.cli", *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_cli_shipped_exit_zero(tmp_path: Path):
+    r = _run_cli("work-account", "--verified-ships", "1",
+                 "--advance-commits", "4", cwd=tmp_path)
+    assert r.returncode == 0
+    assert r.stdout.startswith("SHIPPED")
+    # The composed headline crosses the pipe under the platform's console
+    # encoding, so pin the two phrases, not the `·` separator byte (the exact
+    # separator is pinned in-process by test_lead_token_composes_in_precedence_order).
+    assert "1 pick shipped" in r.stdout
+    assert "4 commits advanced" in r.stdout
+
+
+def test_cli_caught_exit_three(tmp_path: Path):
+    r = _run_cli("work-account", "--catches", "1", cwd=tmp_path)
+    assert r.returncode == 3
+    assert r.stdout.startswith("CAUGHT")
+
+
+def test_cli_idle_exit_four(tmp_path: Path):
+    r = _run_cli("work-account", cwd=tmp_path)
+    assert r.returncode == 4
+    assert r.stdout.startswith("IDLE")
+
+
+def test_cli_claims_alone_idle(tmp_path: Path):
+    """The non-forgeability rail through the real boundary: a self-reported
+    ship with no oracle answer exits 4, with the over-claim named."""
+    r = _run_cli("work-account", "--claimed-ships", "2", cwd=tmp_path)
+    assert r.returncode == 4
+    assert "2 claimed ships unadjudicated" in r.stdout
+
+
+def test_cli_negative_count_is_contract_error(tmp_path: Path):
+    r = _run_cli("work-account", "--grooms", "-1", cwd=tmp_path)
+    assert r.returncode == 2
+    assert "non-negative" in r.stderr
+
+
+def test_cli_json_shape(tmp_path: Path):
+    r = _run_cli("work-account", "--verified-ships", "1",
+                 "--claimed-ships", "3", "--json", cwd=tmp_path)
+    assert r.returncode == 0
+    payload = json.loads(r.stdout)
+    assert payload["verdict"] == "SHIPPED"
+    assert payload["account"]["overclaim"] == 2
+
+
+def test_cli_exit_codes_contract_row(tmp_path: Path):
+    """`dos exit-codes work-account` publishes the verdict→code table."""
+    r = _run_cli("exit-codes", "work-account", "--json", cwd=tmp_path)
+    assert r.returncode == 0
+    row = json.loads(r.stdout)["work-account"]
+    assert row["SHIPPED"] == 0
+    assert row["CAUGHT"] == 3
+    assert row["IDLE"] == 4
