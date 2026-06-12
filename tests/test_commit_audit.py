@@ -16,6 +16,10 @@ The load-bearing properties:
   * `wip`/`merge`/`bump` → ABSTAIN (no false fire on uncheckable commits);
   * a `docs:` commit touching docs → OK (no false fire), and an explicit doc
     HEAD out-ranks a testing noun later in the title (the 17546b5 over-fire);
+  * a claim whose own words scope it to documentation (a doc filename or doc
+    noun in the title) is witnessed by its doc diff; `test results` reports
+    data, not suite work — but the floor stands: empty commits and inherited
+    subjects over unrelated diffs still fire;
   * the verdict is author-NEUTRAL — nothing in it reads who wrote the message.
 """
 from __future__ import annotations
@@ -276,13 +280,87 @@ def test_data_witness_config_resources_that_are_the_feature():
 
 
 def test_data_witness_site_config_with_doc_in_the_mix():
-    """Pilot sub-class 3: a site-feature claim witnessed by site config plus a
-    doc page — one config/data file in the diff is enough for the data rung."""
+    """Pilot sub-class 3, both halves. The issue's own example (`table of
+    contents`, `documentation`) is doc-SHAPED prose, so it classifies DOC and
+    the touched files witness it; a site-feature claim with NO doc noun rides
+    the data rung off the config file in the mix."""
     v = classify(_claim("feat: Add hierarchical table of contents to documentation homepage"),
                  DiffFacts(files=("_config.yml", "docs/index.md"), is_empty=False))
+    assert v.claim_kind is ClaimKind.DOC
+    assert v.verdict is Verdict.OK
+    # no doc noun anywhere → CODE_EFFECT; the config file is the witness
+    v = classify(_claim("feat: Add hierarchical navigation to the site homepage"),
+                 DiffFacts(files=("_config.yml", "docs/index.md"), is_empty=False))
+    assert v.claim_kind is ClaimKind.CODE_EFFECT
     assert v.verdict is Verdict.OK
     assert v.witness is Witness.DATA_WITNESSED
     assert v.data_files == ("_config.yml",)
+
+
+def test_doc_shaped_prose_claim_witnessed_by_doc_only_diff():
+    """The pilot's doc-only residue: the subject's own words scope the effect
+    to documentation — a doc filename in the title, a doc noun in the window,
+    or a doc phrase — so a doc-only diff is the natural witness, not a
+    contradiction. (De-identified shapes from the #81 re-sweep residue.)"""
+    cases = [
+        # a doc FILENAME named mid-title
+        ("Remove duplicate lowercase skill.md files",
+         ("skills/alpha/skill.md", "skills/beta/skill.md")),
+        # a doc noun in the message window
+        ("Add PR review bot triage guidelines",
+         ("agents/skills/codereview-guide.md",)),
+        # the doc phrase
+        ("fix: Simplify table of contents Liquid syntax to avoid errors",
+         ("docs/index.md",)),
+        ("feat: Add page descriptions to table of contents with inline styling",
+         ("docs/index.md",)),
+    ]
+    for subject, files in cases:
+        v = classify(_claim(subject), DiffFacts(files=files, is_empty=False))
+        assert v.claim_kind is ClaimKind.DOC, subject
+        assert v.verdict is Verdict.OK, subject
+    # the doc-shaped claim still fires on an EMPTY commit — the floor stands
+    v = classify(_claim("Add PR review bot triage guidelines"),
+                 DiffFacts(files=(), is_empty=True))
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    # a dependency manifest wearing .txt is data, not a doc-shaping token
+    assert classify_claim("drop pin of torch in requirements.txt") \
+        is ClaimKind.CODE_EFFECT
+    # "comment(s)" stays OUT of the window set — code comments live in source
+    assert classify_claim("fix: strip comments in the lexer") \
+        is ClaimKind.CODE_EFFECT
+
+
+def test_test_results_phrase_reports_data_not_suite_work():
+    """`add test results …` REPORTS run data; it does not claim suite work. It
+    falls through to CODE_EFFECT, where the leaderboard YAML witnesses on the
+    data rung — while a real test claim keeps the test-file requirement."""
+    v = classify(_claim("add test results for gpt-oss-120b (high) to polyglot leaderboard"),
+                 DiffFacts(files=("website/_data/polyglot_leaderboard.yml",),
+                           is_empty=False))
+    assert v.claim_kind is ClaimKind.CODE_EFFECT
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DATA_WITNESSED
+    # the guard never relaxes a REAL test claim: no reporting noun → TEST
+    assert classify_claim("add tests for the resolver") is ClaimKind.TEST
+    v = classify(_claim("add tests for the resolver"),
+                 DiffFacts(files=("website/_data/polyglot_leaderboard.yml",),
+                           is_empty=False))
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+
+
+def test_inherited_subject_over_attribution_diff_still_fires():
+    """The conservative floor the widenings must not erode: a subject REUSED
+    from the commit that did the work, pasted onto a follow-up whose own diff
+    is an attribution line in a README, is a claim THIS diff cannot witness —
+    the inherited-claim shape (docs/229) is a catch, not an artifact. No doc
+    noun, no data file, no source: it stays CLAIM_UNWITNESSED."""
+    v = classify(_claim("added tags for FORTRAN"),
+                 DiffFacts(files=("queries/tree-sitter-languages/LICENSES.md",),
+                           is_empty=False))
+    assert v.claim_kind is ClaimKind.CODE_EFFECT
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    assert v.witness is Witness.SUBJECT_ONLY
 
 
 def test_data_rung_does_not_swallow_the_real_contradictions():

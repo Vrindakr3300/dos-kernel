@@ -48,7 +48,21 @@ the claimed effect LIVES, so the natural diff is corroboration, not contradictio
 — without this, every honest `fix(ci):` touching only its workflow read as
 "code claim, no source" (the 5b2b940/e5debd1 over-fire). The suppression needs
 the CONJUNCTION (ci-shaped claim AND ci-config diff); either alone changes
-nothing, so the widening is monotone fire-reducing.
+nothing, so the widening is monotone fire-reducing. A claim can also scope
+itself in PROSE: a doc filename in the title (`Remove duplicate skill.md
+files`), or an unambiguous doc noun in the message window (`add triage
+guidelines`, `simplify the table of contents`) — the subject's own words say
+the effect lives in documentation, so it classifies DOC (the pilot's
+site/guide residue), and a "test results/output" phrase REPORTS run data
+rather than claiming suite work, so it falls through to the code-effect path
+where a data file can witness it.
+
+## Known limitation (documented, not widened)
+
+A test claim witnessed only by a test SCRIPT outside the structural test-path
+grammar (`scripts/runtime-smoke.sh` under a `test(...)` head) still fires —
+widening `_TEST_PATH_RE` to arbitrary script names would gut the
+delete-the-assertion catch, so the under-match stands (issue #81 sub-class 4).
 
 ## What it CANNOT witness — and so ABSTAINS on (state it; do not pretend)
 
@@ -115,6 +129,14 @@ _TEST_MARKERS = (
     "test", "tests", "testing", "unit test", "unit tests", "coverage",
     "assertion", "assertions", "spec", "specs",
 )
+# A test noun immediately followed by one of these is REPORTING data about test
+# runs ("add test results to the leaderboard"), not a claim of suite work — it
+# falls through to the ordinary code-effect path, where a data file can witness
+# it. Closed set; the guard never turns a non-fire into a fire.
+_TEST_REPORT_NOUNS = (
+    "result", "results", "output", "outputs", "report", "reports", "data",
+    "log", "logs",
+)
 _TEST_PASS_PHRASES = (
     "tests pass", "test pass", "tests green", "all tests", "passing tests",
     "tests passing", "green build", "fix the test", "fix failing test",
@@ -125,6 +147,18 @@ _DOC_MARKERS = (
     "doc", "docs", "documentation", "readme", "comment", "comments", "typo",
     "changelog", "wording", "rephrase", "clarify",
 )
+# Doc nouns/phrases safe to read from the message WINDOW (not just a lead): a
+# subject SAYING its effect is documentation ("add triage guidelines", "simplify
+# the table of contents") scopes the claim to docs the way a `docs:` head does,
+# so a doc-file diff is its natural witness, not a contradiction (the pilot's
+# site/guide residue). TIGHTER than _DOC_MARKERS on purpose — no "comment(s)"
+# (code comments live in source), no bare "doc" (too polysemous in prose).
+_DOC_WINDOW_NOUNS = (
+    "docs", "documentation", "readme", "changelog", "guide", "guides",
+    "guideline", "guidelines", "tutorial", "tutorials", "faq", "glossary",
+    "docstring", "docstrings",
+)
+_DOC_WINDOW_PHRASES = ("table of contents",)
 # Subjects with no checkable behavioral claim → NO_CLAIM (abstain).
 _NOCLAIM_MARKERS = (
     "wip", "misc", "cleanup", "chore", "bump", "version", "release", "merge",
@@ -403,9 +437,14 @@ def classify_claim(subject: str) -> ClaimKind:
     if any(w in _TEST_MARKERS for w in leads):
         return ClaimKind.TEST
     window_words = window.split()
-    if any(w in ("test", "tests", "testing", "spec", "specs", "coverage")
-           for w in window_words[:3]):
-        return ClaimKind.TEST
+    for i, w in enumerate(window_words[:3]):
+        if w in ("test", "tests", "testing", "spec", "specs", "coverage"):
+            nxt = window_words[i + 1] if i + 1 < len(window_words) else ""
+            if nxt in _TEST_REPORT_NOUNS:
+                # "test results/output/…" REPORTS run data, it does not claim
+                # suite work — fall through to the doc/code-effect rungs.
+                continue
+            return ClaimKind.TEST
     # DOC claim: a doc marker LEADING a segment (honestly scoped to docs), OR the
     # scope-prefix itself NAMES a doc target (`CLAUDE.md: add a glossary`,
     # `README: …`, `docs/206: …`). A `<doc-file>: <action verb> …` subject is a
@@ -413,6 +452,18 @@ def classify_claim(subject: str) -> ClaimKind:
     # file is itself the honest "this is docs" signal, so it must not read as an
     # unwitnessed CODE_EFFECT (the e2d5aa9/b2f58fb/f4a36aa real-history finding).
     if any(w in _DOC_MARKERS for w in leads) or _scope_is_doc(s):
+        return ClaimKind.DOC
+    # A doc ARTIFACT named in the title (`Remove duplicate skill.md files`), or
+    # an unambiguous doc NOUN/PHRASE in the message window (`add triage
+    # guidelines`, `simplify the table of contents`), scopes the claim to
+    # documentation the same way a doc head does — the subject's own words say
+    # the effect lives in prose, so the doc diff is the natural witness (the
+    # pilot's site/guide residue). Fire-reducing only: a DOC claim still fires
+    # on an EMPTY commit.
+    if _names_doc_file(s):
+        return ClaimKind.DOC
+    if any(w in _DOC_WINDOW_NOUNS for w in window_words) \
+            or any(p in window for p in _DOC_WINDOW_PHRASES):
         return ClaimKind.DOC
     # CODE_EFFECT: a code verb LEADING the type or the scoped message.
     if any(w in _CODE_VERBS for w in leads):
@@ -437,6 +488,19 @@ def _scope_is_doc(subject: str) -> bool:
     base = head.rsplit("/", 1)[-1]
     return base in ("readme", "claude.md", "claude", "license", "contributing",
                     "changelog", "authors", "notice")
+
+
+def _names_doc_file(subject: str) -> bool:
+    """True iff a whitespace token in the subject is a doc FILENAME (`skill.md`,
+    `README.rst`) — naming the doc artifact is the claim's own statement that
+    the effect lives in documentation, wherever the token sits in the title.
+    A dependency manifest (`requirements.txt`) is data, not prose, and does not
+    engage. Token-suffix match on whole tokens, never a substring. Pure."""
+    for tok in subject.lower().split():
+        tok = tok.strip("\"'`,;:()[]{}<>")
+        if tok.endswith(_DOC_SUFFIXES) and not _DEP_MANIFEST_TXT_RE.match(tok):
+            return True
+    return False
 
 
 _CC_HEAD_RE = re.compile(r"^([a-z][a-z0-9_-]*)(?:\(([^)]*)\))?!?$")
