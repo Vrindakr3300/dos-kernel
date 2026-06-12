@@ -21,7 +21,10 @@ locally (audit kept) but never pushes.
     BLOCKED-NEW  a blocker / operator-decision / crash seen for the FIRST time
                  this loop — actionable, may need a decision -> reaches peers
     NOTICE       state-changing but routine — a STALE-STAMP false-drain, >=1
-                 finding/closure, a soft-claim, a --next-up-only packet
+                 finding/closure, a soft-claim, a --next-up-only packet, or
+                 (docs/306) real-but-not-pick-shaped work the iteration's
+                 work-kind account witnessed (a caught false claim, advancing
+                 commits, grooming, raised decisions)
     NOOP         a non-event — 0-pick DRAIN, a REPEATED blocker/rate-limit, a
                  gardening-only quiet-sweep, a 0-net soft-claim
 
@@ -52,8 +55,10 @@ from __future__ import annotations
 import enum
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 from .tokens import normalize_token
+from .work_account import WorkAccount, WorkKind, account_lead_token, classify_work
 
 
 class Severity(str, enum.Enum):
@@ -106,6 +111,15 @@ class EventState:
     soft_claims: int = 0  # picks soft-claimed by the rendered packet
     # Did the staged pathspec actually differ from HEAD? False -> a no-op write.
     staged_changed: bool = True
+    # --- docs/306: the work-kind account (optional) ---------------------------
+    # When the write step gathered a per-iteration WorkAccount (each counter
+    # env-witnessed at the I/O edge — the oracle's verified count, git's commit
+    # count, the decisions-queue delta), the dispatch family consults it:
+    # verified ships reach SHIPPED, and real-but-not-pick-shaped work (a caught
+    # false claim, advancing commits, grooming, raised decisions) lifts the
+    # event from NOOP to NOTICE. None = un-migrated caller -> byte-identical
+    # legacy behavior (the picks_shipped/verdict bits decide alone).
+    account: Optional[WorkAccount] = None
 
 
 def classify_event(ev: EventState) -> Severity:
@@ -114,7 +128,8 @@ def classify_event(ev: EventState) -> Severity:
     v = normalize_token(ev.verdict) or ""
 
     if fam in ("dispatch", "dispatch-loop"):
-        if ev.picks_shipped > 0 or v == "LIVE":
+        acct_ships = ev.account.verified_ships if ev.account is not None else 0
+        if ev.picks_shipped > 0 or v == "LIVE" or acct_ships > 0:
             return Severity.SHIPPED
         if v in _BLOCKER_VERDICTS:
             # First time this loop -> actionable; a repeat -> noise.
@@ -122,6 +137,13 @@ def classify_event(ev: EventState) -> Severity:
         if v == "STALE-STAMP":
             # A false-drain: routes a /replan (operator-relevant -> NOTICE) but the
             # following /replan, not this stamp, carries the real signal to peers.
+            return Severity.NOTICE
+        if ev.account is not None and classify_work(ev.account).kind is not WorkKind.IDLE:
+            # docs/306 — the work-kind account says real-but-not-pick-shaped work
+            # landed (a caught false claim, advancing commits, grooming, raised
+            # decisions): state-changing but routine -> NOTICE, no longer a
+            # non-event. The push sink's default threshold (BLOCKED-NEW) still
+            # keeps it off peers' pulls.
             return Severity.NOTICE
         # DRAIN / 0-pick / unknown-token fallthrough — the dominant non-event.
         return Severity.NOOP
@@ -177,6 +199,11 @@ def subject_lead_token(ev: EventState) -> str:
 
     if fam in ("dispatch", "dispatch-loop"):
         if sev is Severity.SHIPPED:
+            if ev.account is not None and ev.account.verified_ships > 0:
+                # docs/306 — the composed work-kind headline: every non-zero
+                # kind in precedence order ("1 pick shipped · 4 commits
+                # advanced"), from the same phrase source as the classifier.
+                return account_lead_token(ev.account)
             n = ev.picks_shipped
             return f"{n} pick{'s' if n != 1 else ''} shipped" if n > 0 else "shipped"
         if sev is Severity.BLOCKED_NEW:
@@ -189,6 +216,12 @@ def subject_lead_token(ev: EventState) -> str:
             return f"blocked ({v.lower()})"
         if v == "STALE-STAMP":
             return "stale-stamp false-drain (/replan recommended)"
+        if sev is Severity.NOTICE and ev.account is not None:
+            # docs/306 — a NOTICE earned by the work-kind account (no pick
+            # shipped, but real work witnessed): lead with the account, e.g.
+            # "1 false claim caught · 3 grooms". The backlog word ("drained")
+            # stays the NOOP fallthrough's — work and backlog are two axes.
+            return account_lead_token(ev.account)
         return "drained"  # NOOP — the dominant 0-pick non-event
 
     if fam == "replan":

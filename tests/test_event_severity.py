@@ -15,6 +15,7 @@ import pytest
 
 from dos import event_severity as es
 from dos.event_severity import EventState, Severity
+from dos.work_account import WorkAccount
 
 
 class TestClassifyDispatch:
@@ -55,6 +56,71 @@ class TestClassifyDispatch:
 
     def test_unknown_token_falls_through_to_noop(self):
         assert es.classify_event(EventState("dispatch", verdict="GARBLE")) is Severity.NOOP
+
+
+class TestClassifyDispatchWorkAccount:
+    """docs/306 — the optional work-kind account on a dispatch-family event.
+
+    The account subdivides the iteration's work by witnessed KIND, so
+    real-but-not-pick-shaped work stops reading as a non-event. account=None
+    (every test above) stays byte-identical legacy behavior.
+    """
+
+    def test_verified_ship_in_account_is_shipped(self):
+        # The oracle confirmed a ship the picks_shipped bit never carried.
+        ev = EventState("dispatch-loop", verdict="DRAIN",
+                        account=WorkAccount(verified_ships=1))
+        assert es.classify_event(ev) is Severity.SHIPPED
+
+    @pytest.mark.parametrize("account", [
+        WorkAccount(catches=1),          # a refused false claim
+        WorkAccount(advance_commits=4),  # partial progress, no phase closed
+        WorkAccount(grooms=2),           # stamps reconciled
+        WorkAccount(unblocks=1),         # a HELD unit freed
+        WorkAccount(surfaced=2),         # operator decisions raised
+    ])
+    def test_non_pick_work_lifts_drain_to_notice(self, account):
+        # The headline fix: a 0-pick iteration that did witnessed work is
+        # NOTICE, no longer a NOOP "drained".
+        ev = EventState("dispatch-loop", verdict="DRAIN", account=account)
+        assert es.classify_event(ev) is Severity.NOTICE
+
+    def test_idle_account_stays_noop(self):
+        # An all-zero account adds nothing — the honest drain stays a NOOP.
+        ev = EventState("dispatch", verdict="DRAIN", account=WorkAccount())
+        assert es.classify_event(ev) is Severity.NOOP
+
+    def test_claims_alone_do_not_lift(self):
+        # The non-forgeability rail: a self-reported ship with no oracle answer
+        # cannot climb the severity ladder.
+        ev = EventState("dispatch", verdict="DRAIN",
+                        account=WorkAccount(claimed_ships=3))
+        assert es.classify_event(ev) is Severity.NOOP
+
+    def test_blocker_still_outranks_account_work(self):
+        # A first-seen blocker is rank-2 actionable; the account's NOTICE-grade
+        # work does not mask it.
+        ev = EventState("dispatch", verdict="RATE_LIMITED", first_occurrence=True,
+                        account=WorkAccount(grooms=3))
+        assert es.classify_event(ev) is Severity.BLOCKED_NEW
+
+    def test_subject_composes_account_headline_on_ship(self):
+        ev = EventState("dispatch-loop", verdict="LIVE",
+                        account=WorkAccount(verified_ships=1, advance_commits=4))
+        assert es.subject_lead_token(ev) == "1 pick shipped · 4 commits advanced"
+
+    def test_subject_composes_account_headline_on_notice(self):
+        ev = EventState("dispatch-loop", verdict="DRAIN",
+                        account=WorkAccount(catches=1, grooms=2))
+        assert es.subject_lead_token(ev) == "1 false claim caught · 2 grooms"
+
+    def test_subject_without_account_unchanged(self):
+        # Back-compat: the legacy headline grammar is byte-identical when no
+        # account was gathered.
+        ev = EventState("dispatch-loop", verdict="LIVE", picks_shipped=3)
+        assert es.subject_lead_token(ev) == "3 picks shipped"
+        assert es.subject_lead_token(
+            EventState("dispatch", verdict="DRAIN")) == "drained"
 
 
 class TestClassifyReplan:
