@@ -878,6 +878,61 @@ concurrency (lost parallelism — safe), never admit a collision.
 
 ---
 
+## Prove your plugin in YOUR CI — the conformance suite (`dos.testing`) ✅ *shipped*
+
+Every axis above ends at the same question: how does a third party *prove*
+their occupant composes under the kernel's safety laws? The laws are
+structural in-tree — `run_judge` fails to ABSTAIN, `admissible_under_floor`
+AND-s every scorer under the prefix floor, `send_safely` fail-softs a raising
+transport — but your plugin meets them only at runtime. `dos.testing` turns
+each law into a test you run in YOUR checkout, against YOUR occupant and the
+`dos-kernel` version YOUR CI pins (the SQLAlchemy dialect-suite pattern; this
+repo never sees your code):
+
+```python
+# your_plugin/tests/test_conformance.py
+from dos.testing.suite import JudgeConformance   # or OverlapPolicyConformance / NotifierConformance
+from your_plugin import YourJudge
+
+class TestYourJudgeConformance(JudgeConformance):
+    def make_judge(self):
+        return YourJudge()
+```
+
+Subclass with a `Test*` name, override the one factory, and pytest runs the
+laws: your occupant names itself, satisfies the seam Protocol, returns the
+kernel's verdict type on benign input, and never escapes the safety wrapper
+on a hostile-input battery. The `test_kernel_*` checks then run the hostile
+doubles (`RaisingJudge`, `JunkReturnJudge`, `LyingAdmitPolicy`,
+`RaisingNotifier`, …) through your *installed* kernel — so if a pinned
+version ever broke a floor, YOUR build goes red, not your fleet. The overlap
+class carries the arbiter-level proof: a lying-admit scorer cannot
+double-book a held lane through the real `arbitrate`.
+
+`JudgeTester` is the table half (the ESLint `RuleTester` analogue) — write
+(claim, expected-stance) rows, get the hostile cases auto-run for free:
+
+```python
+from dos.judges import Claim
+from dos.testing import JudgeTester
+
+JudgeTester(YourJudge()).run(
+    agree=[Claim("phase P1 shipped", evidence=("commit abc1234",))],
+    disagree=[Claim("phase P2 shipped", evidence=("",))],
+    abstain=["no evidence either way"],   # a bare str is claim_text
+)
+```
+
+No pytest import anywhere in `dos.testing` — plain classes + `assert` — so
+importing it adds no dependency (any runner works). Worked examples, one
+minimal installable plugin per seam kind with conformance wired:
+[`examples/conformance_plugins/`](../examples/conformance_plugins/README.md).
+Covered seams today: judges, overlap policies, notifiers (docs/306,
+[#61](https://github.com/anthony-chaudhary/dos-kernel/issues/61)); the other
+seam kinds extend the same pattern on demand.
+
+---
+
 ## The invariant that makes openness safe: `--check`
 
 An open vocabulary is only safe if you can prove it's complete. The completeness
