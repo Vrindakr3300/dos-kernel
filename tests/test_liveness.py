@@ -313,6 +313,73 @@ def test_liveness_cli_spinning(tmp_path: Path):
     assert "SPINNING" in proc.stdout
 
 
+def test_liveness_cli_usage_json_feeds_tokens_spent_since(tmp_path: Path):
+    """`--usage-json` feeds the OPTIONAL waste signal (docs/300 §7, issue #41): a
+    SPINNING run's `tokens_spent_since` equals the record's NORMALIZED total, and
+    the reason string carries the count. The verdict ladder is unchanged (docs/219:
+    tokens never decide ADVANCING/SPINNING/STALLED) — it is SPINNING on the commit /
+    heartbeat rungs alone, the count only enriches the legibility."""
+    start_sha = _plain_repo(tmp_path)
+    started_ms = 1_780_000_000_000
+    rid = _mint_run_id(started_ms)
+    usage = tmp_path / "usage.json"
+    usage.write_text(json.dumps({"input_tokens": 100, "output_tokens": 50}),
+                     encoding="utf-8")  # normalized total = 150
+
+    proc = _run_cli(
+        "liveness", "--workspace", str(tmp_path),
+        "--run-id", rid, "--start-sha", start_sha,
+        "--now-ms", str(started_ms + 40 * _MIN),
+        "--last-heartbeat-age-ms", str(2 * _MIN),   # alive → SPINNING
+        "--usage-json", str(usage), "--json",
+    )
+    assert proc.returncode == 3, proc.stderr  # SPINNING (unchanged by the signal)
+    payload = json.loads(proc.stdout)
+    assert payload["verdict"] == "SPINNING"
+    assert payload["evidence"]["tokens_spent_since"] == 150
+    assert "150 tokens" in payload["reason"]
+
+
+def test_liveness_cli_without_usage_json_leaves_signal_absent(tmp_path: Path):
+    """Absent `--usage-json`, `tokens_spent_since` is None and the reason carries no
+    token count — byte-identical to before the slot was fed (the done-condition's
+    'existing behavior unchanged when the flag is absent')."""
+    start_sha = _plain_repo(tmp_path)
+    started_ms = 1_780_000_000_000
+    rid = _mint_run_id(started_ms)
+
+    proc = _run_cli(
+        "liveness", "--workspace", str(tmp_path),
+        "--run-id", rid, "--start-sha", start_sha,
+        "--now-ms", str(started_ms + 40 * _MIN),
+        "--last-heartbeat-age-ms", str(2 * _MIN),
+        "--json",
+    )
+    assert proc.returncode == 3, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["evidence"]["tokens_spent_since"] is None
+    assert "tokens" not in payload["reason"]
+
+
+def test_liveness_cli_malformed_usage_json_is_contract_error(tmp_path: Path):
+    """A malformed usage record is a CONTRACT error (exit 2), never a silently
+    dropped count — the same boundary discipline `dos efficiency --usage-json` has."""
+    start_sha = _plain_repo(tmp_path)
+    started_ms = 1_780_000_000_000
+    rid = _mint_run_id(started_ms)
+    bad = tmp_path / "bad.json"
+    bad.write_text("{ this is not json", encoding="utf-8")
+
+    proc = _run_cli(
+        "liveness", "--workspace", str(tmp_path),
+        "--run-id", rid, "--start-sha", start_sha,
+        "--now-ms", str(started_ms + 40 * _MIN),
+        "--usage-json", str(bad),
+    )
+    assert proc.returncode == 2, proc.stdout
+    assert "usage-json" in proc.stderr
+
+
 def test_liveness_cli_rejects_bad_run_id(tmp_path: Path):
     """A non-run-id token is a contract error (exit 2), not a silent verdict."""
     _plain_repo(tmp_path)

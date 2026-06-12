@@ -2002,6 +2002,21 @@ def cmd_liveness(args: argparse.Namespace) -> int:
             pid, host_id=getattr(args, "host_id", "") or "", this_host=this_host
         ).alive
 
+    # The OPTIONAL waste signal (docs/300 §7, issue #41): `--usage-json` feeds the
+    # normalized provider token total into `tokens_spent_since`. Read ONCE here at
+    # the boundary (the same `_read_usage_breakdown` the efficiency family uses), so
+    # the verdict stays pure. NOT a verdict input — docs/219 holds: tokens never
+    # decide ADVANCING/SPINNING/STALLED; the count only enriches the SPINNING reason
+    # ("…and it has burned N tokens while not moving"). Absent ⇒ None ⇒ byte-identical
+    # to before this slot was fed. A malformed record is a CONTRACT error (exit 2),
+    # never a silently-dropped count.
+    try:
+        usage = _read_usage_breakdown(args)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return _LIVENESS_EXIT_CONTRACT_ERROR
+    tokens_spent_since = usage.total if usage is not None else None
+
     ev = liveness.ProgressEvidence(
         run_started_ms=started_ms,
         now_ms=now_ms,
@@ -2014,7 +2029,7 @@ def cmd_liveness(args: argparse.Namespace) -> int:
             args.last_heartbeat_age_ms if args.last_heartbeat_age_ms is not None
             else jd.newest_heartbeat_age_ms
         ),
-        tokens_spent_since=None,           # optional waste signal; absent until P3
+        tokens_spent_since=tokens_spent_since,   # docs/300 §7: the waste signal, fed
         process_alive=process_alive,
     )
     verdict = liveness.classify(ev)
@@ -8178,6 +8193,13 @@ def build_parser() -> argparse.ArgumentParser:
                           "host the proc rung stays silent (a pid is host-local)")
     pln.add_argument("--no-proc", action="store_true",
                      help="disable the OS proc-liveness probe even when --pid is given")
+    pln.add_argument("--usage-json", dest="usage_json", default=None, metavar="PATH",
+                     help="a provider usage record (file, or `-` for stdin; docs/300) — "
+                          "its normalized token total feeds the OPTIONAL waste signal "
+                          "`tokens_spent_since`, so a SPINNING verdict can SAY how many "
+                          "tokens burned with no commit. NEVER a verdict input (docs/219: "
+                          "tokens never decide ADVANCING/SPINNING/STALLED); absent ⇒ "
+                          "byte-identical to before")
     pln.add_argument("--json", action="store_true",
                      help="machine-readable verdict {verdict, reason, evidence}")
     _add_output_flag(pln)

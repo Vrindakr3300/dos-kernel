@@ -326,12 +326,21 @@ def classify(
         #    journal events past the grace age, it is burning tokens narrating
         #    motion it isn't making. The signal with no home in `loop_decide`
         #    (which reads the self-report, not ground truth).
+        #
+        #    The OPTIONAL waste signal (docs/82, fed by docs/300 §7): when
+        #    `tokens_spent_since` is present, name the cost burned with no commit —
+        #    the "spinning AND it cost N tokens" sentence an operator means by waste.
+        #    The count NEVER moved the verdict here (it is SPINNING on the commit /
+        #    journal / heartbeat rungs alone, docs/219); it only makes the reason
+        #    legible. Absent ⇒ the reason is byte-identical to before the slot was fed.
         return LivenessVerdict(
             verdict=Liveness.SPINNING,
             reason=(
                 f"alive (heartbeat {age} ms old ≤ spin window {policy.spin_ms} ms) "
                 f"and {run_age} ms into the run (≥ grace {policy.grace_ms} ms) but "
                 f"0 commits and 0 lane events since start — spinning"
+                + (f" (burned {ev.tokens_spent_since} tokens while not moving)"
+                   if ev.tokens_spent_since is not None else "")
             ),
             evidence=ev,
         )
