@@ -5147,6 +5147,19 @@ That's the whole adapter. A `verified_done` that returns `False` means *no
 artifact backs the claim* — the agent's cheerful "all work completed!" never
 enters into it.
 
+The verify half also ships pre-wrapped: `dos.verified` is this same gate as a
+decorator / context manager, so a code path *cannot run* on an unverified claim
+instead of remembering to check
+([Python cookbook Recipe 8](cookbook-python-api.md)):
+
+```python
+from dos import verified
+
+@verified("AUTH", "AUTH2", workspace="/path/to/repo")
+def publish():   # raises NotShippedError until git evidence says AUTH2 shipped
+    ...
+```
+
 ## Recipe 1 — LangGraph: a referee node + a verdict-routed edge · **ran**
 
 **The believe-the-agent point:** a conditional edge that routes on the worker
