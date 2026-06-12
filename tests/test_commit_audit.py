@@ -354,9 +354,10 @@ def test_inherited_subject_over_attribution_diff_still_fires():
     from the commit that did the work, pasted onto a follow-up whose own diff
     is an attribution line in a README, is a claim THIS diff cannot witness —
     the inherited-claim shape (docs/229) is a catch, not an artifact. No doc
-    noun, no data file, no source: it stays CLAIM_UNWITNESSED."""
-    v = classify(_claim("added tags for FORTRAN"),
-                 DiffFacts(files=("queries/tree-sitter-languages/LICENSES.md",),
+    noun, no data file, no source: it stays CLAIM_UNWITNESSED. (Synthetic
+    fixture — the shape of a real pilot catch, subject de-identified.)"""
+    v = classify(_claim("added parsers for COBOL"),
+                 DiffFacts(files=("queries/grammars/LICENSES.md",),
                            is_empty=False))
     assert v.claim_kind is ClaimKind.CODE_EFFECT
     assert v.verdict is Verdict.CLAIM_UNWITNESSED
