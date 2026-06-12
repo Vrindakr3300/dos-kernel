@@ -150,9 +150,24 @@ def append(run_id: str, entry: dict, *, path: Path | None = None,
         e.update(_schema.tag(SCHEMA_FAMILY, INTENT_LEDGER_SCHEMA))
     line = json.dumps(e, sort_keys=True, default=str, ensure_ascii=False) + "\n"
     p.parent.mkdir(parents=True, exist_ok=True)
+    # Torn-tail repair — the `lane_journal.append` discipline (issue #62): a writer
+    # that died mid-append leaves a terminator-less final line, and a bare O_APPEND
+    # would concatenate THIS record onto it, losing a durably-acknowledged record
+    # (a vanished RESUME_PROPOSED breaks the §5 req-4 idempotence; a vanished
+    # STEP_VERIFIED silently redoes work). A leading newline gives the fragment its
+    # own line — kept as a `_CORRUPT` sentinel, never folded — and this record
+    # stays readable. Never trims; `\r` counts as a terminator (splitlines).
+    needs_sep = False
+    try:
+        if p.exists() and p.stat().st_size > 0:
+            with open(p, "rb") as rf:
+                rf.seek(-1, os.SEEK_END)
+                needs_sep = rf.read(1) not in (b"\n", b"\r")
+    except OSError:
+        needs_sep = False  # unreadable tail → write as before (never block the WAL)
     fd = os.open(str(p), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
-        os.write(fd, line.encode("utf-8"))
+        os.write(fd, (("\n" + line) if needs_sep else line).encode("utf-8"))
         os.fsync(fd)
     finally:
         os.close(fd)

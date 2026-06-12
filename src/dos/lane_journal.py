@@ -325,12 +325,32 @@ def append(entry: dict, path: Path | None = None) -> dict:
     e.setdefault("ts", journal_now_iso())
     line = json.dumps(e, sort_keys=True, default=str, ensure_ascii=False) + "\n"
     p.parent.mkdir(parents=True, exist_ok=True)
+    # Torn-tail repair (issue #62 fault injection). A writer that died mid-append
+    # can leave a final line with NO terminator. A bare O_APPEND would CONCATENATE
+    # this record onto that fragment — one unparseable line — so a fully-fsync'd,
+    # successfully-returned append became INVISIBLE to `replay`: the registry
+    # forgot a granted lease and a colliding tree would be falsely admitted (the
+    # exact lost-live-lease bug `compact`'s docstring calls catastrophic). Writing
+    # a leading newline first gives the fragment its own line: `read_all` keeps it
+    # as a `_CORRUPT` sentinel (auditable, ignored for state) and THIS record stays
+    # parseable. Repair never trims — a COMPLETE record that merely lost its
+    # terminator becomes its own line the same way, never destroyed. (`\r` counts
+    # as a terminator: `read_all` splits via `splitlines`, and the Windows
+    # text-mode fd writes `\r\n`.)
+    needs_sep = False
+    try:
+        if p.exists() and p.stat().st_size > 0:
+            with open(p, "rb") as rf:
+                rf.seek(-1, os.SEEK_END)
+                needs_sep = rf.read(1) not in (b"\n", b"\r")
+    except OSError:
+        needs_sep = False  # unreadable tail → write as before (never block the WAL)
     # O_APPEND makes the write atomic w.r.t. other appenders at the OS level;
     # the surrounding _StateFileLock already serializes our own callers, but
     # O_APPEND is the belt to that suspenders.
     fd = os.open(str(p), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
-        os.write(fd, line.encode("utf-8"))
+        os.write(fd, (("\n" + line) if needs_sep else line).encode("utf-8"))
         os.fsync(fd)
     finally:
         os.close(fd)
