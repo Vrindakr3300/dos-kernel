@@ -977,6 +977,9 @@ for a copy-me skeleton.
 - **[docs/FAQ.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/FAQ.md)** — the arriving questions ("how do I
   verify an agent's claim?", "does it need an LLM?"), each answered in one
   self-contained block.
+- **[docs/ALTERNATIVES.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/ALTERNATIVES.md)** — DOS and the
+  alternatives: evals, framework guardrails, Temporal, in-toto, plain CI —
+  what each does well, what DOS adds, and when NOT to use DOS.
 - **[docs/README.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/README.md)** — the docs index (guides vs. design notes
   vs. the dated build-journal; the numbers are chronology, not a reading order).
 - **[docs/HACKING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/HACKING.md)** — extend DOS without forking it.
