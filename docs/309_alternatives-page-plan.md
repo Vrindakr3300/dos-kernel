@@ -13,11 +13,13 @@
 > Framing source (private, by the cross-link rule): `dos-private`
 > `notes/2026-06-12_next-steps-private-companions.md` §"Comparison page framing".
 
-*Status: in flight 2026-06-12 — drafted same day as the plan; each phase
-closes only when `dos verify` answers SHIPPED for it (P2's witness lives on
-`gh-pages`, see its phase note). Operator sign-off on the final copy is the
-gate before any push. (Numbered 309: 306–308 were taken by concurrent
-plans — the same collision docs/310 renumbered around.)*
+*Status: SHIPPED 2026-06-12 — P1 oracle-verified on master (`45546e2`;
+`dos verify docs/309_alternatives-page-plan P1` answers SHIPPED via
+grep-subject), P2 witnessed on its own branch (`git log gh-pages` →
+`0f3e7a8`, the documented out-of-ancestry case — the master oracle answers
+NOT_SHIPPED via `none` for it by design). Operator sign-off on the final
+copy remains the gate before any push. (Numbered 309: 306–308 were taken by
+concurrent plans — the same collision docs/310 renumbered around.)*
 
 ## 0. The editorial contract (what "generous" means, pinned)
 
