@@ -17,7 +17,7 @@
 > this repository itself, before anyone else is named.
 
 *Status: P1 (the decisions, the page schema, and the self-graded page #1)
-ships with this plan. P2–P5 are open, each behind the gate its section
+ships with this plan. P2–P6 are open, each behind the gate its section
 names. Companion issue
 [#85](https://github.com/anthony-chaudhary/dos-kernel/issues/85) owns the
 machine half (the opt-in badge + per-repo `verdict.json`); this plan owns
@@ -60,14 +60,15 @@ the human-readable page. Parent thread:
 
 ## 1. Decision — tier sequencing (opt-in vs. public-data grading)
 
-Three tiers, strictly in order. A tier opens only when the one before it has
+Four tiers, strictly in order. A tier opens only when the one before it has
 shipped and its gates hold.
 
 | Tier | Who is indexed | Gate |
 |---|---|---|
 | **0 — self** | This repository only. The worked example, the proof the schema renders, and the standing demonstration that we publish our own number first. | Ships with this plan (P1). |
 | **1 — opt-in** | A repo whose owner asks (a `scoreboard-request` issue), or that already wears the DOS gate (docs/BADGE.md) and requests the page. The owner sees the rendered page **before** it publishes (right of reply is constitutive, not a courtesy). | P4 — needs the P2 renderer + the #85 `verdict.json` shape agreed, so the page and the machine endpoint state the same verdict. |
-| **2 — curated public set** | The Scorecard move: repos meeting the docs/307 methodology's published corpus criteria, no opt-in. This **reverses docs/307's aggregate-only v1 rule — deliberately, and only here.** | P5 — operator-gated. Prerequisites, all of them: the methodology page live on the Pages site; #81 and [#82](https://github.com/anthony-chaudhary/dos-kernel/issues/82) landed; the §2 pipeline operational end-to-end on tiers 0–1; the right-of-reply + correction path documented and exercised at least once; an operator sign-off recorded outside this repo. |
+| **2a — seeded, CLEAN-only** | The seeding move (operator-directed, 2026-06-12): sweep the methodology-qualifying agent-active repos at corpus scale (~top 1,000 by the published criteria) and publish a named page **only where the verdict is CLEAN** — zero raw flags surviving the deterministic rung, or every flag adjudicated `AUDITOR_ARTIFACT`. A repo with any unresolved flag gets **no page and is not named anywhere**; it is counted in the aggregate only. Publishing a clean verdict has no accusation surface, so this tier opens ahead of full tier 2 — it is the Snyk-Advisor wall of receipts-backed green, seeded in one run. Seeded (unsolicited) pages honor removal on request, free. | P6 — needs the P2 renderer, the §3 correction path documented, and the §2 no-naming-of-unresolved rule pinned in the renderer. |
+| **2 — curated public set** | The full Scorecard move: repos meeting the docs/307 methodology's published corpus criteria, no opt-in, **including non-clean verdicts**. This **reverses docs/307's aggregate-only v1 rule — deliberately, and only here.** | P5 — operator-gated. Prerequisites, all of them: the methodology page live on the Pages site; #81 and [#82](https://github.com/anthony-chaudhary/dos-kernel/issues/82) landed; the §2 pipeline operational end-to-end on tiers 0–1; the right-of-reply + correction path documented and exercised at least once; an operator sign-off recorded outside this repo. |
 
 Repos with a DOS outreach relationship in flight stay excluded at every tier
 (the methodology's conflict rule, carried over verbatim): the grade and the
@@ -102,9 +103,13 @@ Every flag carries a typed **adjudication record**:
 writes subject-only commits deliberately, e.g. this repo's re-stamp commits —
 or `unexplained`) / `UNADJUDICATED`. The structural rule, pinned by test in
 P2: **the renderer refuses to render any non-clean verdict from a flag
-without a `CONFIRMED` adjudication record.** A tier-2 page with any
-`UNADJUDICATED` flag does not publish at all (it is listed as "pending
-adjudication" in the index root, with no numbers).
+without a `CONFIRMED` adjudication record.** A tier-2/2a page with any
+unresolved flag does not publish at all — and the repo is **not named
+anywhere**, not even as "pending": a "pending adjudication" line beside a
+wall of green would itself read as a soft accusation. The index root lists
+published pages only; coverage is reported as an aggregate count ("N audited,
+M published"), never a name list. (This supersedes the first version of this
+plan, which had the index root naming pending repos.)
 
 ## 3. Decision — freshness + revocation
 
@@ -222,7 +227,37 @@ and #85's `verdict.json`. First foreign page renders for an opt-in repo.
 ## P5 — tier 2, the curated public set (operator-gated)
 
 Open only when every §1 tier-2 prerequisite holds, recorded operator
-sign-off included. Until then the index is tiers 0–1 by construction.
+sign-off included. Until then the index is tiers 0–2a by construction.
+
+## P6 — the seeded index: report #2 at corpus scale (tier 2a)
+
+One run, two outputs — the index seed and the second aggregate report are
+the same sweep:
+
+1. **Corpus, stratified.** Stratum A: the methodology-qualifying agent-active
+   repos ranked by stars (~top 1,000) — the page-seeding set. Stratum B: a
+   matched sample of *unreviewed* agent commits (direct-push fleets,
+   auto-merged bot PRs) — aggregate-only, identity-stripped, never paged.
+   Enumeration is mechanical (the docs/307 tool's marker queries; the
+   universe is measured in millions of attributed commits, so the corpus
+   floor does the selection, not hand-picking).
+2. **The pages.** Every stratum-A repo whose verdict meets the §1 tier-2a
+   CLEAN bar gets a named page from the P2 renderer; everything else is
+   aggregate-only and unnamed (§2). Expectation from the pilot: reviewed
+   OSS adjudicates ~clean, so the seed is a wall of green at SEO scale —
+   each page a landing surface for its own repo's name.
+3. **Report #2.** The headline is the stratum gap — review-gated agent code
+   vs. unreviewed agent code, pooled and by-kind, denominators everywhere.
+   The report links the seeded pages; the pages link the report.
+4. **The funnel.** Each seeded CLEAN page is an outreach artifact: "your
+   repo graded clean over N commits — claim the page" routes into the #85
+   registration flow (badge + `verdict.json`), converting seeded pages into
+   opt-in tier-1 relationships.
+
+Done-condition: report #2 published beside the docs/307 report; the index
+root lists the seeded pages; every published page meets the tier-2a bar and
+carries its as-of block; the withheld count appears only as an aggregate
+number.
 
 ## Out of scope
 
