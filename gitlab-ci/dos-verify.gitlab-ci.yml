@@ -1,0 +1,65 @@
+# DOS verify gate — the claim-vs-diff / did-it-ship gate for GitLab CI (issue #73).
+#
+# The GitLab twin of verify-action/ (the GitHub composite action): run a DOS
+# truth verdict over a merge request's commits and let the exit code BE the
+# job status (`dos commit-audit`: clean=0 / unwitnessed=1 / contract_error=2).
+# Deterministic, author-neutral, no LLM, no network beyond the pip install.
+#
+# Usage in a consumer repo (.gitlab-ci.yml) — one include line:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/gitlab-ci/dos-verify.gitlab-ci.yml'
+#       # pin a release tag instead of master for reproducible CI
+#
+# Or copy this file next to your .gitlab-ci.yml and `include: local:` it.
+# Make the `dos-verify` job required (Settings → Merge requests → status
+# checks / pipeline must succeed) and GitLab becomes the enforcement point
+# for the kernel's verdict: DOS decides, your project settings block.
+#
+# Override per project (CI/CD variables or `variables:` in the consumer):
+#   DOS_VERSION   pip version spec, e.g. "==0.24.1"   (default: latest)
+#   DOS_FAIL_ON   "unwitnessed" (default, blocks) | "none" (observe-only)
+#   DOS_WORKSPACE repo root to audit                  (default: ".")
+#   DOS_PLAN / DOS_PHASE  set BOTH to also run the did-it-ship verdict
+#                 (`dos verify`) — for repos that stamp phases.
+#
+# ⚠ GIT_DEPTH: the audit reads git ANCESTRY, not a shallow tip. GitLab's
+# default shallow clone (20–50 commits) amputates the evidence and an MR with
+# more commits than the depth would audit against a hole. `GIT_DEPTH: "0"`
+# below forces the full clone — the same reason verify-action checks out with
+# fetch-depth: 0. Do not "optimize" it away.
+
+dos-verify:
+  image: python:3.12 # the full image carries git; -slim does not
+  variables:
+    GIT_DEPTH: "0" # full history — the verdict reads ancestry (see header)
+    DOS_VERSION: ""
+    DOS_FAIL_ON: "unwitnessed"
+    DOS_WORKSPACE: "."
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - pip install --quiet "dos-kernel${DOS_VERSION}"
+  script:
+    # An MR audits its base..head (the commits about to land); a branch
+    # pipeline audits the tip commit. The exit code is the verdict.
+    - |
+      if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ]; then
+        range="${CI_MERGE_REQUEST_DIFF_BASE_SHA}..HEAD"
+      else
+        range="HEAD"
+      fi
+      echo "dos commit-audit — claim vs diff over ${range}"
+      if [ "${DOS_FAIL_ON}" = "none" ]; then
+        dos commit-audit --sweep --warn-only --workspace "${DOS_WORKSPACE}" "${range}"
+      else
+        dos commit-audit --sweep --workspace "${DOS_WORKSPACE}" "${range}"
+      fi
+    # The optional did-it-ship rung: set DOS_PLAN + DOS_PHASE (CI variables)
+    # and the job also requires the phase to be stamped in git ancestry.
+    - |
+      if [ -n "${DOS_PLAN:-}" ] && [ -n "${DOS_PHASE:-}" ]; then
+        echo "dos verify — did (${DOS_PLAN}, ${DOS_PHASE}) actually ship?"
+        dos verify --workspace "${DOS_WORKSPACE}" "${DOS_PLAN}" "${DOS_PHASE}"
+      fi

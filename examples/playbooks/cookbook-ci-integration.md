@@ -60,6 +60,32 @@ The `--check` step is worth keeping: it fails the build if someone edits
 ship commits — catching the misconfiguration before it silently makes `verify`
 answer `via none`.
 
+## Recipe 1b — the same gates on GitLab CI (one include line)
+
+The GitLab population never sees a GitHub Action. The shipped template
+[`gitlab-ci/dos-verify.gitlab-ci.yml`](../../gitlab-ci/dos-verify.gitlab-ci.yml)
+is the `verify-action/` twin: a `dos-verify` job that audits an MR's commits
+(claim vs diff, `dos commit-audit --sweep` over
+`$CI_MERGE_REQUEST_DIFF_BASE_SHA..HEAD`) and optionally requires a stamped
+phase (`dos verify`, set `DOS_PLAN`/`DOS_PHASE`). The exit code is the verdict.
+
+```yaml
+# .gitlab-ci.yml
+include:
+  - remote: 'https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/gitlab-ci/dos-verify.gitlab-ci.yml'
+    # pin a release tag instead of master for reproducible CI
+```
+
+Make the `dos-verify` job required (pipeline must succeed) and GitLab enforces
+what the kernel decides. Knobs are CI variables: `DOS_VERSION` (pip pin),
+`DOS_FAIL_ON: none` (observe-only), `DOS_WORKSPACE`.
+
+**The one pitfall is `GIT_DEPTH`.** The audit reads git *ancestry*; GitLab's
+default shallow clone (20–50 commits) amputates the evidence base, and an MR
+with more commits than the depth audits against a hole. The template forces
+`GIT_DEPTH: "0"` (the same reason the GitHub action checks out with
+`fetch-depth: 0`) — if you override the job, keep it.
+
 ## Recipe 2 — verify a release manifest before tagging
 
 Before cutting a release, confirm every phase the release notes claim is real.
