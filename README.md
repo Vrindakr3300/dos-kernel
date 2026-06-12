@@ -47,6 +47,22 @@ zero config, and the only thing you ever install is one small Python package.
 > ⏱️ **Want to try it right now?** Jump to **[Try it in 60 seconds](#try-it-in-60-seconds)**
 > — one command, real output, then come back for the why.
 
+> ⚡ **Or just add it — two commands, zero decisions.** From the repo where your
+> agent works:
+>
+> ```bash
+> pip install dos-kernel
+> dos init --hooks auto   # finds the agent runtime(s) you already use, wires in the checks
+> ```
+>
+> From then on: your agent can't tell you **"done"** unless the work actually
+> landed, two agents can't silently overwrite each other's files, and a run
+> that stalls gets flagged instead of quietly spinning. Nothing about your
+> workflow changes, and you don't need to learn any of the vocabulary below to
+> be covered. It prints the one config file it wrote; deleting the `dos hook`
+> entries there undoes it. (No runtime detected? It says so and lists the
+> names to pick from — it never guesses.)
+
 <sub>**v0.25.0** · 3900+ tests · CI: Python 3.11–3.13 on Linux + a Windows 3.13
 smoke run · the only runtime dependency is **PyYAML** · **MIT**.</sub>
 
@@ -526,6 +542,8 @@ DOS's hooks into the runtime you actually run. One command per host — it write
 that host's own hook-config file, merged into anything already there:
 
 ```bash
+dos init --hooks auto .          # don't know the names below? this detects the
+                                 # runtime(s) this repo already uses and wires them all
 dos init --hooks claude-code .   # .claude/settings.json
 dos init --hooks cursor .        # .cursor/hooks.json
 dos init --hooks codex .         # .codex/config.toml
@@ -543,7 +561,13 @@ Claude Code, Cursor, Codex, Gemini, Antigravity, and Claude Cowork
 ([docs/221](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/221_the-cross-vendor-hook-installer.md),
 [docs/269](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/269_antigravity-the-fifth-host.md),
 [docs/298](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/298_claude-cowork-the-sixth-host-shared-surface.md)).
-`--with-hooks` is the back-compat alias for `--hooks claude-code`. Claude
+`--with-hooks` is the back-compat alias for `--hooks claude-code`. `auto`
+([docs/303](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/303_hooks-auto-detection-plan.md))
+names the host *for* you: it probes which of those config dirs already exist in
+the repo — plus the shell's own environment, so a fresh repo opened inside
+Claude Code still detects — wires every runtime it finds (a shared config file
+is wired once), and fails loud with the list above when nothing is detectable,
+never guessing. Claude
 Cowork is the *shared-surface* host: it runs the same agent harness as Claude
 Code, so wiring either name binds both — one file, one set of hooks. (One
 honest caveat, carried on the install note itself: the Cowork app doesn't
@@ -730,9 +754,9 @@ pip install "dos-kernel[mcp]"
 
 After installing, run **`/dos-kernel:dos-setup`** once — it confirms the package
 is importable, reports what the plugin wired, and points at the next skill. The
-same three hooks are available à la carte via `dos init --hooks claude-code`
-(and for Cursor / Codex / Gemini); the plugin is just the pre-packaged Claude
-Code form. The bundle's design + the build that keeps its skills in lockstep
+same three hooks are available à la carte via `dos init --hooks auto` (detects
+your runtime; or name one — claude-code, cursor, codex, gemini, antigravity,
+claude-cowork); the plugin is just the pre-packaged Claude Code form. The bundle's design + the build that keeps its skills in lockstep
 with the source are in **[claude-plugin/README.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/claude-plugin/README.md)**.
 
 ## CLI

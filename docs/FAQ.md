@@ -86,10 +86,11 @@ repo. The full matrix — uv, pipx, WSL, tracking master — is in
 
 ## Does DOS work with Claude Code, Cursor, Codex, Gemini CLI, or other agent runtimes?
 
-Yes, on two surfaces. **Enforcement** is hooks: `dos init --hooks <host>`
-wires the kernel's verdicts into the runtime's own hook config, with dialects
-shipped for Claude Code, Cursor, Codex, Gemini CLI, Antigravity, and Claude
-Cowork. **Advisory** is MCP: the `dos-mcp` server exposes the same verdicts as
+Yes, on two surfaces. **Enforcement** is hooks: `dos init --hooks auto`
+detects the runtime(s) your repo already uses and wires the kernel's verdicts
+into each one's own hook config (`--hooks <host>` names one explicitly), with
+dialects shipped for Claude Code, Cursor, Codex, Gemini CLI, Antigravity, and
+Claude Cowork. **Advisory** is MCP: the `dos-mcp` server exposes the same verdicts as
 tools to any MCP host (Claude Desktop, Cursor, Cline, …). Hooks can refuse an
 action; MCP can only inform — the repo recommends both. There is also a
 bundled [Claude Code plugin](https://github.com/anthony-chaudhary/dos-kernel/blob/master/claude-plugin/README.md)

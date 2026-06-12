@@ -85,6 +85,7 @@ for this tour.
 > works on whichever agent you already use, not just Claude Code:
 >
 > ```bash
+> dos init --hooks auto .          # detects the runtime(s) this repo already uses
 > dos init --hooks claude-code .   # writes .claude/settings.json
 > dos init --hooks cursor .        # writes .cursor/hooks.json
 > dos init --hooks codex .         # writes .codex/config.toml
@@ -120,7 +121,7 @@ overlap policy      prefix*  (ratio_max=0.333; prefix floor always on)
 stall reader        REPEATING>=3, STALLED>=5  (ignore_tools: (none))
 supervisor target   1  (count_spinning_as_alive=yes, reap_stalled=yes, spin_halt_after=off)
 is git workspace    no
-runtime hooks       none wired   (run `dos init --hooks <runtime>` to bind)
+runtime hooks       none wired   (run `dos init --hooks auto` to bind)
 layout style        dos
 environment print   <hash>  (kernel v0.25.0 @ <sha>; py 3.13.7; <os>)
   declared tools    (none declared)

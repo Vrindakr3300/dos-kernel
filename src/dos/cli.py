@@ -5707,7 +5707,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         wired_bits = [f"{h} ({len(evs)})" for h, evs in hook_status if evs]
         bound = ", ".join(wired_bits) if wired_bits else "none wired"
         print(f"runtime hooks       {bound}"
-              + ("" if wired_bits else "   (run `dos init --hooks <runtime>` to bind)"))
+              + ("" if wired_bits else "   (run `dos init --hooks auto` to bind)"))
     # docs/296 — the operator's SELF_MODIFY override window, made visible: an
     # armed window changes what the PRE hook will admit, so the report that
     # answers "what am I configured as?" must show it. Read-only, fail-soft.
@@ -6066,8 +6066,8 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
                 # agents, so a newcomer who is NOT a fleet operator still sees
                 # the move that applies to them.
                 _say("\nThen plug the verdict in where you already run agents:")
-                _say("  an agent runtime   dos init --hooks <runtime> .   "
-                     "(claude-code, cursor, codex,")
+                _say("  an agent runtime   dos init --hooks auto .   (detects "
+                     "claude-code, cursor, codex,")
                 _say("                     gemini, antigravity, claude-cowork) — "
                      'the host itself refuses a false "done"')
                 _say('  an MCP host        {"mcpServers": {"dos": {"command": '

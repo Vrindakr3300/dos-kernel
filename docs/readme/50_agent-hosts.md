@@ -38,6 +38,8 @@ DOS's hooks into the runtime you actually run. One command per host — it write
 that host's own hook-config file, merged into anything already there:
 
 ```bash
+dos init --hooks auto .          # don't know the names below? this detects the
+                                 # runtime(s) this repo already uses and wires them all
 dos init --hooks claude-code .   # .claude/settings.json
 dos init --hooks cursor .        # .cursor/hooks.json
 dos init --hooks codex .         # .codex/config.toml
@@ -55,7 +57,13 @@ Claude Code, Cursor, Codex, Gemini, Antigravity, and Claude Cowork
 ([docs/221](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/221_the-cross-vendor-hook-installer.md),
 [docs/269](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/269_antigravity-the-fifth-host.md),
 [docs/298](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/298_claude-cowork-the-sixth-host-shared-surface.md)).
-`--with-hooks` is the back-compat alias for `--hooks claude-code`. Claude
+`--with-hooks` is the back-compat alias for `--hooks claude-code`. `auto`
+([docs/303](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/303_hooks-auto-detection-plan.md))
+names the host *for* you: it probes which of those config dirs already exist in
+the repo — plus the shell's own environment, so a fresh repo opened inside
+Claude Code still detects — wires every runtime it finds (a shared config file
+is wired once), and fails loud with the list above when nothing is detectable,
+never guessing. Claude
 Cowork is the *shared-surface* host: it runs the same agent harness as Claude
 Code, so wiring either name binds both — one file, one set of hooks. (One
 honest caveat, carried on the install note itself: the Cowork app doesn't

@@ -77,7 +77,7 @@ pip install "dos-kernel[mcp]"
 
 After installing, run **`/dos-kernel:dos-setup`** once — it confirms the package
 is importable, reports what the plugin wired, and points at the next skill. The
-same three hooks are available à la carte via `dos init --hooks claude-code`
-(and for Cursor / Codex / Gemini); the plugin is just the pre-packaged Claude
-Code form. The bundle's design + the build that keeps its skills in lockstep
+same three hooks are available à la carte via `dos init --hooks auto` (detects
+your runtime; or name one — claude-code, cursor, codex, gemini, antigravity,
+claude-cowork); the plugin is just the pre-packaged Claude Code form. The bundle's design + the build that keeps its skills in lockstep
 with the source are in **[claude-plugin/README.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/claude-plugin/README.md)**.

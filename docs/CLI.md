@@ -2310,6 +2310,15 @@ facts + the PURE merge live in `dos.hook_install`; this is the I/O BOUNDARY that
 reads → merges → writes (the "I/O at the boundary, data to the pure core" rule).
 `--with-hooks` is exactly `--hooks claude-code` (kept for backward-compat; its
 command stays byte-identical, so the existing test_init_hooks.py suite is green).
+`--hooks auto` (docs/303) resolves at this same boundary: probe each known
+spec's config dir under the target (+ its `env_markers` in the shell's own
+environment), dedupe hosts sharing one config file via the pure
+`choose_auto_hosts` (the default host owns its shared file; the covered sibling
+is NAMED in the output), then wire each detected host through the ordinary
+per-host path. Nothing detected fails LOUD with the probe list and the host
+menu — never a guessed default (a wrong host is a no-op deny against the real
+runtime, the docs/217/221 failure). `host_spec("auto")` keeps raising: auto is
+an installer MODE, not a host.
 
 ### § `init` is workspace-INSENSITIVE for config READBACK (it scaffolds the very
 

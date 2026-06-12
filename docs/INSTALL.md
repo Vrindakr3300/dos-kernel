@@ -228,9 +228,12 @@ pip install "dos-kernel[mcp]"
 
 Run **`/dos-kernel:dos-setup`** once after installing — it confirms the package
 is importable and reports what the plugin wired. The same hooks are available à
-la carte via `dos init --hooks claude-code` (and for Cursor / Codex / Gemini /
-Antigravity). Details: [claude-plugin/README.md](../claude-plugin/README.md) and
-[docs/221](221_the-cross-vendor-hook-installer.md).
+la carte via `dos init --hooks auto` — it detects the runtime(s) your repo
+already uses and wires them all — or by name (`--hooks claude-code`, `cursor`,
+`codex`, `gemini`, `antigravity`, `claude-cowork`). Details:
+[claude-plugin/README.md](../claude-plugin/README.md),
+[docs/221](221_the-cross-vendor-hook-installer.md), and
+[docs/303](303_hooks-auto-detection-plan.md).
 
 ---
 

@@ -41,6 +41,22 @@ zero config, and the only thing you ever install is one small Python package.
 > ⏱️ **Want to try it right now?** Jump to **[Try it in 60 seconds](#try-it-in-60-seconds)**
 > — one command, real output, then come back for the why.
 
+> ⚡ **Or just add it — two commands, zero decisions.** From the repo where your
+> agent works:
+>
+> ```bash
+> pip install dos-kernel
+> dos init --hooks auto   # finds the agent runtime(s) you already use, wires in the checks
+> ```
+>
+> From then on: your agent can't tell you **"done"** unless the work actually
+> landed, two agents can't silently overwrite each other's files, and a run
+> that stalls gets flagged instead of quietly spinning. Nothing about your
+> workflow changes, and you don't need to learn any of the vocabulary below to
+> be covered. It prints the one config file it wrote; deleting the `dos hook`
+> entries there undoes it. (No runtime detected? It says so and lists the
+> names to pick from — it never guesses.)
+
 <sub>**v0.25.0** · 3900+ tests · CI: Python 3.11–3.13 on Linux + a Windows 3.13
 smoke run · the only runtime dependency is **PyYAML** · **MIT**.</sub>
 
