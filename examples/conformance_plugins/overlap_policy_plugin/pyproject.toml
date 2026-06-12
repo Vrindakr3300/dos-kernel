@@ -1,0 +1,23 @@
+# A minimal third-party overlap-policy plugin — the dos.testing worked example.
+# Install only the published kernel name `dos-kernel`; the bare `dos` name on
+# PyPI is an unrelated package (see the kernel's SECURITY.md "Supply chain").
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dos-example-overlap-policy-plugin"
+version = "0.1.0"
+description = "Example dos.overlap_policies plugin: a basename-strictness scorer, conformance-tested"
+requires-python = ">=3.11"
+dependencies = ["dos-kernel>=0.25"]
+
+# The registration: `resolve_overlap_policy("basename")` finds this by name
+# once the package is installed. The built-in `prefix` floor resolves first
+# and cannot be shadowed — and whatever this policy answers, admission is
+# ANDed under that floor.
+[project.entry-points."dos.overlap_policies"]
+basename = "example_overlap_policy:BasenameOverlapPolicy"
+
+[tool.setuptools]
+py-modules = ["example_overlap_policy"]

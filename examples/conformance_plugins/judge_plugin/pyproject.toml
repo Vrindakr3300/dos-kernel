@@ -1,0 +1,22 @@
+# A minimal third-party judge plugin — the dos.testing worked example.
+# Install only the published kernel name `dos-kernel`; the bare `dos` name on
+# PyPI is an unrelated package (see the kernel's SECURITY.md "Supply chain").
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dos-example-judge-plugin"
+version = "0.1.0"
+description = "Example dos.judges plugin: a deterministic evidence-count judge, conformance-tested"
+requires-python = ">=3.11"
+dependencies = ["dos-kernel>=0.25"]
+
+# The registration: `resolve_judge("evidence-count")` finds this by name once
+# the package is installed. Built-ins (`abstain`) resolve first and cannot be
+# shadowed.
+[project.entry-points."dos.judges"]
+evidence-count = "example_judge:EvidenceCountJudge"
+
+[tool.setuptools]
+py-modules = ["example_judge"]
