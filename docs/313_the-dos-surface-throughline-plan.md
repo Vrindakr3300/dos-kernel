@@ -15,8 +15,11 @@
 > *your repo*, which is the only neutral ground every agent platform already
 > shares.
 
-*Status: P1 SHIPPED 2026-06-12 (the public page + indexes + the stale-pointer
-fix — verify on master). P2–P4 open.*
+*Status: P1 (`34f1946`), P2 (`d081443`), and P4 (`4782dda`) SHIPPED
+2026-06-12 — each oracle-verified on master. P3 (upward root discovery)
+remains DESIGNED-ONLY: it edits the T1-guarded `config.py`, so it ships via
+the operator playbook or the docs/296 arm-file, never by the loop that wrote
+this plan.*
 
 ## 0. What is already true (and where it is pinned)
 
