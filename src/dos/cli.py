@@ -5720,6 +5720,63 @@ def _runtime_hook_status(root: Path) -> list[tuple[str, list[str]]]:
     return out
 
 
+def _dot_dos_facts(cfg: "_config.SubstrateConfig") -> dict:
+    """The `.dos` surface, sized (docs/313 P4): the policy provenance (`dos.toml`
+    declared vs the generic default), the schema-versioned identity card, and
+    which per-project fossils exist with how big each has grown. The operator's
+    "what does my `.dos` know?" view — the throughline page (docs/DOT_DOS.md)
+    explains the surface this reports. Boundary I/O, read-only and fail-soft:
+    doctor reports, never writes — a missing/unreadable file reads as absent
+    (None), never created and never a crashed report row.
+    """
+    root = cfg.paths.root
+
+    def _jsonl(p) -> "dict | None":
+        try:
+            if p is None or not p.is_file():
+                return None
+            with open(p, "r", encoding="utf-8", errors="replace") as fh:
+                rows = sum(1 for line in fh if line.strip())
+            return {"path": str(p), "rows": rows, "bytes": p.stat().st_size}
+        except OSError:
+            return None
+
+    def _dir(p) -> "dict | None":
+        try:
+            if p is None or not p.is_dir():
+                return None
+            return {"path": str(p), "entries": sum(1 for _ in p.iterdir())}
+        except OSError:
+            return None
+
+    card = None
+    if cfg.paths.project_card is not None:
+        try:
+            raw = json.loads(cfg.paths.project_card.read_text(encoding="utf-8"))
+            card = {
+                "path": str(cfg.paths.project_card),
+                "schema": raw.get("schema"),
+                "project_id": raw.get("project_id"),
+                "created_at": raw.get("created_at"),
+            }
+        except (OSError, ValueError):
+            card = None
+
+    from dos import hook_observation as _hobs
+    from dos import posttool_sensor as _post
+    return {
+        "config_declared": (root / "dos.toml").is_file(),
+        "project_card": card,
+        "fossils": {
+            "lane_journal": _jsonl(cfg.paths.lane_journal),
+            "verdict_journal": _jsonl(cfg.paths.verdict_journal),
+            "observations": _jsonl(_hobs.observations_path(cfg)),
+            "runs": _dir(cfg.paths.fanout_runs),
+            "streams": _dir(_post.streams_dir_for(cfg)),
+        },
+    }
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     _apply_workspace(args)
     cfg = _config.active()
@@ -5825,6 +5882,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             # SPINNING is 3, `gate` DRAIN is 3, etc. — instead of reverse-
             # engineering `$?`. Sourced from the same maps the handlers return.
             "exit_codes": _exit_code_contract(),
+            # docs/313 P4 — the `.dos` surface, sized: policy provenance, the
+            # identity card, and each fossil's existence/row-count, so "what
+            # does my .dos know?" is one doctor read (docs/DOT_DOS.md).
+            "dot_dos": _dot_dos_facts(cfg),
         }
         if check_requested:
             report["findings"] = list(findings)
@@ -5920,6 +5981,23 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except Exception:  # noqa: BLE001 — a report row must never break doctor
         print("self-mod override   disarmed")
     print(f"layout style        {cfg.paths.style}")
+    # docs/313 P4 — the `.dos` surface, sized: where this repo's policy came
+    # from, whether the identity card exists, and how much each per-project
+    # fossil has accumulated (the throughline page, docs/DOT_DOS.md).
+    _dd = _dot_dos_facts(cfg)
+    _dd_card = _dd["project_card"]
+    _dd_bits = []
+    for _label, _key, _unit in (("WAL", "lane_journal", "rows"),
+                                ("verdicts", "verdict_journal", "rows"),
+                                ("observations", "observations", "rows"),
+                                ("runs", "runs", "entries"),
+                                ("streams", "streams", "entries")):
+        _fact = _dd["fossils"][_key]
+        _dd_bits.append(f"{_label} {_fact[_unit] if _fact else 0}")
+    print(f".dos surface        policy: "
+          f"{'dos.toml' if _dd['config_declared'] else 'generic default'}; "
+          f"card: {('schema ' + str(_dd_card['schema'])) if _dd_card else '(none)'}; "
+          + ", ".join(_dd_bits))
     # The environment print (docs/115): *under what* this kernel adjudicates. The
     #   (full prose: docs/CLI.md § "The environment print (docs/115): *under what* this kernel a")
     if cfg.env is not None:

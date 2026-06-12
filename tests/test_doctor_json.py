@@ -164,3 +164,42 @@ def test_doctor_json_check_clean_exits_zero(tmp_path: Path):
     assert proc.returncode == 0, (proc.stdout, proc.stderr)
     report = json.loads(proc.stdout)
     assert report.get("findings") == []
+
+
+def test_doctor_json_reports_the_dot_dos_surface(tmp_path: Path):
+    """docs/313 P4 — the `dot_dos` section sizes the per-project state surface:
+    policy provenance, the identity card, and each fossil's presence. On a
+    fresh repo with no `.dos/` everything honestly reads absent; after a
+    durable lease the WAL and card show up — one doctor read answers "what
+    does my .dos know?"."""
+    _plain_repo(tmp_path)
+
+    proc = _cli(tmp_path, "doctor", "--json")
+    assert proc.returncode == 0, proc.stderr
+    dd = json.loads(proc.stdout)["dot_dos"]
+    assert dd["config_declared"] is False  # no dos.toml → generic default
+    assert dd["project_card"] is None
+    assert set(dd["fossils"]) == {"lane_journal", "verdict_journal",
+                                  "observations", "runs", "streams"}
+    assert all(v is None for v in dd["fossils"].values())  # nothing written yet
+
+    # A durable lease creates the surface; doctor now sees the WAL and the card.
+    # (`--workspace` must precede the subcommand for subcommand verbs, so this
+    # one call can't ride the tail-appending `_cli` helper.)
+    acq = subprocess.run(
+        [sys.executable, "-m", "dos.cli", "lease-lane", "--workspace", str(tmp_path),
+         "acquire", "--lane", "main", "--owner", "t1"],
+        capture_output=True, text=True,
+    )
+    assert acq.returncode == 0, acq.stderr
+    dd = json.loads(_cli(tmp_path, "doctor", "--json").stdout)["dot_dos"]
+    assert dd["fossils"]["lane_journal"]["rows"] >= 1
+    assert dd["project_card"]["schema"] == 1
+
+
+def test_doctor_text_carries_the_dot_dos_line(tmp_path: Path):
+    """The human path reports the same surface in one line."""
+    _plain_repo(tmp_path)
+    proc = _cli(tmp_path, "doctor")
+    assert proc.returncode == 0, proc.stderr
+    assert ".dos surface        policy: generic default" in proc.stdout
