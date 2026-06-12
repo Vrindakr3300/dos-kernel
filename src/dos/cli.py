@@ -597,6 +597,157 @@ def _quickstart_fleet_act(cfg, say) -> None:
     say("#  held. Ask with `arbitrate`; take the lane with `lease-lane acquire`.)")
 
 
+def _quickstart_spinning_act(work: Path, run_git, say, keep_at) -> int:
+    """The spinning-loop scene of `dos quickstart --spinning` (issue #59).
+
+    The false-"still working" sibling of the default scene's false "done": a
+    scripted agent narrates progress for four steps while landing zero commits,
+    then `dos liveness` rules on the run from the git delta + heartbeat — never
+    the prose — and calls it SPINNING; `dos efficiency` prices the waste; one
+    honest commit (the only change) flips the verdict to ADVANCING. Every
+    verdict goes through the real kernel classifiers against the throwaway
+    repo's actual git history — nothing is canned. Returns the process exit
+    code (0 = the contrasts came out; 2 = environment fault), the same contract
+    as the caught-lie scene.
+    """
+    import subprocess
+
+    from dos import efficiency, git_delta, liveness, run_id
+
+    # 0. The story — the overnight burn: the most common first encounter with
+    #    the narration-vs-truth gap is a loop that reports motion all night and
+    #    is caught only by the morning bill.
+    say("# The story: you left a coding agent running overnight. Every few minutes")
+    say('# it reported: "Still on it — making progress, almost there." Next')
+    say("# morning: a real token bill, zero commits. The narration said motion;")
+    say("# the repo says otherwise. Catching that gap WHILE it runs — from")
+    say("# evidence the loop did not author — is this demo.")
+    say()
+
+    # 1. A throwaway repo with one seed commit — the world before the run. The
+    #    seed's SHA is the run's start SHA; commits after it are the forward
+    #    delta the liveness verdict reads.
+    run_git("init", "-q")
+    run_git("config", "user.email", "quickstart@example.com")
+    run_git("config", "user.name", "DOS Quickstart")
+    run_git("config", "commit.gpgsign", "false")
+    (work / "README.md").write_text(
+        "# the repo the agent was asked to improve\n", encoding="utf-8")
+    run_git("add", "-A")
+    run_git("commit", "-q", "-m", "seed: the repo before the run")
+    start_sha = subprocess.run(
+        ["git", "-C", str(work), "rev-parse", "--short", "HEAD"],
+        check=True, capture_output=True, text=True,
+        stdin=subprocess.DEVNULL).stdout.strip()  # docs/295
+    rid = run_id.mint("quickstart-spin-demo")
+    say("$ git rev-parse --short HEAD     # the run's start SHA — its liveness baseline")
+    say(f"  {start_sha}")
+    say("# The run gets a correlation id (its start time is encoded in the token):")
+    say("$ dos run-id mint quickstart-spin-demo")
+    say(f"  {rid.run_id}")
+    say()
+
+    # 2. The loop runs — all narration, no commits. The per-step token figure is
+    #    the demo's stand-in for a real loop's spend; it feeds `efficiency` below.
+    steps = (
+        "Making progress — exploring the codebase.",
+        "Almost there — refining the approach.",
+        "Still on it — reworking the edge cases.",
+        "Nearly done — polishing the solution.",
+    )
+    for i, line in enumerate(steps, start=1):
+        say(f'  [step {i}]  agent: "{line}"   (~12,000 tokens)')
+    say("# Four steps of confident narration. The repo over the same window:")
+    say(f"$ git log --oneline {start_sha}..HEAD")
+    say("  (no output — 0 commits)")
+    say()
+
+    # 3. Forty minutes in, ask the kernel — not the agent. The demo fast-forwards
+    #    the clock by injecting --now-ms (the deterministic-script injection the
+    #    real verb offers); in a live fleet you just run `dos liveness` while the
+    #    loop narrates. The heartbeat is the loop wrapper's keepalive — in a
+    #    fleet the lane journal supplies it; here the demo passes the age
+    #    directly (the loop printed a step a minute ago, so it is ALIVE). The
+    #    git delta says nothing MOVED. Alive + not moving + old enough to judge
+    #    = SPINNING.
+    now_ms = rid.ts_ms + 40 * 60 * 1000
+    commits = git_delta.count_commits_since(start_sha, root=work)
+    v1 = liveness.classify(liveness.ProgressEvidence(
+        run_started_ms=rid.ts_ms, now_ms=now_ms,
+        commits_since_start=commits, journal_events_since=0,
+        last_heartbeat_age_ms=60_000,
+    ))
+    say("# 40 minutes in, ask the kernel — not the agent:")
+    say(f"$ dos liveness --run-id {rid.run_id} --start-sha {start_sha} "
+        f"--last-heartbeat-age-ms 60000 --now-ms {now_ms}")
+    say(f"  {v1.verdict.value}  {v1.reason}")
+    say(f"  exit={_LIVENESS_EXIT_CODES.get(v1.verdict.value, _LIVENESS_EXIT_UNKNOWN)}"
+        "  (3 = SPINNING — alive and narrating, but ground truth is not moving)")
+    say()
+
+    # 4. Price the waste — the same zero, as spend.
+    tokens = 12_000 * len(steps)
+    e1 = efficiency.classify(
+        efficiency.EfficiencyEvidence.of(work=commits, tokens=tokens))
+    say("# Price what the narration cost:")
+    say(f"$ dos efficiency --work {commits} --tokens {tokens}")
+    say(f"  {e1.verdict.value}  {e1.reason}")
+    say(f"  exit={_EFFICIENCY_EXIT_CODES.get(e1.verdict.value, _EFFICIENCY_EXIT_UNKNOWN)}"
+        "  (4 = WASTEFUL — the tokens bought no work)")
+    say()
+
+    # 5. The honest step — the agent actually lands work. Same narration, same
+    #    heartbeat, same clock; the COMMIT is the only change, and it alone
+    #    flips the verdict.
+    (work / "parser.py").write_text("def parse(): ...\n", encoding="utf-8")
+    run_git("add", "-A")
+    run_git("commit", "-q", "-m", "feat: extract the parser")
+    commits2 = git_delta.count_commits_since(start_sha, root=work)
+    v2 = liveness.classify(liveness.ProgressEvidence(
+        run_started_ms=rid.ts_ms, now_ms=now_ms,
+        commits_since_start=commits2, journal_events_since=0,
+        last_heartbeat_age_ms=60_000,
+    ))
+    say("# Now one step that actually lands:")
+    say("$ git commit -m 'feat: extract the parser'")
+    say(f"$ dos liveness --run-id {rid.run_id} --start-sha {start_sha} "
+        f"--last-heartbeat-age-ms 60000 --now-ms {now_ms}")
+    say(f"  {v2.verdict.value}  {v2.reason}")
+    say(f"  exit={_LIVENESS_EXIT_CODES.get(v2.verdict.value, _LIVENESS_EXIT_UNKNOWN)}"
+        "  (0 = ADVANCING — state moved)")
+    say()
+
+    # The demo only "worked" if the contrasts came out: SPINNING + WASTEFUL off
+    # the zero delta, ADVANCING off the one real commit. Anything else is an
+    # environment fault we should fail on, not paper over.
+    if not (v1.verdict is liveness.Liveness.SPINNING
+            and e1.verdict is efficiency.Efficiency.WASTEFUL
+            and v2.verdict is liveness.Liveness.ADVANCING):
+        print("error: quickstart --spinning did not produce the expected "
+              "SPINNING/WASTEFUL/ADVANCING contrast — your git or environment "
+              "may be unusual.", file=sys.stderr)
+        return 2
+
+    say("Same narration before and after — only the COMMIT changed the verdict.")
+    say("The evidence is the git delta and the heartbeat, never the prose.")
+    say("And the verdict is ADVISORY: DOS reports, it never kills the loop — a")
+    say("supervisor, the loop itself, or a CI step branches on the exit code")
+    say("(0 advancing / 3 spinning / 4 stalled) and decides what to do.")
+
+    if keep_at is not None:
+        say(f"\nThe demo repo is at {keep_at} — replay the verdict against it:")
+        say(f"  dos liveness --workspace {keep_at} --run-id {rid.run_id} "
+            f"--start-sha {start_sha} --last-heartbeat-age-ms 60000 "
+            f"--now-ms {now_ms}")
+        say("  (it answers ADVANCING now — the honest commit is in the repo's git)")
+    else:
+        say("\nReplay it hands-on:        dos quickstart --spinning --keep dos-spin-demo")
+        say("Run it on a real run:      dos liveness --run-id RID --start-sha SHA "
+            "--workspace .")
+        say('And the false-"done" half: dos quickstart   (the caught-lie sibling)')
+    return 0
+
+
 # docs/207 Phase 7 — the skill on-ramp. `dos init --skills` copies the generic
 #   (full prose: docs/CLI.md § "docs/207 Phase 7 — the skill on-ramp. `dos init --skills` co")
 
@@ -5875,6 +6026,13 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
               "git repo to verify against).", file=sys.stderr)
         return 2
 
+    spinning = bool(getattr(args, "spinning", False))
+    if spinning and getattr(args, "driver", None):
+        print("error: --spinning is its own scene — run it without --driver "
+              "(the driver scene shows the caught-lie + arbitration demo).",
+              file=sys.stderr)
+        return 2
+
     keep_dir = getattr(args, "keep", None)
     if keep_dir is not None:
         work = Path(keep_dir).resolve()
@@ -5895,6 +6053,14 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
     driver_name = getattr(args, "driver", None)
 
     try:
+        # The --spinning scene (issue #59) — the false-"still working" sibling.
+        # Same scaffolding contract as the default scene (throwaway repo, the
+        # same cleanup in the finally below); a different lie gets caught.
+        if spinning:
+            return _quickstart_spinning_act(
+                work, _run_git, _say,
+                work if keep_dir is not None else None)
+
         from dos import _demo_story as _story
         from dos import oracle
 
@@ -7492,11 +7658,22 @@ def build_parser() -> argparse.ArgumentParser:
             "lane, and refuse agent C when every lane is held — the collision that "
             "never reached your files. It closes with the adoption router: hooks / "
             "MCP / CI / fleet, one line each. "
+            "--spinning runs the SIBLING scene instead — the false \"still "
+            "working\": a loop narrates progress while landing zero commits, and "
+            "`dos liveness` catches the spin from the git delta, never the prose. "
             "By default it runs in a temp dir and cleans up; --keep DIR leaves it."),
         formatter_class=argparse.RawDescriptionHelpFormatter)
     pqs.add_argument("--keep", metavar="DIR", default=None,
                      help="scaffold the demo repo in DIR and leave it (default: a "
                           "temp dir, removed on exit)")
+    pqs.add_argument("--spinning", action="store_true",
+                     help="run the spinning-loop scene instead: an agent narrates "
+                          "'making progress' for four steps while committing "
+                          "nothing — `dos liveness` rules SPINNING off the git "
+                          "delta + heartbeat (never the narration), `dos "
+                          "efficiency` prices the waste, and one honest commit "
+                          "flips the verdict to ADVANCING. The false-'still "
+                          "working' sibling of the default caught-lie scene")
     pqs.add_argument("--driver", metavar="NAME", default=None,
                      help="scaffold the throwaway repo under a named driver pack "
                           "(e.g. workshop) instead of the auto-derived generic "

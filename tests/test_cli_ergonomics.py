@@ -490,6 +490,61 @@ def test_quickstart_unknown_driver_is_a_clean_error():
     assert "workshop" in cp.stderr  # the suggested template
 
 
+def test_quickstart_spinning_runs_the_false_still_working_contrast():
+    """`dos quickstart --spinning` (issue #59) replays the overnight burn: a loop
+    narrates 'making progress' for four steps while landing zero commits, and the
+    kernel rules SPINNING off the git delta + heartbeat — then one honest commit
+    (the only change) flips the verdict to ADVANCING, and `dos efficiency` prices
+    the spin WASTEFUL. The honest boundary must be stated in the transcript: the
+    verdict is advisory, and the evidence is the delta, never the prose."""
+    cp = _cli("quickstart", "--spinning")
+    assert cp.returncode == 0, (cp.stdout, cp.stderr)
+    out = cp.stdout
+    # The narrated commands are the real verbs a reader can replay.
+    assert "dos liveness --run-id" in out
+    assert "dos efficiency --work 0 --tokens 48000" in out
+    # The contrast: spinning while narrating, advancing once a commit lands.
+    assert "SPINNING" in out
+    assert "WASTEFUL" in out
+    assert "ADVANCING" in out
+    # SPINNING is ruled BEFORE ADVANCING — the honest step flips it, not luck.
+    assert out.index("SPINNING") < out.index("ADVANCING")
+    # The honest boundary, stated: advisory verdict; evidence, not narration.
+    assert "ADVISORY" in out
+    assert "never the prose" in out
+
+
+def test_quickstart_spinning_keep_replays_the_real_verdict(tmp_path: Path):
+    """The --spinning verdicts come from the real classifiers over the throwaway
+    repo's actual git history, not canned strings: the kept repo's replay line
+    (the exact `dos liveness` invocation the epilogue prints) answers ADVANCING
+    from a fresh process, because the honest commit is in the repo's git."""
+    import re
+    keep = tmp_path / "spin-demo"
+    cp = _cli("quickstart", "--spinning", "--keep", str(keep))
+    assert cp.returncode == 0, (cp.stdout, cp.stderr)
+    assert (keep / ".git").exists()
+    m = re.search(
+        r"--run-id (RID-\S+) --start-sha (\S+) "
+        r"--last-heartbeat-age-ms 60000 --now-ms (\d+)",
+        cp.stdout)
+    assert m, f"no replayable liveness line in the transcript:\n{cp.stdout}"
+    rid, sha, now_ms = m.group(1), m.group(2), m.group(3)
+    again = _cli("liveness", "--workspace", str(keep), "--run-id", rid,
+                 "--start-sha", sha, "--last-heartbeat-age-ms", "60000",
+                 "--now-ms", now_ms)
+    assert again.returncode == 0, (again.stdout, again.stderr)
+    assert "ADVANCING" in again.stdout
+
+
+def test_quickstart_spinning_rejects_driver_combo():
+    """--spinning is its own scene: combining it with --driver is a contract
+    error (exit 2) with a clean message, never a half-run of either scene."""
+    cp = _cli("quickstart", "--spinning", "--driver", "workshop")
+    assert cp.returncode == 2, (cp.stdout, cp.stderr)
+    assert "its own scene" in cp.stderr
+
+
 # ---------------------------------------------------------------------------
 # the arbitrate follow-up note — ask vs hold, said at the moment it bites
 # ---------------------------------------------------------------------------
