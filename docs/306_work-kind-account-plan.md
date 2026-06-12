@@ -1,6 +1,7 @@
 # 306 — WKA: the work-kind account
 
-> **Status:** P1–P3 in flight (2026-06-12). The forcing question (operator
+> **Status:** P1–P3 shipped (2026-06-12, oracle-verified: P1 `67bae27` /
+> P2 `215c9f7` / P3 `2675847`; P4 future). The forcing question (operator
 > `/goal`): *better subdivision of the loop's goals/stats — "shipped a pick" may
 > be too forced a unit; think in this direction and prove out the value-first
 > items.* This doc records the gap, the one primitive built to fill it, and the
