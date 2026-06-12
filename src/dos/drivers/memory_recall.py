@@ -1032,6 +1032,30 @@ def probe(claim: MemoryClaim, cfg: "_config.SubstrateConfig") -> ClaimEvidence:
 # ---------------------------------------------------------------------------
 
 
+def gather_text(text: str, *, fallback_name: str,
+                cfg: "_config.SubstrateConfig", now_ms: int) -> RecallEvidence:
+    """Gather evidence for one memory's BYTES — the shared core under `gather`.
+
+    Takes the text directly so the same pipeline serves both moments the bytes
+    are adjudicated: RECALL (a stored file, via `gather`) and ADMISSION (a
+    candidate that has not entered any store yet, via `admit_text`, docs/314).
+    The probes are still boundary I/O (git/grep against the workspace); only
+    the file read moved out.
+    """
+    fm = parse_frontmatter(text)
+    body = strip_recall_banner(text[fm.body_offset:])
+    date_iso = extract_body_date(body, fm)
+    claims = extract_claims(body, fm.mem_type)
+    evidences = tuple(probe(c, cfg) for c in claims)
+    return RecallEvidence(
+        mem_name=fm.name or fallback_name,
+        mem_type=fm.mem_type,
+        body_date_iso=date_iso,
+        evidences=evidences,
+        now_ms=now_ms,
+    )
+
+
 def gather(path: Path, *, cfg: "_config.SubstrateConfig", now_ms: int) -> RecallEvidence:
     """Read one memory file and gather all its evidence. ALL I/O lives here.
 
@@ -1044,18 +1068,7 @@ def gather(path: Path, *, cfg: "_config.SubstrateConfig", now_ms: int) -> Recall
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return RecallEvidence(mem_name=path.stem, mem_type="", now_ms=now_ms)
-    fm = parse_frontmatter(text)
-    body = strip_recall_banner(text[fm.body_offset:])
-    date_iso = extract_body_date(body, fm)
-    claims = extract_claims(body, fm.mem_type)
-    evidences = tuple(probe(c, cfg) for c in claims)
-    return RecallEvidence(
-        mem_name=fm.name or path.stem,
-        mem_type=fm.mem_type,
-        body_date_iso=date_iso,
-        evidences=evidences,
-        now_ms=now_ms,
-    )
+    return gather_text(text, fallback_name=path.stem, cfg=cfg, now_ms=now_ms)
 
 
 def default_store(cfg: "_config.SubstrateConfig") -> Optional[Path]:
@@ -1183,6 +1196,177 @@ def interpret(verdict: dict) -> str:
                 "to surface, but MARK it unfalsifiable — never dress it as something recall confirmed.")
     return ("UNKNOWN recall verdict — treat the memory as unverified: present it hedged, not as "
             "a fact, until a real check classifies it.")
+
+
+# ---------------------------------------------------------------------------
+# Admission (docs/314 P1) — the WRITE gate: adjudicate a CANDIDATE memory
+# before it enters any store. Same pipeline as recall (extract → probe →
+# classify), different moment and a TYPING verdict: only a claim contradicted
+# by ground truth right now is refused; everything else is admitted but typed,
+# so recall knows what authority each memory may wear. Provider-agnostic by
+# construction — any memory writer (the file store, a hosted provider's
+# add-memory boundary) pipes the candidate bytes through `dos memory admit`.
+# ---------------------------------------------------------------------------
+
+
+class Admission(str, enum.Enum):
+    """The closed write-gate verdict — what authority may this memory wear?"""
+
+    ADMIT_WITNESSED = "ADMIT_WITNESSED"  # every claim confirmed NOW → fact authority
+    ADMIT_AS_CLAIM = "ADMIT_AS_CLAIM"    # checkable but not (fully) witnessed → a dated claim
+    ADMIT_OPINION = "ADMIT_OPINION"      # nothing checkable → typed opinion
+    REJECT_POISON = "REJECT_POISON"      # contradicted at write time → refuse the write
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.value
+
+
+@dataclass(frozen=True)
+class AdmissionVerdict:
+    """The single verdict `classify_admission()` returns, evidence echoed.
+
+    Same legible-distrust shape as `RecallVerdict`: `culprit` is the deciding
+    CONTRADICTS claim on a POISON verdict, so the writer sees WHY the memory
+    was refused — the ground-truth proof, not just the word "rejected".
+    """
+
+    admission: Admission
+    reason: str
+    culprit: Optional[ClaimEvidence]
+    evidence: RecallEvidence
+
+    def to_dict(self) -> dict:
+        return {
+            "admission": self.admission.value,
+            "reason": self.reason,
+            "memory": self.evidence.mem_name,
+            "type": self.evidence.mem_type,
+            "culprit": self.culprit.to_dict() if self.culprit is not None else None,
+            "claims": [e.to_dict() for e in self.evidence.evidences],
+        }
+
+
+def classify_admission(ev: RecallEvidence) -> AdmissionVerdict:
+    """Classify a CANDIDATE memory's admission from gathered evidence. PURE.
+
+    First-match-wins ladder, worst-claim-wins fold (the `classify_recall`
+    discipline, re-aimed at the write moment):
+
+      0. OPINION (structural) — an opinion-typed candidate (user/feedback):
+         unfalsifiable by construction, admitted as what it is.
+      1. POISON — ANY checkable claim CONTRADICTS ground truth right now
+         (worst-wins). Writing it would mint a lie wearing memory authority;
+         the one refusing outcome.
+      2. OPINION (empty) — no probeable claim at all: nothing for recall to
+         ever re-check; admitted typed opinion.
+      3. WITNESSED — EVERY probed claim CONFIRMS, none abstained. Stricter
+         than RECALL_FRESH (which ignores abstentions): granting durable fact
+         authority requires the whole claim set witnessed — an abstained
+         probe can never launder a candidate into the fact tier. Deliberate
+         write/read asymmetry.
+      4. AS_CLAIM — checkable claims present, none contradicted, ≥1 probe
+         abstained. The honest middle: enters as a dated claim, not a fact.
+    """
+    # 0. Opinion-typed → admitted as the preference/positioning note it is.
+    if ev.mem_type in _OPINION_TYPES:
+        return AdmissionVerdict(
+            Admission.ADMIT_OPINION,
+            f"frontmatter type={ev.mem_type}: a preference/positioning note — "
+            f"admit typed opinion; recall will have nothing to re-probe",
+            None,
+            ev,
+        )
+
+    probed = tuple(e for e in ev.evidences if e.claim.kind is not ClaimKind.OPINION)
+
+    # 1. POISON — any checkable claim contradicted at write time. Worst-wins.
+    contradicted = [e for e in ev.checkable if e.status is ProbeStatus.CONTRADICTS]
+    if contradicted:
+        worst = contradicted[0]
+        return AdmissionVerdict(
+            Admission.REJECT_POISON,
+            f"ground truth disagrees with {worst.claim.raw!r} "
+            f"({worst.claim.kind.value}/{worst.claim.polarity.value}, via "
+            f"{worst.source or 'none'}): {worst.ground_truth} — refusing the write; "
+            f"storing this would hand every future session a lie wearing memory "
+            f"authority. Fix the claim (or drop it) and re-admit",
+            worst,
+            ev,
+        )
+
+    # 2. Nothing probeable at all → typed opinion.
+    if not probed:
+        return AdmissionVerdict(
+            Admission.ADMIT_OPINION,
+            "names no re-checkable artifact — admit typed opinion; recall will "
+            "have nothing to re-probe",
+            None,
+            ev,
+        )
+
+    # 3. WITNESSED — the whole probed set confirmed (no abstention may launder).
+    if all(e.status is ProbeStatus.CONFIRMS for e in probed):
+        return AdmissionVerdict(
+            Admission.ADMIT_WITNESSED,
+            f"all {len(probed)} checkable claim(s) confirmed against ground truth "
+            f"at write time — admit with fact authority",
+            None,
+            ev,
+        )
+
+    # 4. AS_CLAIM — checkable, uncontradicted, not fully witnessed.
+    unknown = sum(1 for e in probed if e.status is ProbeStatus.UNKNOWN)
+    return AdmissionVerdict(
+        Admission.ADMIT_AS_CLAIM,
+        f"{unknown} of {len(probed)} checkable claim(s) could not be probed and "
+        f"none contradicts — admit as a DATED CLAIM, not a fact; recall must "
+        f"re-verify before believing it",
+        None,
+        ev,
+    )
+
+
+def admit_text(
+    text: str,
+    *,
+    name: str = "candidate",
+    cfg: "Optional[_config.SubstrateConfig]" = None,
+    now_ms: Optional[int] = None,
+) -> AdmissionVerdict:
+    """Adjudicate a CANDIDATE memory's bytes before they enter any store.
+
+    The write-gate boundary (docs/314 P1): gather on the candidate text
+    (frontmatter parse, claim extraction, the same ground-truth probes recall
+    uses), then the pure `classify_admission`. The candidate touches no store;
+    the caller decides what to do with the verdict — DOS stays advisory.
+    """
+    cfg = _config.ensure(cfg)
+    nm = now_ms if now_ms is not None else int(time.time() * 1000)
+    ev = gather_text(text, fallback_name=name, cfg=cfg, now_ms=nm)
+    return classify_admission(ev)
+
+
+def interpret_admission(verdict: dict) -> str:
+    """One line on what an admission verdict means for the writer. PURE presentation."""
+    v = str(verdict.get("admission", "")).strip().upper()
+    cul = verdict.get("culprit") or {}
+    gt = f" ({cul.get('ground_truth')})" if isinstance(cul, dict) and cul.get("ground_truth") else ""
+    if v == Admission.ADMIT_WITNESSED.value:
+        return ("WITNESSED — every checkable claim in this candidate confirmed against "
+                "ground truth at write time. Store it; it enters with fact authority.")
+    if v == Admission.ADMIT_AS_CLAIM.value:
+        return ("AS_CLAIM — the candidate names checkable things that could not all be "
+                "probed right now. Store it as a DATED CLAIM (it says so itself), and "
+                "expect recall to re-verify before believing it.")
+    if v == Admission.ADMIT_OPINION.value:
+        return ("OPINION — nothing in this candidate is checkable, so it enters as a "
+                "preference/positioning note. Fine to store; never dress it as verified.")
+    if v == Admission.REJECT_POISON.value:
+        return ("POISON — ground truth CONTRADICTS this candidate right now" + gt + ". Do "
+                "not store it: a memory that is wrong at birth poisons every future "
+                "session that recalls it. Fix or drop the claim, then re-admit.")
+    return ("UNKNOWN admission verdict — treat the candidate as unadjudicated; do not "
+            "store it with any authority until a real check classifies it.")
 
 
 # ---------------------------------------------------------------------------

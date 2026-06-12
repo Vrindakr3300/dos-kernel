@@ -1753,7 +1753,8 @@ with events pending), so a cron can alert on a broken collector.
 
 ### § `cmd_memory`
 
-Re-verify an agent-memory store at recall time (docs/103).
+Adjudicate agent memory at BOTH moments the bytes are believed: recall
+(docs/103) and write (docs/314).
 
 `dos memory recall <name>` re-checks ONE memory's claims against ground truth
 (git + the working tree) and prints its closed verdict (RECALL_FRESH / STALE /
@@ -1763,6 +1764,19 @@ default; `--route` (sweep only) cross-posts non-FRESH verdicts to `dos
 decisions` via an OP_REFUSE (needs the host to have declared RECALL_* in
 dos.toml [reasons]). The driver is resolved BY NAME (the bulkhead); the store
 is the host's memory dir (`--store`, or the documented Claude Code layout).
+
+`dos memory admit` (docs/314 P1) is the WRITE gate: it adjudicates a
+CANDIDATE memory (`--text-file F`, or the bytes on stdin) BEFORE it enters
+any store, running the same extract→probe pipeline at the moment evidence is
+richest. The verdict is a TYPING, not censorship: ADMIT_WITNESSED (every
+checkable claim confirmed now — fact authority), ADMIT_AS_CLAIM (checkable
+but not fully witnessed — a dated claim; STRICTER than RECALL_FRESH, an
+abstained probe can never launder a candidate into the fact tier),
+ADMIT_OPINION (nothing checkable), and the one refusal REJECT_POISON (a
+claim CONTRADICTED by ground truth at write time — storing it would hand
+every future session a lie wearing memory authority). Exit: POISON 3,
+everything else 0. Touches no store — the host's memory writer pipes the
+candidate through and decides; provider-agnostic by construction.
 
 ### § `_runtime_hook_status`
 

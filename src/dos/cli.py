@@ -5637,6 +5637,37 @@ def cmd_memory(args: argparse.Namespace) -> int:
     store = getattr(args, "store", None) or None
     explain = bool(getattr(args, "explain", False))
 
+    if args.memory_cmd == "admit":
+        # docs/314 P1 — the WRITE gate: adjudicate a candidate memory's bytes
+        # BEFORE they enter any store. Text from --text-file or stdin; the
+        # candidate touches no store, the writer consumes the verdict.
+        if getattr(args, "text_file", None):
+            try:
+                text = Path(args.text_file).read_text(encoding="utf-8", errors="replace")
+            except OSError as e:
+                print(f"error: cannot read --text-file: {e}", file=sys.stderr)
+                return 2
+        else:
+            text = sys.stdin.read()
+        if not text.strip():
+            print("error: empty candidate (pass --text-file or pipe the memory "
+                  "body on stdin)", file=sys.stderr)
+            return 2
+        v = mr.admit_text(text, name=getattr(args, "name", "") or "candidate", cfg=cfg)
+        d = v.to_dict()
+        if explain:
+            d["interpretation"] = mr.interpret_admission(d)
+        if args.json or getattr(args, "output", None) == "json":
+            print(json.dumps(d, sort_keys=True, ensure_ascii=False))
+        else:
+            print(f"{d['admission']}  {d['memory']}")
+            print(f"  {v.reason}")
+            if explain:
+                print(f"  → {d['interpretation']}")
+        # The verdict IS the exit code: only POISON refuses (3); every admit
+        # typing exits 0 — the gate types, it does not censor.
+        return 3 if d["admission"] == "REJECT_POISON" else 0
+
     if args.memory_cmd == "recall":
         try:
             v = mr.recall_one(args.name, cfg=cfg, store=store)
@@ -9416,10 +9447,12 @@ def build_parser() -> argparse.ArgumentParser:
                       help="machine-readable {result, exporter, shipped, since, persist}")
     pexp.set_defaults(func=cmd_export)
 
-    # memory — re-verify recalled agent-memory claims (docs/103, the recall driver).
+    # memory — the agent-memory gates: recall re-verification (docs/103) and
+    # the candidate write gate (docs/314), both over the recall driver.
     pmem = sub.add_parser(
         "memory",
-        help="re-verify recalled agent-memory at read time (RECALL_FRESH/STALE/UNVERIFIABLE)")
+        help="adjudicate agent memory: re-verify at recall (FRESH/STALE/UNVERIFIABLE), "
+             "gate a candidate at write (`admit`)")
     msub = pmem.add_subparsers(dest="memory_cmd", required=True)
     mrec = msub.add_parser("recall",
                            help="re-verify ONE memory by name/slug → its recall verdict")
@@ -9432,6 +9465,19 @@ def build_parser() -> argparse.ArgumentParser:
                       help="append the agent-facing interpretation line")
     mrec.add_argument("--json", action="store_true", help="machine-readable verdict")
     _add_output_flag(mrec)
+    madm = msub.add_parser(
+        "admit",
+        help="the WRITE gate (docs/314): adjudicate a CANDIDATE memory before it "
+             "enters any store (ADMIT_WITNESSED/AS_CLAIM/OPINION/REJECT_POISON)")
+    _add_workspace_flags(madm)
+    madm.add_argument("--text-file", default="",
+                      help="the candidate memory file to adjudicate (default: stdin)")
+    madm.add_argument("--name", default="",
+                      help="display name for a frontmatter-less candidate")
+    madm.add_argument("--explain", action="store_true",
+                      help="append the writer-facing interpretation line")
+    madm.add_argument("--json", action="store_true", help="machine-readable verdict")
+    _add_output_flag(madm)
     mver = msub.add_parser("verify",
                            help="sweep the WHOLE memory store (STALE first)")
     _add_workspace_flags(mver)
