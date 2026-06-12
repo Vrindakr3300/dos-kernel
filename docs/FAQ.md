@@ -7,6 +7,13 @@
 > [debug-a-stuck-fleet playbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/06_debug-a-stuck-fleet.md);
 > this page is for the questions you have *before* you install.)
 
+> **Did one of these just happen to you?** One page per incident, each with the
+> command that catches it and its real output:
+> ["my agent said it committed, but there's no commit"](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/incidents/my-agent-said-it-committed-but-theres-no-commit.md) ·
+> ["the AI wrote tests that test nothing / faked a green run"](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/incidents/the-ai-wrote-tests-that-test-nothing.md) ·
+> ["my agent loop ran all night and landed nothing"](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/incidents/my-agent-loop-ran-all-night-and-landed-nothing.md) ·
+> ["two agents overwrote each other's work"](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/incidents/two-agents-overwrote-each-others-work.md).
+
 ## How do I verify an AI agent actually did what it claims?
 
 Don't read the agent's answer — read the evidence the work left behind. The

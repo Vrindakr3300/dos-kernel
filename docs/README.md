@@ -35,6 +35,7 @@ If you read nothing else, read the first two rows of the table below.
 | Doc | What it gives you |
 |---|---|
 | [**QUICKSTART.md**](QUICKSTART.md) | A runnable 5-minute hello-world: install → `dos init` → commit → `dos verify` shows a real verdict from git history alone. **Start here.** |
+| [**incidents/**](incidents/README.md) | Arriving from a burn? One page per failure mode — "my agent said it committed, but there's no commit" and its siblings — each with the command that catches it. |
 | [**../README.md**](../README.md) | What DOS is, the syscall ABI, the full CLI, the install. The front door. |
 | [**HACKING.md**](HACKING.md) | How to extend DOS *without forking it* — add refusal reasons, lanes, renderers, judges, and safety predicates as workspace policy. The seven extension axes + the plugin model. |
 | [**../CONTRIBUTING.md**](../CONTRIBUTING.md) | How to send a change to the kernel: the layering rule, the CI-enforced litmus tests, the green bar. |
