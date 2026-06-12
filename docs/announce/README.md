@@ -14,6 +14,7 @@ posting — they trace to `paper/sections/*.html` + `paper/meta.py`.*
 | [`linkedin.md`](linkedin.md) | The LinkedIn launch post + two shorter variants | LinkedIn (manual / native scheduler) |
 | [`hackernews.md`](hackernews.md) | The "Show HN" title + author's first comment | Hacker News (manual; `news.ycombinator.com/submit`) |
 | [`blog.md`](blog.md) | A longer launch narrative | Blog / Substack / the repo's own announcement / dev.to |
+| [`medium.md`](medium.md) | The Medium launch article — the longer narrative re-voiced for the author's Medium account (the "AI Factory" sequel framing), with Medium-specific posting notes in its header | Medium (manual; anthony-chaudhary.medium.com) |
 | [`arxiv-abstract.md`](arxiv-abstract.md) | The paper abstract + tweet-length framings | The "paper is up" post, once arXiv assigns an ID |
 
 ## Order to post
@@ -25,7 +26,9 @@ sequence:
 2. **LinkedIn post** ([`linkedin.md`](linkedin.md)) — the launch. Attach the
    high-res hero poster (`docs/assets/loop-hero.png`, 3600×1920) or the TUI screenshot.
 3. **Blog / longer narrative** ([`blog.md`](blog.md)) — for anyone who clicks "read
-   more"; link it from the LinkedIn post.
+   more"; link it from the LinkedIn post. For Medium specifically use
+   [`medium.md`](medium.md) (same spine, voice-matched to that account) and
+   publish it *before* the LinkedIn post so the link resolves.
 4. **Show HN** ([`hackernews.md`](hackernews.md)) — once the repo is public and
    runnable (Show HN requires it). Submit the *repo* URL, then post the author's
    first comment immediately. Independent of the others; the paper goes up as its
