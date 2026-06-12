@@ -1,0 +1,8 @@
+define bot refuse unverified claim
+  "I can't confirm that work as done: the claimed change isn't visible in the repository evidence."
+
+define flow check effect claims
+  $verdict = execute dos_effect_check(claim_text=$bot_message)
+  if $verdict["tripped"]
+    bot refuse unverified claim
+    stop

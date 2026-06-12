@@ -1,0 +1,10 @@
+# The dos effect-check rail (issue #51): adjudicate the bot's effect CLAIMS
+# against repo evidence before the response lands. `models` is empty because
+# this sample exercises only the action seam — point it at your LLM to run
+# the full rails app.
+models: []
+
+rails:
+  output:
+    flows:
+      - check effect claims
