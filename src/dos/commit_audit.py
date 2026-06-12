@@ -24,10 +24,14 @@ doc-only "fix" is *sometimes* legitimate (a comment fix); the verdict says
 ## What it can witness soundly (the non-forgeable facts)
 
 1. **EMPTY_CLAIM** — the subject uses an *effect verb* ("fix/add/implement/
-   remove/optimize/…") but the commit touched **zero source files** (it is empty,
-   or touches only docs/config/generated/binary paths). The message claims a code
-   change; the diff shows none. Sound: "touched 0 source files" is a fact about
-   the commit, not the author's word.
+   remove/optimize/…") but the commit touched **nothing that could carry the
+   effect** (it is empty, or touches only doc/media paths). The message claims
+   a change; the diff shows none. Sound: "touched 0 effect-bearing files" is a
+   fact about the commit, not the author's word. A **config/data diff is NOT a
+   contradiction**: a lockfile bump, a model-settings YAML, a template — the
+   data change can BE the claimed effect (the 98-of-99-flags pilot finding) —
+   so it witnesses on its own, honestly-typed rung, `data-witnessed`, one step
+   below `diff-witnessed` (the receipt says which rung answered).
 2. **TEST_CLAIM_NO_TEST** — the subject claims tests ("add tests", "tests pass",
    "fix the failing test") but the diff touches **no test file**, or **net-deletes**
    test lines (the delete-the-assertion shape). Sound from the diff alone.
@@ -83,6 +87,7 @@ class ClaimKind(Enum):
 class Witness(Enum):
     """How the diff stands relative to the claim."""
     DIFF_WITNESSED = "diff-witnessed"   # the diff corroborates the claim (non-forgeable)
+    DATA_WITNESSED = "data-witnessed"   # a config/data diff carries the claimed effect
     SUBJECT_ONLY = "subject-only"       # the claim rests on message text alone (forgeable)
     ABSTAIN = "abstain"                 # no checkable claim, or no evidence either way
 
@@ -140,14 +145,23 @@ _SOURCE_SUFFIXES = (
     ".cmake", ".mk", ".vue", ".svelte", ".elm", ".nim", ".zig", ".v",
 )
 # Non-source: docs, config, data, binaries, lockfiles. A commit touching ONLY
-# these (and no _SOURCE_SUFFIXES file) has not touched code.
+# these (and no _SOURCE_SUFFIXES file) has not touched code. The media/binary
+# vs data split matters one rung later: a DATA file (a lockfile, a csv) can
+# still witness a code-effect claim on the `data-witnessed` rung; a media
+# binary cannot.
 _DOC_SUFFIXES = (".md", ".rst", ".txt", ".adoc", ".org")
-_BINARY_OR_DATA_SUFFIXES = (
+_MEDIA_BINARY_SUFFIXES = (
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".pdf", ".ico", ".woff", ".woff2",
     ".ttf", ".zip", ".tar", ".gz", ".tgz", ".whl", ".egg", ".so", ".dll",
-    ".dylib", ".exe", ".o", ".a", ".jar", ".class", ".bin", ".lock", ".sum",
-    ".csv", ".tsv", ".parquet",
+    ".dylib", ".exe", ".o", ".a", ".jar", ".class", ".bin",
 )
+_DATA_FILE_SUFFIXES = (".lock", ".sum", ".csv", ".tsv", ".parquet")
+_BINARY_OR_DATA_SUFFIXES = _MEDIA_BINARY_SUFFIXES + _DATA_FILE_SUFFIXES
+
+# Dependency manifests that wear a DOC suffix: requirements.txt is a manifest,
+# not prose. Matched on the BASENAME, structurally.
+_DEP_MANIFEST_TXT_RE = re.compile(
+    r"^(requirements|constraints)[^/]*\.(txt|in)$", re.IGNORECASE)
 
 _TEST_PATH_RE = re.compile(
     r"(^|/)(tests?|spec|specs|__tests__)(/|$)|"
@@ -210,11 +224,12 @@ class ClaimVerdict:
     claim_kind: ClaimKind
     witness: Witness
     reason: str
-    # the files that made the witness call (touched source, tests, or CI config),
-    # for an honest, inspectable verdict — never just a boolean.
+    # the files that made the witness call (touched source, tests, CI config,
+    # or config/data), for an honest, inspectable verdict — never just a boolean.
     source_files: tuple[str, ...] = ()
     test_files: tuple[str, ...] = ()
     ci_files: tuple[str, ...] = ()
+    data_files: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -226,6 +241,7 @@ class ClaimVerdict:
             "source_files": list(self.source_files),
             "test_files": list(self.test_files),
             "ci_files": list(self.ci_files),
+            "data_files": list(self.data_files),
         }
 
 
@@ -242,11 +258,18 @@ def _is_source(path: str) -> bool:
     p = _norm(path).lower()
     if p.endswith(_SOURCE_SUFFIXES):
         return True
+    base = p.rsplit("/", 1)[-1]
+    if base == "skill.md":
+        # A SKILL.md is the PROGRAM of an agent system: its prose is executed
+        # as instructions by a runtime, so editing it changes behavior the way
+        # a .py edit does (issue #94 — 66 of 88 flags in the first scoreboard
+        # corpus sweep were skill-prompt edits). EXACT basename only; a
+        # skills/README.md stays a doc.
+        return True
     if p.endswith(_DOC_SUFFIXES) or p.endswith(_BINARY_OR_DATA_SUFFIXES):
         return False
     # Unknown suffix / extensionless (Makefile, Dockerfile, a bare script): treat
     # as source. Erring toward source keeps EMPTY_CLAIM conservative.
-    base = p.rsplit("/", 1)[-1]
     if base in ("makefile", "dockerfile", "rakefile", "gemfile", "procfile"):
         return True
     if base.startswith(".") and "." not in base[1:]:
@@ -260,6 +283,25 @@ def _is_source(path: str) -> bool:
     if "." not in base:
         return True
     return False
+
+
+def _is_data(path: str) -> bool:
+    """A config/data/manifest file — not source, not a doc, not a media binary.
+
+    The 98-of-99 pilot class (the drift-scoreboard false-positive sweep): a
+    `fix:`/`feat:` claim whose entire diff is `package.json` + a lockfile, a
+    model-settings YAML, a `.j2` template, `requirements*.txt` — the data
+    change IS the claimed effect. These witness on the `data-witnessed` rung.
+    Pure.
+    """
+    p = _norm(path).lower()
+    if _is_source(p):
+        return False
+    if _DEP_MANIFEST_TXT_RE.match(p.rsplit("/", 1)[-1]):
+        return True   # a dependency manifest wearing a doc suffix
+    if p.endswith(_DOC_SUFFIXES) or p.endswith(_MEDIA_BINARY_SUFFIXES):
+        return False
+    return True
 
 
 def _is_test(path: str) -> bool:
@@ -341,6 +383,16 @@ def classify_claim(subject: str) -> ClaimKind:
         return ClaimKind.NONE
     leads = _leading_words(s)          # ≤1 verb-candidate per segment (conservative)
     window = _phrase_window(s)         # the remainder, for multi-word marker phrases
+    # An EXPLICIT doc head wins first: a `docs(...)`/`docs:` type, a
+    # `fix(docs):`-style doc SCOPE, or a scope naming a doc file, is the
+    # author's own "this is documentation" signal — so a testing NOUN later in
+    # the title (`docs(plans): the testing-suite design`) must not out-rank it
+    # into a TEST claim (the 17546b5 over-fire). Only the TYPE token / scope
+    # token / doc-named scope engages; a doc marker leading the message
+    # remainder still goes through the ordinary order below.
+    if (leads and leads[0] in _DOC_MARKERS) or _scope_is_doc(s) \
+            or _cc_scope_is_doc(s):
+        return ClaimKind.DOC
     # TEST claim: a "tests pass" phrase, a test marker LEADING a segment, or a
     # test noun in the first few words of the message ("add tests", "write specs",
     # "unit test the engine") — checked BEFORE the code verb so `add tests` is a
@@ -390,6 +442,20 @@ def _scope_is_doc(subject: str) -> bool:
 _CC_HEAD_RE = re.compile(r"^([a-z][a-z0-9_-]*)(?:\(([^)]*)\))?!?$")
 
 
+def _cc_scope_is_doc(subject: str) -> bool:
+    """True iff the conventional-commit SCOPE names documentation — `fix(docs):`,
+    `feat(readme): …`. The `_scope_is_ci` analogue: structural token equality on
+    the parsed head, never a word-search. A `fix(docs):` over a doc-only diff is
+    the claim's natural location, not an unwitnessed code claim. Pure."""
+    s = subject.strip().lower()
+    if ":" not in s:
+        return False
+    m = _CC_HEAD_RE.match(s.split(":", 1)[0].strip())
+    if not m:
+        return False
+    return (m.group(2) or "") in ("doc", "docs", "readme", "changelog")
+
+
 def _scope_is_ci(subject: str) -> bool:
     """True iff the conventional-commit head names CI as its TYPE or SCOPE —
     `ci: …`, `ci(test): …`, `fix(ci): …`. STRUCTURAL token equality on the parsed
@@ -424,6 +490,7 @@ def classify(claim: CommitClaim, diff: DiffFacts,
     source_files = tuple(f for f in diff.files if _is_source(f))
     test_files = tuple(f for f in diff.files if _is_test(f))
     ci_files = tuple(f for f in diff.files if _is_ci_config(f))
+    data_files = tuple(f for f in diff.files if _is_data(f))
     # A ci-scoped claim is witnessed by the CI config itself — the scope names
     # where the claimed effect lives, so the workflows diff is corroboration, not
     # contradiction. CONJUNCTIVE on purpose: the shaped claim alone (a ci scope
@@ -436,7 +503,8 @@ def classify(claim: CommitClaim, diff: DiffFacts,
             sha=claim.sha, verdict=Verdict.ABSTAIN, claim_kind=kind,
             witness=Witness.ABSTAIN,
             reason="subject makes no checkable code/test claim",
-            source_files=source_files, test_files=test_files, ci_files=ci_files)
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
 
     if kind is ClaimKind.DOC:
         # A doc claim is witnessed by ANY touched file (docs count); it never
@@ -446,12 +514,14 @@ def classify(claim: CommitClaim, diff: DiffFacts,
                 sha=claim.sha, verdict=Verdict.CLAIM_UNWITNESSED, claim_kind=kind,
                 witness=Witness.SUBJECT_ONLY,
                 reason="doc claim but the commit is empty (touched nothing)",
-                source_files=source_files, test_files=test_files, ci_files=ci_files)
+                source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
         return ClaimVerdict(
             sha=claim.sha, verdict=Verdict.OK, claim_kind=kind,
             witness=Witness.DIFF_WITNESSED,
             reason="doc claim, the commit touches files (doc scope, no code over-claim)",
-            source_files=source_files, test_files=test_files, ci_files=ci_files)
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
 
     if kind is ClaimKind.TEST:
         # A test claim must touch a test file. Net-deleting test lines while
@@ -465,7 +535,8 @@ def classify(claim: CommitClaim, diff: DiffFacts,
                 sha=claim.sha, verdict=Verdict.CLAIM_UNWITNESSED, claim_kind=kind,
                 witness=Witness.SUBJECT_ONLY,
                 reason="claims tests but the diff touches no test file",
-                source_files=source_files, test_files=test_files, ci_files=ci_files)
+                source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
         if net_deleted and not _is_pure_move_or_rename(claim.subject):
             return ClaimVerdict(
                 sha=claim.sha, verdict=Verdict.CLAIM_UNWITNESSED, claim_kind=kind,
@@ -473,12 +544,14 @@ def classify(claim: CommitClaim, diff: DiffFacts,
                 reason=(f"claims tests but net-DELETES test lines "
                         f"(+{diff.test_lines_added}/-{diff.test_lines_removed}) "
                         "— the delete-the-assertion shape"),
-                source_files=source_files, test_files=test_files, ci_files=ci_files)
+                source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
         return ClaimVerdict(
             sha=claim.sha, verdict=Verdict.OK, claim_kind=kind,
             witness=Witness.DIFF_WITNESSED,
             reason="test claim witnessed by a touched test file",
-            source_files=source_files, test_files=test_files, ci_files=ci_files)
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
 
     # kind is CODE_EFFECT
     if source_files:
@@ -486,18 +559,35 @@ def classify(claim: CommitClaim, diff: DiffFacts,
             sha=claim.sha, verdict=Verdict.OK, claim_kind=kind,
             witness=Witness.DIFF_WITNESSED,
             reason="code-effect claim witnessed by a touched source file",
-            source_files=source_files, test_files=test_files, ci_files=ci_files)
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
     if ci_witnessed:
         return ClaimVerdict(
             sha=claim.sha, verdict=Verdict.OK, claim_kind=kind,
             witness=Witness.DIFF_WITNESSED,
             reason=("ci-scoped claim witnessed by the CI config it names "
                     "(the scope is where the claimed effect lives)"),
-            source_files=source_files, test_files=test_files, ci_files=ci_files)
-    # No source touched. Empty, or docs/config/binary only → the claim rests on the
-    # subject text alone. (A pure rename can land here with renames git records as
-    # add+delete pairs — but those ARE source files, so source_files is non-empty;
-    # the move guard is for the line-delta path, not this presence check.)
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
+    if data_files:
+        # The data rung: a lockfile bump, a model-settings YAML, a template —
+        # the data change can BE the claimed effect, so it is corroboration,
+        # not contradiction. Honestly typed one rung below diff-witnessed so
+        # the receipt says which rung answered. Fire-reducing only: it can
+        # convert an UNWITNESSED to an OK, never the reverse.
+        return ClaimVerdict(
+            sha=claim.sha, verdict=Verdict.OK, claim_kind=kind,
+            witness=Witness.DATA_WITNESSED,
+            reason=("code-effect claim witnessed by a config/data diff "
+                    "(manifest, lockfile, config resource) — the data change "
+                    "can be the claimed effect"),
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
+    # Nothing effect-bearing touched. Empty, or docs/media only → the claim
+    # rests on the subject text alone. (A pure rename can land here with renames
+    # git records as add+delete pairs — but those ARE source files, so
+    # source_files is non-empty; the move guard is for the line-delta path, not
+    # this presence check.)
     if diff.is_empty:
         why = "code-effect claim but the commit is EMPTY (touched no files)"
     elif policy.docs_satisfy_code_claim:
@@ -505,7 +595,8 @@ def classify(claim: CommitClaim, diff: DiffFacts,
             sha=claim.sha, verdict=Verdict.OK, claim_kind=kind,
             witness=Witness.DIFF_WITNESSED,
             reason="code claim; docs_satisfy_code_claim policy accepts doc-only diff",
-            source_files=source_files, test_files=test_files, ci_files=ci_files)
+            source_files=source_files, test_files=test_files,
+            ci_files=ci_files, data_files=data_files)
     else:
         touched = ", ".join(diff.files[:4]) or "(nothing)"
         why = (f"code-effect claim but the diff touches no SOURCE file "
@@ -513,7 +604,8 @@ def classify(claim: CommitClaim, diff: DiffFacts,
     return ClaimVerdict(
         sha=claim.sha, verdict=Verdict.CLAIM_UNWITNESSED, claim_kind=kind,
         witness=Witness.SUBJECT_ONLY, reason=why,
-        source_files=source_files, test_files=test_files, ci_files=ci_files)
+        source_files=source_files, test_files=test_files,
+        ci_files=ci_files, data_files=data_files)
 
 
 # ---------------------------------------------------------------------------

@@ -6,11 +6,16 @@ abstain-on-no-claim floor; (2) a few git-backed reader tests proving `read_commi
 / `audit_commit` map a real commit's subject + diff onto the right verdict.
 
 The load-bearing properties:
-  * a code-effect claim with NO source touched (empty, or doc-only) → UNWITNESSED;
+  * a code-effect claim with NOTHING effect-bearing touched (empty, doc-only,
+    or media-only) → UNWITNESSED;
   * a real code change → OK / diff-witnessed;
+  * a config/data/manifest diff under a code-effect claim → OK on the honestly
+    typed `data-witnessed` rung (the 98-of-99 pilot class: the data change can
+    BE the claimed effect — fire only on contradiction);
   * a test claim that net-deletes assertions → UNWITNESSED;
   * `wip`/`merge`/`bump` → ABSTAIN (no false fire on uncheckable commits);
-  * a `docs:` commit touching docs → OK (no false fire);
+  * a `docs:` commit touching docs → OK (no false fire), and an explicit doc
+    HEAD out-ranks a testing noun later in the title (the 17546b5 over-fire);
   * the verdict is author-NEUTRAL — nothing in it reads who wrote the message.
 """
 from __future__ import annotations
@@ -86,10 +91,13 @@ def test_bare_dotfile_config_is_source():
         assert v.witness is Witness.DIFF_WITNESSED, path
         assert v.source_files == (path,), path
     # A dotted dotfile (.eslintrc.json) keeps its real suffix's classification —
-    # the branch admits only the bare, suffixless form.
+    # the branch admits only the bare, suffixless form. It is NOT source (the
+    # boundary this test pins), so it witnesses on the lower data rung instead.
     v = classify(_claim("fix: resolve the auth race condition"),
                  DiffFacts(files=(".eslintrc.json",), is_empty=False))
-    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DATA_WITNESSED
+    assert v.source_files == ()
 
 
 def test_test_claim_net_deleting_assertions_is_unwitnessed():
@@ -185,35 +193,40 @@ def test_ci_scoped_claim_on_workflows_only_diff_is_witnessed():
 
 
 def test_ci_witness_needs_the_conjunction():
-    """Either half alone changes nothing — the widening is monotone fire-reducing.
-    A ci scope over a non-CI diff, or a CI diff under a non-ci claim, still fires."""
+    """Either half alone must not reach the STRONG rung — the ci widening is
+    conjunctive. A ci scope over a doc-only diff still fires; a CI-config diff
+    under a non-ci claim gets only the lower data rung (any yml is data), never
+    the diff-witnessed rung the conjunction grants."""
     # ci-shaped claim, but the diff never touches CI config → still unwitnessed
     v = classify(_claim("fix(ci): repair the flaky matrix"),
                  DiffFacts(files=("README.md",), is_empty=False))
     assert v.verdict is Verdict.CLAIM_UNWITNESSED
-    # workflows-only diff, but the claim is NOT ci-scoped → still unwitnessed
+    # workflows-only diff, but the claim is NOT ci-scoped → data rung only
     v = classify(_claim("fix: resolve the auth race condition"),
                  DiffFacts(files=(".github/workflows/ci.yml",), is_empty=False))
-    assert v.verdict is Verdict.CLAIM_UNWITNESSED
-    assert v.ci_files == (".github/workflows/ci.yml",)   # reported, not believed
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DATA_WITNESSED          # not DIFF_WITNESSED
+    assert v.ci_files == (".github/workflows/ci.yml",)  # reported, not promoted
 
 
 def test_ci_scope_and_path_match_structurally_never_loosely():
     """The docs/243 lesson: no word-search, no substring. A prose 'ci' does not
     engage the scope; a scope merely containing the letters does not; a stray
-    .yml outside the closed CI-config set is not a CI witness."""
-    # prose mention of CI (no conventional-commit head) does not engage
+    .yml outside the closed CI-config set is not a CI witness. None of these
+    reaches the conjunction's DIFF_WITNESSED rung — a yml diff is still a data
+    file, so each lands on the lower data rung, with `ci_files` honest."""
+    # prose mention of CI (no conventional-commit head) does not engage the scope
     v = classify(_claim("fix the ci cache invalidation"),
                  DiffFacts(files=(".github/workflows/ci.yml",), is_empty=False))
-    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    assert v.witness is Witness.DATA_WITNESSED
     # a scope CONTAINING 'ci' is not the ci scope
     v = classify(_claim("fix(circus): tame the lion"),
                  DiffFacts(files=(".github/workflows/ci.yml",), is_empty=False))
-    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    assert v.witness is Witness.DATA_WITNESSED
     # a stray yml outside the closed CI-config set is not a CI witness
     v = classify(_claim("fix(ci): adjust the thresholds"),
                  DiffFacts(files=("config.yml",), is_empty=False))
-    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    assert v.witness is Witness.DATA_WITNESSED
     assert v.ci_files == ()
 
 
@@ -226,6 +239,117 @@ def test_ci_config_set_covers_yaml_suffix_and_known_files():
                      DiffFacts(files=(path,), is_empty=False))
         assert v.verdict is Verdict.OK, f"{path} should witness a ci-scoped claim"
         assert v.ci_files == (path,)
+
+
+def test_data_witness_dependency_manifests_and_lockfiles():
+    """The pilot's dominant artifact class (96 of 99 raw flags): a concrete
+    `fix:`/`feat:`-shaped claim whose entire diff is dependency manifests /
+    lockfiles — the bump IS the claimed effect. Witnessed on the data rung."""
+    cases = [
+        ("Fix CVE-2026-12345: Update react-router to 7.15.0",
+         ("package.json", "package-lock.json")),
+        ("Upgrade LiteLLM to 1.84.1",
+         ("poetry.lock", "pyproject.toml", "uv.lock")),
+        ("drop pin of torch",
+         ("requirements.txt", "requirements-dev.in", "docker/requirements-gpu.txt")),
+    ]
+    for subject, files in cases:
+        v = classify(_claim(subject), DiffFacts(files=files, is_empty=False))
+        assert v.verdict is Verdict.OK, subject
+        assert v.witness is Witness.DATA_WITNESSED, subject
+        assert v.data_files, subject
+        assert v.source_files == (), subject
+
+
+def test_data_witness_config_resources_that_are_the_feature():
+    """Pilot sub-class 2: the data/config resource IS the feature — a
+    model-settings YAML, a set of templates."""
+    v = classify(_claim("feat: Add gpt-5.3 and gpt-5.4 model variants"),
+                 DiffFacts(files=("config/model-settings.yml",), is_empty=False))
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DATA_WITNESSED
+    v = classify(_claim("fix(resolver): use literal placeholders in branch naming"),
+                 DiffFacts(files=("templates/branch.j2", "templates/pr.j2"),
+                           is_empty=False))
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DATA_WITNESSED
+
+
+def test_data_witness_site_config_with_doc_in_the_mix():
+    """Pilot sub-class 3: a site-feature claim witnessed by site config plus a
+    doc page — one config/data file in the diff is enough for the data rung."""
+    v = classify(_claim("feat: Add hierarchical table of contents to documentation homepage"),
+                 DiffFacts(files=("_config.yml", "docs/index.md"), is_empty=False))
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DATA_WITNESSED
+    assert v.data_files == ("_config.yml",)
+
+
+def test_data_rung_does_not_swallow_the_real_contradictions():
+    """The widening is fire-reducing ONLY where data exists. The forgery floor
+    stands: empty commits, doc-only diffs, and media-only diffs under a code
+    claim still fire — there is nothing in them that could carry the effect."""
+    v = classify(_claim("implement the cache"), DiffFacts(files=(), is_empty=True))
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    v = classify(_claim("fix: resolve the auth race"),
+                 DiffFacts(files=("README.md", "docs/notes.rst"), is_empty=False))
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    v = classify(_claim("fix: resolve the auth race"),
+                 DiffFacts(files=("assets/logo.png",), is_empty=False))
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+    assert v.data_files == ()
+
+
+def test_skill_md_is_the_source_file_of_an_agent_system():
+    """Issue #94 (66 of 88 corpus-sweep flags): SKILL.md prose is executed as
+    instructions by an agent runtime — editing it changes behavior the way a
+    .py edit does, so it witnesses on the FULL diff-witnessed rung. Exact
+    basename only: a skills/README.md keeps its doc classification."""
+    v = classify(_claim("fix(review): findings MUST go in comments array"),
+                 DiffFacts(files=("packages/core/src/skills/bundled/review/SKILL.md",),
+                           is_empty=False))
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DIFF_WITNESSED
+    assert v.source_files == ("packages/core/src/skills/bundled/review/SKILL.md",)
+    # the sibling prose files deliberately stay OUT (under-matching) — but a
+    # commit touching them ALONGSIDE the SKILL.md is witnessed by the SKILL.md
+    v = classify(_claim("feat(skills): add triage skill for issue gatekeeping"),
+                 DiffFacts(files=("skills/triage/SKILL.md",
+                                  "skills/triage/references/workflow.md"),
+                           is_empty=False))
+    assert v.verdict is Verdict.OK
+    assert v.witness is Witness.DIFF_WITNESSED
+    # exact-name boundary: a skills README is still a doc, not source
+    v = classify(_claim("fix: resolve the auth race condition"),
+                 DiffFacts(files=("skills/README.md",), is_empty=False))
+    assert v.verdict is Verdict.CLAIM_UNWITNESSED
+
+
+def test_doc_scope_token_is_a_doc_claim():
+    """`fix(docs): …` / `feat(readme): …` — the conventional-commit SCOPE names
+    documentation, so a doc-only diff is the claim's natural location (the
+    `_scope_is_ci` analogue; structural token equality, never a word-search)."""
+    v = classify(_claim("fix(docs): fix mode count in approval-mode docs"),
+                 DiffFacts(files=("docs/users/approval-mode.md",), is_empty=False))
+    assert v.claim_kind is ClaimKind.DOC
+    assert v.verdict is Verdict.OK
+    # a scope merely CONTAINING the letters is not the doc scope
+    assert classify_claim("fix(docstore): evict stale entries") is ClaimKind.CODE_EFFECT
+
+
+def test_doc_head_outranks_a_testing_noun_in_the_title():
+    """The 17546b5 over-fire: `docs(plans): the dos.testing conformance-suite +
+    JudgeTester design` is a documentation commit ABOUT a testing module, not a
+    test claim — the explicit docs TYPE wins before the test-noun window."""
+    v = classify(_claim("docs(plans): the dos.testing conformance-suite + JudgeTester design"),
+                 DiffFacts(files=("docs/306_conformance-plan.md",), is_empty=False))
+    assert v.claim_kind is ClaimKind.DOC
+    assert v.verdict is Verdict.OK
+    # a doc-named scope wins the same way
+    assert classify_claim("README: how the testing suite runs") is ClaimKind.DOC
+    # but a NON-doc head with a leading test noun is still a test claim
+    assert classify_claim("core: add unit tests for the engine") is ClaimKind.TEST
+    assert classify_claim("tests pass on the new matrix") is ClaimKind.TEST
 
 
 def test_sweep_summary_rate_and_breakdown():
