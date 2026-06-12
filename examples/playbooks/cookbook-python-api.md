@@ -220,6 +220,39 @@ def may_dispatch(repo, series, phase, lane, live_leases):
 That's `verify` + `arbitrate` composed — the two questions every dispatch should
 ask, as a pure function with no global state.
 
+## Recipe 8 — make verify a *structural* property (`dos.verified`)
+
+Every recipe above is opt-in at the call site — someone has to remember to call
+`is_shipped`. `dos.verified` flips that: decorate the code path that must only
+run against verified work, and forgetting is no longer possible. The gate
+adjudicates on **every call** (not at decoration time), raising a typed
+`NotShippedError` that carries the full verdict:
+
+```python
+from dos import verified, NotShippedError
+
+# decorator: the body runs only if (AUTH, AUTH2) verifiably shipped
+@verified("AUTH", "AUTH2", workspace="/path/to/repo")
+def publish_release_notes():
+    ...
+
+# context manager: same gate, and you get the verdict (which rung answered)
+with verified("AUTH", "AUTH1", cfg=my_cfg) as verdict:
+    print(verdict.source)   # "registry" | "grep-artifact" | "grep-subject"
+
+try:
+    publish_release_notes()
+except NotShippedError as e:
+    print(e.verdict.to_dict())  # the refusing verdict, structured
+```
+
+Config resolution follows the library rule: explicit `cfg=` wins, then
+`workspace=` (that repo's `dos.toml`, the same readback the CLI does), then the
+process-active config. Because the check runs at call time, a gate built before
+its phase ships opens the moment the evidence lands in git — and never before.
+The raise happens in *your* process: the kernel stays advisory; your code is
+what refuses to run.
+
 ---
 
 ## Notes on the public surface

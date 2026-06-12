@@ -170,6 +170,13 @@ from dos.deprecation import (  # noqa: F401  (the typed deprecation category, do
     DosDeprecationWarning,
     warn_deprecated,
 )
+from dos.verified import (  # noqa: F401  (the in-process verify gate, issue #75)
+    # NB: this deliberately rebinds the `dos.verified` attribute from the
+    # submodule to the callable, so `from dos import verified` yields the
+    # decorator/context-manager (the issue-#75 surface), datetime.datetime-style.
+    verified,
+    NotShippedError,
+)
 
 __all__ = [
     "__version__",
@@ -264,4 +271,6 @@ __all__ = [
     "reward_acceptance_ab",
     "DosDeprecationWarning",
     "warn_deprecated",
+    "verified",
+    "NotShippedError",
 ]
