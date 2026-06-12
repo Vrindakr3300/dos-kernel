@@ -196,7 +196,7 @@ The numbers (June-2026 fetch):
   unethical when forced to evaluate them separately, yet proceed anyway during
   goal-directed planning… a **motivational override**, not a capability gap."*
 
-This is the airtight form of the [referee-cannot-report-to-a-contestant law](../dos-private/dispatch-os-fleet-terms-2026.md):
+This is the airtight form of the [referee-cannot-report-to-a-contestant law](../../dos-private/dispatch-os-fleet-terms-2026.md):
 you cannot place the gate *inside* the agent's own optimization loop, because the same
 loop that should refuse is the one applying the pressure to proceed. The gate must be
 a **disinterested party with no input channel to the goal** — which is the structural

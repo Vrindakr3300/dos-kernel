@@ -23,7 +23,7 @@ The live A/B is **not** run here (it spends + needs the live harness; see §4).
 [`docs/159`](159_naive-baselines-and-what-a-detector-default-should-be.md) (the lift scoreboard +
 the §4b no-recovery knob this extends), and [`docs/162`](162_the-recovery-knob-and-the-false-reassurance-failure.md)
 (the same-tool≠same-operation mechanism behind the counterfactual). The actuation rides the
-[`docs/144`](144_the-intervention-ladder.md) WARN rung — the live-proven net-positive intervention
+[`docs/144`](144_the-intervention-ladder-and-its-eval.md) WARN rung — the live-proven net-positive intervention
 (WARN +4.2pp; BLOCK/DEFER can be net-harmful even on a true catch). Inherits the byte-clean / §5a line
 from `docs/143` / `docs/141`. Pairs with [`docs/161`](161_toolathlon-live-gemini-run.md) (the live
 harness this would A/B on).

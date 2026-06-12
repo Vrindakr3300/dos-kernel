@@ -21,7 +21,7 @@ is what makes the next pickups obvious. It ties together
 [`99`](99_runtime-validation-and-the-actuation-boundary.md) (the advisory
 actuation boundary — DOS supplies the signal, a host closes on it),
 [`107`](107_resumable-work-and-the-intent-ledger.md) /
-[`117`](117_completion-as-a-verdict.md) /
+[`117`](117_completion-as-a-verdict-the-end-of-working-in-passes.md) /
 [`133`](133_deferred-obligations-and-the-mid-flight-gap.md) (the completion
 loop), and the live `scout.ClosedLoopSignal` rung (the improvement loop). The
 control-theory framing is the operator's own (memory:
@@ -190,7 +190,7 @@ subtlest: an open loop can fail not only by acting on a lie, but by **never read
 back whether it is done** — stopping on budget instead of on completion, or parking
 a transition "for later" with nothing watching.
 
-- [`117`](117_completion-as-a-verdict.md): agents stop working when they hit an
+- [`117`](117_completion-as-a-verdict-the-end-of-working-in-passes.md): agents stop working when they hit an
   iteration cap or a token budget, *not* when the work is actually complete —
   `loop_decide.StopReason` has eleven reasons and **none of them means "done."**
   The loop closes on exhaustion, not on a completion signal. The fix reframes

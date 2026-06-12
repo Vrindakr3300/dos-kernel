@@ -25,7 +25,7 @@ opt-in). 8 new tests on frozen fixtures (zero network/LLM), 48 in the replay sui
 §4b (which *named* the knob + phenomenon) and [`docs/160`](160_sota-positioning-the-trained-classifier-and-the-arbiter-neighbors.md)
 §4 item #2 (which *ranked* it). Tunes the `terminal_error` detector from
 [`docs/158`](158_recall-expansion-silent-and-frontier-failures.md). The knob follows the
-[`docs/144`](144_the-intervention-ladder.md) confidence-ladder shape (conservative default actuates,
+[`docs/144`](144_the-intervention-ladder-and-its-eval.md) confidence-ladder shape (conservative default actuates,
 aggressive opt-in) and the byte-clean / §5a doctrine from `docs/143` / `docs/141`. Every number here
 is reproducible offline from the cached corpus with zero network — the `dos` replay-testable keystone.
 

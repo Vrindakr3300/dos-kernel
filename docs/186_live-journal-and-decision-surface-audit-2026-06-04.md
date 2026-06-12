@@ -4,7 +4,7 @@
 **Scope:** What does the kernel's *own* runtime state look like right now, run
 live against this repo (`dos/`)? Three questions, answered with real
 commands, not inspection: (1) is the dogfood lane-journal still the 34.7k-line
-unbounded mess the [unbounded-growth audit](../MEMORY.md) recorded on 2026-06-03,
+unbounded mess the unbounded-growth audit recorded on 2026-06-03,
 or did the fix land? (2) what does the `dos decisions` operator surface actually
 emit on live state? (3) is the [`132`](132_what-the-operator-may-resolve-the-authority-floor-of-an-untrusted-driver.md)
 claim — that an `--auto-clear ORACLE` is "90% present" — true against the shipped
@@ -128,7 +128,7 @@ as the kernel's `OP_REFUSE` op. The queue reader keys on the op
 This is the precise pain `decisions.py:8` was built to end — "the most common
 dispatch outcome is the least observable" — reappearing not because the *reader*
 is wrong but because the *writer* (a driver/test fixture, outside the kernel)
-bypassed the `OP_REFUSE` op the [LJ write-side closure](../MEMORY.md) added for
+bypassed the `OP_REFUSE` op the LJ write-side closure added for
 exactly this reason. It ties directly to
 [`132`](132_what-the-operator-may-resolve-the-authority-floor-of-an-untrusted-driver.md):
 the operator can only resolve decisions the queue *surfaces*, and here the

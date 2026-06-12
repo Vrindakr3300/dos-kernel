@@ -272,7 +272,7 @@ predicate seam, and the actuator; 5 is the proof.
 4. **No auto-reconciliation.** DOS is not a Kubernetes controller: it does not converge
    the world to the desired state on its own. It surfaces the diff and proposes; the
    convergence is an actuator's. (The whole point of the advisory floor is that an
-   *untrusted* driver's actuation is gated on a human — [`132`](132_what-the-operator-may-resolve.md).)
+   *untrusted* driver's actuation is gated on a human — [`132`](132_what-the-operator-may-resolve-the-authority-floor-of-an-untrusted-driver.md).)
 5. **No silent schema reinterpretation.** An obligation record whose schema the reader
    can't soundly parse yields a typed refusal, never a best-effort guess
    ([`107 §6`](107_resumable-work-and-the-intent-ledger.md)).
@@ -335,7 +335,7 @@ the next time anyone looks.**
   — the advisory-only floor: the kernel surfaces an obligation, a driver/human discharges it.
 - [`103_memory-is-an-unverified-agent.md`](103_memory-is-an-unverified-agent.md) — a prior
   commitment re-verified against ground truth at read time: the exact posture toward a `DISCHARGE`.
-- [`132_what-the-operator-may-resolve.md`](132_what-the-operator-may-resolve.md) — why a
+- [`132_what-the-operator-may-resolve-the-authority-floor-of-an-untrusted-driver.md`](132_what-the-operator-may-resolve-the-authority-floor-of-an-untrusted-driver.md) — why a
   `STALE` obligation's discharge is gated on a human, not auto-run by an untrusted driver.
 - [`HACKING.md`](HACKING.md) — the closed-enum-as-data seam the named-predicate registry follows.
 

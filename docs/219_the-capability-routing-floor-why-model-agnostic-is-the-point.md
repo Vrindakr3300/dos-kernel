@@ -32,7 +32,7 @@ The capability-routing question is the *opposite valence*. It does not ask the k
 improve the model. It asks: **in a world where you already route tasks to the cheapest
 sufficient model, what does DOS contribute to making that routing decision safe?** The
 answer is large and positive, and it is the natural reading of the one sentence
-[128](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) ends on — that the
+[128](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) ends on — that the
 same kernel can referee *"a Claude fleet, a Gemini fleet, or a mixed one, without ever
 being a contestant in the race it adjudicates"* — promoted from an economics footnote to a
 design claim with its own proof.
@@ -92,7 +92,7 @@ mechanically (2026-06-07), two ways:
 > once with `model="claude-haiku-4-5"`. The serialized verdicts are **byte-identical** — the
 > model marker has no parameter to flow into, so the swap changes nothing. The liveness
 > evidence dump even carries `tokens_spent_since: null`: the kernel keeps the cost slot but
-> never reads it as a signal ([128 §9](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)).
+> never reads it as a signal ([128 §9](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)).
 >
 > The kernel's own committed suite confirms the same from the other side: `test_verdict_contract`,
 > `test_oracle_and_loop`, `test_liveness`, `test_pickable`, `test_reconcile` — **145 tests
@@ -110,7 +110,7 @@ The underlying facts, with line references:
   `generate_content`, `httpx`, …) returns **nothing**.
 - `dos.liveness.classify(now_ms)` reads a since-start commit delta + journal events
   (`src/dos/liveness.py`); `tokens_spent_since` is *explicitly not an input*
-  (`liveness.py:163-167`, per [128 §9](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)).
+  (`liveness.py:163-167`, per [128 §9](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)).
   The kernel never reasons about cost — or about who paid it.
 - `dos.loop_decide.decide(state, outcome)` is pure (no subprocess / file / git / model I/O);
   it consumes *verdicts* (`liveness`, `pickability`, `completion`) handed in as frozen input
@@ -282,7 +282,7 @@ reasoning. So the residual does not rescue the objection either.
 
 This doc would be marketing without the limits, so:
 
-1. **DOS does not *do* the routing.** Exactly as [128 §4](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)
+1. **DOS does not *do* the routing.** Exactly as [128 §4](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)
    says of model tiering — *"DOS decides whether a model is needed at all; it does not itself
    select Sonnet-over-Opus."* The kernel ships the verdict floor that *makes a downgrade
    safe*; the host realizes the saving by actually pointing the cheap child at a cheap model.
@@ -338,7 +338,7 @@ forbidden to re-derive — the capability-routing dividend, fully earned and not
 - [153_can-dos-lift-a-weak-model.md](153_can-dos-lift-a-weak-model.md) — the *other*
   question (lift, not route); its honest negative result is the counter §4 answers, and its
   forfeited-planning-slice is the boundary §5 keeps.
-- [128_the-ultracode-economics-and-how-the-kernel-saves-spend.md](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)
+- [128_the-ultracode-economics-and-how-the-kernel-saves-spend.md](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md)
   — §4 (deterministic-first model ladder) + §10 (*"a Claude fleet, a Gemini fleet, or a mixed
   one"*) — the economics seed this doc promotes to a positioning claim; §9 is the honesty
   template §5 follows.

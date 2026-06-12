@@ -13,7 +13,7 @@
 
 This is a mechanism doc in the house style of
 [`98`](98_the-orchestrator-is-a-driver.md) (the orchestrator-is-a-driver frame)
-and [`128`](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) (the
+and [`128`](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md) (the
 ultracode-spend frame). Where `98` asks *"can a foreign orchestrator keep the
 trust guarantees"* and `128` asks *"how does the kernel save dollars,"* this asks
 the third question they leave open: **once an ultracode subagent returns, what in
@@ -21,7 +21,7 @@ its return is trustworthy, and which DOS syscall adjudicates it without believin
 it?** Every kernel claim carries a `file:line`; every lever is adversarially
 adjudicated to its *honest* status; the marketing-optimistic version is discarded
 in favor of the verified one. The discipline of
-[`128` §9](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md#9-honest-limits--what-dos-does-not-save)
+[`128` §9](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md#9-honest-limits--what-dos-does-not-save)
 is kept: an [Honest-limits §6](#6-honest-limits--every-lever-is-advisory-and-host-realized).
 
 The doc was assembled from a fan-out + adversarial-verification pass over **2305
@@ -271,7 +271,7 @@ the strong both face identically.
 
 ## 6. Honest limits — every lever is advisory and host-realized
 
-Faithful to [`128` §9](128_the-ultracode-economics-and-how-the-kernel-saves-spend.md#9-honest-limits--what-dos-does-not-save):
+Faithful to [`128` §9](https://github.com/anthony-chaudhary/dos-private/blob/master/128_the-ultracode-economics-and-how-the-kernel-saves-spend.md#9-honest-limits--what-dos-does-not-save):
 state what DOS does **not** do.
 
 1. **DOS ships no `Workflow` hooks.** "Directly useful to ultracode" means

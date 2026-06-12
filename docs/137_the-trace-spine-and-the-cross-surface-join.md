@@ -161,7 +161,7 @@ the plain text is the operator floor.
 - [`118`](118_the-fleet-postmortem-and-the-attribution-join.md) — the measured gap
   + Size S this plan lands (its postmortem reader is the sibling consumer of the
   same now-stamped lease).
-- [`64`](64_correlation-id-spine-plan.md) (`run_id.py` header) — the spine this
+- `64_correlation-id-spine-plan.md` (`run_id.py` header) — the spine this
   verb finally traverses ("a join, not a timestamp-grep").
 - [`107`](107_resumable-work-and-the-intent-ledger.md) — the intent ledger +
   claimed-vs-verified split `trace` reads (and `journal_delta`'s "HARD PROBLEM"

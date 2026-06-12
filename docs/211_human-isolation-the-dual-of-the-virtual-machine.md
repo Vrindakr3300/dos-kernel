@@ -146,7 +146,7 @@ the verb "trap," with its OS sense of preemption, is unbuildable — PDP-no-PEP 
 kernel cannot interrupt a person or guarantee they read the row. And deepest: a
 file-glob is a checkable byte-fact; a **concept-glob is an assertion about what an output
 is "about."** If the agent self-tags its own concept-region, the lease admits on a
-self-report — the exact thing the kernel exists to distrust ([`138`](138_*.md)). The
+self-report — the exact thing the kernel exists to distrust ([`138`](138_what-is-truth-the-throughline.md)). The
 disjointness floor, the one thing that keeps a swappable scorer honest, has nothing exact
 to stand on ("is `token-refresh` inside `session`?" has no deterministic prefix answer).
 
@@ -200,7 +200,7 @@ This is the reading with a genuine, buildable gap. The decisions queue answers "
 needs a human" but not "which human is on it." Two operators both open `dos decisions`,
 both see the top row, both act — one runs `arbitrate --force`, the other `/replan` — and
 the substrate is written twice on conflicting intents. This is
-[`116`](116_durable-commons-and-the-constrained-a2a-problem.md)'s "the blackboard is the
+[`116`](116_the-durable-commons-and-the-constrained-a2a-problem.md)'s "the blackboard is the
 disease," with the unreliable readers/writers being **humans**. The fix is the same:
 human-to-**substrate** adjudication, not human-to-human Slack coordination.
 
@@ -434,7 +434,7 @@ concepts. The one refinement the spike forced into §R3: the decision-lease is a
 The adversarial pass left three unanswered, and the note is more honest for naming them.
 
 1. **Does the kernel distrust the *operator* too?** The kernel's thesis is "the part that
-   doesn't believe the *agents*," and [`103`](103_*.md) aims that same distrust inward at
+   doesn't believe the *agents*," and [`103`](103_memory-is-an-unverified-agent.md) aims that same distrust inward at
    a human-authored memory store. But every reading here makes the kernel *protect* the
    human — and a human is a self-reporting agent. A concept-lease self-tagged by a human,
    a decision-lease owned by a self-asserted string: these *import the human as a trusted

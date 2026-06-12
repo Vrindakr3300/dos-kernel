@@ -13,8 +13,8 @@
 > handle, leaving the authoritative per-pick disjointness exactly where it already
 > lives: each worker's own `arbitrate` at its Step 0.**
 
-A spec note in the family of [`99`](99_runtime-validation-the-self-stop-seam.md)
-(the supervisor / SUP axis) and [`89`](89_a-lane-is-a-region-lock.md) (a lane is a
+A spec note in the family of [`99`](99_runtime-validation-and-the-actuation-boundary.md)
+(the supervisor / SUP axis) and [`89`](89_the-lane-is-a-region-lock.md) (a lane is a
 region-lock over a glob-set). It closes a mismatch between two designs DOS already
 ships: the supervisor's STATIC admissibility (this note's §1) and the userland
 dynamic-claim lane model (§2).
