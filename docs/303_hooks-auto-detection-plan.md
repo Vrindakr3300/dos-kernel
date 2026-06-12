@@ -1,6 +1,9 @@
 # 303 — `--hooks auto`: detect the runtime, wire the hooks, ask nothing
 
-> **Status:** planned (2026-06-12). The forcing question (operator `/goal`):
+> **Status:** shipped (2026-06-12) — P1 (`cf8338d`) + P2 (`b1793a7`)
+> oracle-verified the same day (`dos verify` answers SHIPPED for both off the
+> stamped subjects; the commit-audit over all three commits is clean).
+> The forcing question (operator `/goal`):
 > *make DOS 10× more attractive to people who face the problem it solves but
 > have no idea what a trust layer is — people who just want to add it and get
 > the benefits without thinking.* This plan ships the product half (P1: a
