@@ -10,7 +10,7 @@
 >
 > Everything below was measured in the **injected-mint regime** (`DOS_MINT_RATE` ~0.3,
 > realized ~0.10) — it *manufactures* the invented-FK failure a capable model rarely
-> produces naturally. Re-scored through the [docs/198 feasibility split](../../docs/198_feasibility-witness-and-the-category-error.md)
+> produces naturally. Re-scored through the [docs/198 feasibility split](../../docs/198_the-feasibility-witness-and-give-up-correctly.md)
 > against **every recorded corpus** ([docs/202](../../docs/202_intervention-ladder-refresh-natural-regime.md)).
 > The feasibility split is [docs/198](../../docs/198_the-feasibility-witness-and-give-up-correctly.md):
 >
