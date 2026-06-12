@@ -1,0 +1,21 @@
+# Keep the image build context lean: the install needs src/ + pyproject.toml +
+# README.md + LICENSE; everything else is weight in the COPY layer.
+.git
+.github
+.pytest_cache
+__pycache__
+**/__pycache__
+*.egg-info
+build
+dist
+tests
+docs
+examples
+benchmark
+paper
+spikes
+scripts
+verify-action
+claude-plugin
+go
+llms*.txt
