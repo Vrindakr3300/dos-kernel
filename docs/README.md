@@ -38,6 +38,7 @@ If you read nothing else, read the first two rows of the table below.
 | [**incidents/**](incidents/README.md) | Arriving from a burn? One page per failure mode — "my agent said it committed, but there's no commit" and its siblings — each with the command that catches it. |
 | [**../README.md**](../README.md) | What DOS is, the syscall ABI, the full CLI, the install. The front door. |
 | [**HACKING.md**](HACKING.md) | How to extend DOS *without forking it* — add refusal reasons, lanes, renderers, judges, and safety predicates as workspace policy. The seven extension axes + the plugin model. |
+| [**STABILITY.md**](STABILITY.md) | The compatibility promise: which surfaces you may depend on, what the version number means for each, the deprecation window (`DosDeprecationWarning`), and the short list of what will never break. |
 | [**../CONTRIBUTING.md**](../CONTRIBUTING.md) | How to send a change to the kernel: the layering rule, the CI-enforced litmus tests, the green bar. |
 | [**../CLAUDE.md**](../CLAUDE.md) | The full architecture contract — the four layers and the one-directional import rule. The canonical reference for *where code belongs*. |
 | [**ENTERPRISEOPS_ARC.md**](ENTERPRISEOPS_ARC.md) | The map of the EnterpriseOps-Gym benchmark research line (docs/143–153): designed vs measured vs shipped, the crack/supersede graph, the one-canonical-value results registry, and the coordination rule for parallel research. Read before touching that arc. |

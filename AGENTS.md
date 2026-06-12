@@ -163,6 +163,13 @@ The canonical statement of all of this, with the full layer table and the litmus
 list, is [CLAUDE.md](CLAUDE.md). If a doc ever seems to contradict it, the doc is
 the stale one — CLAUDE.md is the contract.
 
+The outward-facing twin of these rules is
+[docs/STABILITY.md](docs/STABILITY.md) — the published promise about which
+surfaces a consumer or plugin may depend on, what the version number means,
+and how a deprecation is announced (`DosDeprecationWarning`, a
+two-minor-release window). A change that breaks a surface that file calls
+Stable needs the deprecation process, not just a green suite.
+
 ## Committing (when you're working in here)
 
 A commit **is** the ship-stamp `dos verify` reads, so a finished, green change

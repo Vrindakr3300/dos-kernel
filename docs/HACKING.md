@@ -327,6 +327,10 @@ changes. (See `examples/dos_ext/` for a copy-me skeleton of the four plugin axes
 a `terse` renderer, a `budget_guard` predicate, a `keyword` judge, and a
 `semantic-groups` overlap policy.)
 
+What a plugin may depend on across kernel versions — the group names, the
+Protocol signatures, the by-name resolution, the deprecation window — is a
+written promise, not folklore: **[STABILITY.md](STABILITY.md)**.
+
 **Custom plan dialects (`dos.plan_sources`).** `dos plan` reads phases from a
 **plan source**; the built-in `markdown` source harvests the strict
 `### N. PLAN PHASE — …` grammar (letter+digit phase ids — see

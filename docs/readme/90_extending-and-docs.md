@@ -20,6 +20,10 @@ for a copy-me skeleton.
 - **[docs/README.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/README.md)** — the docs index (guides vs. design notes
   vs. the dated build-journal; the numbers are chronology, not a reading order).
 - **[docs/HACKING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/HACKING.md)** — extend DOS without forking it.
+- **[docs/STABILITY.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/STABILITY.md)** — the compatibility
+  promise: what you may depend on, what SemVer means here, how deprecations
+  are announced (`DosDeprecationWarning`, a two-minor-release window), and
+  what will never break.
 - **[CLAUDE.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/CLAUDE.md)** / **[CONTRIBUTING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/CONTRIBUTING.md)** — the
   architecture contract and how to send a change.
 - **[verify-action/](https://github.com/anthony-chaudhary/dos-kernel/blob/master/verify-action/README.md)** — the CI gate: a

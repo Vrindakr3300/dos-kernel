@@ -86,3 +86,11 @@ def test_documented_category_is_the_real_importable_one() -> None:
 
 def test_doc_states_the_two_minor_release_window() -> None:
     assert "two minor releases" in STABILITY.read_text(encoding="utf-8")
+
+
+def test_named_from_the_front_doors() -> None:
+    # The issue #67 done-condition: the promise must be reachable from the
+    # entry documents, not buried. A link nobody pins is a link that rots.
+    for rel in ("README.md", "AGENTS.md", "docs/HACKING.md", "docs/README.md", "llms.txt"):
+        text = (REPO / rel).read_text(encoding="utf-8")
+        assert "STABILITY.md" in text, f"{rel} no longer names docs/STABILITY.md"

@@ -996,6 +996,10 @@ for a copy-me skeleton.
 - **[docs/README.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/README.md)** — the docs index (guides vs. design notes
   vs. the dated build-journal; the numbers are chronology, not a reading order).
 - **[docs/HACKING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/HACKING.md)** — extend DOS without forking it.
+- **[docs/STABILITY.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/STABILITY.md)** — the compatibility
+  promise: what you may depend on, what SemVer means here, how deprecations
+  are announced (`DosDeprecationWarning`, a two-minor-release window), and
+  what will never break.
 - **[CLAUDE.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/CLAUDE.md)** / **[CONTRIBUTING.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/CONTRIBUTING.md)** — the
   architecture contract and how to send a change.
 - **[verify-action/](https://github.com/anthony-chaudhary/dos-kernel/blob/master/verify-action/README.md)** — the CI gate: a
@@ -1293,6 +1297,13 @@ red, so you'll find out fast). The ones most likely to bite an edit:
 The canonical statement of all of this, with the full layer table and the litmus
 list, is [CLAUDE.md](CLAUDE.md). If a doc ever seems to contradict it, the doc is
 the stale one — CLAUDE.md is the contract.
+
+The outward-facing twin of these rules is
+[docs/STABILITY.md](docs/STABILITY.md) — the published promise about which
+surfaces a consumer or plugin may depend on, what the version number means,
+and how a deprecation is announced (`DosDeprecationWarning`, a
+two-minor-release window). A change that breaks a surface that file calls
+Stable needs the deprecation process, not just a green suite.
 
 ## Committing (when you're working in here)
 
@@ -2794,6 +2805,7 @@ edit to one is never an edit to the substrate:
 | `liveness()` | `dos.liveness` (evidence readers: `dos.git_delta`, `dos.journal_delta`) | the **temporal verdict** (docs/82) — "is the run *moving* (ADVANCING) or just spinning (SPINNING/STALLED)?", from the git/journal delta, never the agent's "making progress" self-report. `verify`'s in-flight sibling; works with no plan present. Phase 2 (the journal/heartbeat rung) shipped; loop-self-stop (P3) is not. Advisory. *(Detail: `docs/ARCHITECTURE.md`.)* |
 | `productivity()` | `dos.productivity` | the **loop-economics verdict** (docs/218) — "is the run still *doing work*, or fading?" `liveness`'s lateral sibling re-aimed onto a **trend**: `classify(WorkHistory, policy) -> ProductivityVerdict` (PRODUCTIVE/DIMINISHING/STALLED) over per-step work deltas. The cleanest mechanism/policy split in the kernel (host names the work-unit + thresholds; kernel only compares magnitudes); timeless — makes **no I/O at all**. Advisory. CLI: `dos productivity --deltas …` (PRODUCTIVE 0 / DIMINISHING 3 / STALLED 4). |
 | `efficiency()` | `dos.efficiency` | the **token-effectiveness verdict** (docs/263) — "did the tokens this run spent *buy work*?" `productivity`'s lateral sibling re-aimed from a trend onto a **ratio**: `classify(EfficiencyEvidence, policy) -> EfficiencyVerdict` (EFFICIENT/COSTLY/WASTEFUL) over `work / tokens`. Relates the work to its *price* — the question an operator means by "token effectiveness" (a run can be PRODUCTIVE yet burn 10× the tokens its work was worth). **Non-forgeable by construction**: both counts are env-authored (the work git/the test-runner witnessed; the tokens the provider billed), so a run cannot narrate its way to EFFICIENT (the docs/138 invariant). WASTEFUL (0 work, meaningful spend) is unit-independent and always-free; COSTLY is opt-in behind a host-armed `floor` (default 0.0 = disabled, so a unit mismatch never manufactures a false COSTLY). Timeless — makes **no I/O at all**. Advisory. CLI: `dos efficiency --work W --tokens N [--floor R]` (EFFICIENT 0 / COSTLY 3 / WASTEFUL 4). |
+| `work_account()` | `dos.work_account` | the **work-kind account** (docs/310) — "what KINDS of work did this iteration land?" The **composition** sibling: `productivity` reads a trend, `efficiency` a ratio, this reads a typed account by kind. `classify_work(WorkAccount) -> SHIPPED/CAUGHT/ADVANCED/GROOMED/SURFACED/IDLE` over per-kind counts the witnesses authored (oracle-verified ships; oracle-REFUTED claims; git's lane commits; grooms/unblocks; raised decisions). The fix for the one-bit stats forcing ("did a pick ship?"): a 0-pick iteration that advanced, groomed, or caught a false claim stops reading as "drained" — `event_severity` grades it NOTICE off the account, and the headline composes every non-zero kind ("1 pick shipped · 4 commits advanced"). Claims alone classify IDLE: narration cannot climb the ladder (docs/138); the unadjudicated over-claim count is echoed, visible but powerless. Two axes, two words: IDLE is the iteration's work, DRAIN stays the backlog's. Timeless — makes **no I/O at all**. Advisory and observability-only (changes what stats SAY, never what the loop DOES). CLI: `dos work-account --verified-ships N --advance-commits N …` (healthy kinds 0 / CAUGHT 3 / IDLE 4). |
 | `improve()` | `dos.improve` (composes `dos.efficiency` + `dos.breaker`; engine: `dos.drivers.self_improve`) | the **self-improving-loop keep-gate** (docs/280) — "may a self-improving work loop *keep* this candidate change?" The kernel leaf of the first recursive-self-improvement loop for DOS: `reward.admit` ([[234]]) re-aimed from a training-set admission to a commit-KEEP admission. `classify(CandidateEvidence, policy) -> KEEP / REVERT / ESCALATE` over four **env-authored** facts (the suite's exit on the candidate-only tree, the truth syscall's cleanliness, the metric before/after) + the carried breaker count. KEEP iff suite green AND truth clean AND a STRICT env-measured metric gain AND not WASTEFUL; a regression (red suite / dirty truth) is the non-negotiable conjunctive floor → REVERT; a safe no-op → REVERT; N non-keeps in a row → ESCALATE to a human (the RSI "human-judgment bottleneck" as a kernel rule). **Non-forgeable** (docs/138/234 at loop scale): the keep-bit reads zero loop-authored bytes — a `narrated` string is carried for the operator and parsed for nothing, so a loop *cannot write its way into the kept set*; the only path to KEEP is to actually move the metric. PURE, no I/O, names no host (the metric + the proposer are the host's, injected into the `self_improve` engine which does the worktree-isolated propose→gather→classify→actuate). Advisory. CLI: `dos improve --suite-passed --truth-clean --work W --baseline-work B [--max-reverts N]` (KEEP 0 / REVERT 3 / ESCALATE 4). |
 | `breaker()` | `dos.breaker` | the **circuit-breaker primitive** (docs/223) — "this failure class keeps tripping; stop, and escalate the rung." A PURE two-counter state machine (`record_failure`/`record_success`/`classify -> CLOSED/OPEN`); trips on `consecutive` (sustained) OR `total` (flapping). An OPEN verdict names an `Escalation` rung (NONE/JUDGE/HUMAN). Advisory. CLI: `dos breaker --consecutive N --max-consecutive M` (CLOSED 0 / OPEN 3). |
 | `exec_capability()` | `dos.exec_capability` | the **arbitrary-exec capability classifier** (docs/223b) — "does this command grant arbitrary code execution?" `classify_command -> GRANTS_ARBITRARY_EXEC/BOUNDED/EMPTY`, matching the INVOKED PROGRAM token against a closed set, NEVER a substring (`cat python.txt` is BOUNDED). A classifier leaf the `pretool_sensor` PEP consults, not an arbiter predicate. ADVISORY (BOUNDED ≠ a safety guarantee). CLI: `dos exec-capability --command "…"` (BOUNDED/EMPTY 0 / GRANTS_ARBITRARY_EXEC 3). |
@@ -3452,6 +3464,10 @@ my_plan = "your_plugin.plan:MyPlanSource"
 changes. (See `examples/dos_ext/` for a copy-me skeleton of the four plugin axes —
 a `terse` renderer, a `budget_guard` predicate, a `keyword` judge, and a
 `semantic-groups` overlap policy.)
+
+What a plugin may depend on across kernel versions — the group names, the
+Protocol signatures, the by-name resolution, the deprecation window — is a
+written promise, not folklore: **[STABILITY.md](STABILITY.md)**.
 
 **Custom plan dialects (`dos.plan_sources`).** `dos plan` reads phases from a
 **plan source**; the built-in `markdown` source harvests the strict
@@ -4143,6 +4159,174 @@ dos reindex [--prune]         # rebuild the projection from the .dos/ dirs
 emit / verify / refuse / `man`): the cross-project aggregate is **data that
 informs tuning, never monkeypatching** — the same closed-enums-as-data thesis as
 `[reasons]`.
+
+<!-- ====== source: docs/STABILITY.md ====== -->
+
+# Stability & deprecation policy — what you may depend on
+
+> This file is a promise, not a description. It says which surfaces of
+> `dos-kernel` you can build against, what a version number tells you about
+> each, how a deprecation is announced and how long it keeps working, and a
+> short list of things that will never change at any version. If a release
+> contradicts this file, the release is the bug — file an issue.
+
+DOS asks other people's agents to be held to their word. The same rule
+applies to us: a consumer or plugin author should not have to read stable-so-far
+behavior out of the git history; they should be able to read a stated promise.
+This is that statement. (Two siblings make it enforceable rather than
+aspirational: the conformance suite of docs/306 lets a plugin's own CI prove
+the seam safety laws, and the litmus tests in [CLAUDE.md](../CLAUDE.md) pin
+the architecture rules in this repo's CI. This file is the prose layer both
+point at — docs/308, issue #67.)
+
+## The three tiers
+
+Every public surface is in exactly one tier:
+
+- **Frozen** — will never change, at any version. The short list below.
+- **Stable** — governed by the version number and the deprecation process.
+  If it is named in the "What is Stable" section, you may depend on it.
+- **Internal — no promise.** Everything not named here: any name starting
+  with an underscore (`dos._tree`, a `_helper()`), a driver's internals
+  behind its registered entry point, the prose docs, the skill-pack texts,
+  test helpers. Internal surfaces may change in any release without notice.
+  Default-internal is what keeps the Stable list honest.
+
+## Frozen — what will never break
+
+These hold at every version, including every 0.x. Each is enforced by a
+litmus test in this repo's suite today; the promise is that the test never
+leaves.
+
+1. **An extension can only refuse MORE, never admit more.** Every plugin seam
+   sits under a deterministic floor: a judge that raises or returns junk
+   yields ABSTAIN, never AGREE (`run_judge`); an overlap policy is AND-ed
+   under the unforgeable prefix-disjointness floor, so a lying-admit policy
+   cannot admit a colliding pair (`admissible_under_floor`); admission
+   predicates are conjunctive-only; a raising notifier yields a non-delivered
+   result, never a crashed producer (`send_safely`); a raising plan source
+   yields no rows, never a crash. A buggy or hostile plugin degrades to the
+   built-in conservative behavior — it cannot loosen safety.
+2. **No verdict believes the claimant.** A verdict never flips from its
+   conservative outcome to its permissive outcome on bytes only the claimant
+   authored. `dos verify` answers from git evidence, with no plan files and
+   no registry required — that zero-config floor stays.
+3. **Exit-code polarity.** Exit `0` is the clean/admitted/pass outcome. A
+   refusal, block, or caught lie is never exit `0`.
+4. **The dependency floor.** `pip install dos-kernel` requires Python and
+   PyYAML, nothing else. Capability beyond that arrives only through opt-in
+   extras (`[mcp]`, `[tui]`, …). The required set never grows.
+5. **Vendor-blind adjudication.** No kernel decision path branches on which
+   vendor or host is acting. A hook dialect is output formatting, chosen
+   downstream of an already-decided verdict.
+6. **Closed vocabularies are never re-meant.** A shipped verdict or reason
+   member never silently changes meaning, and is never reused to mean
+   something else. Members are added; removal goes through the deprecation
+   process like any Stable break.
+
+## What is Stable
+
+- **The Python syscall ABI.** The verdict entry points the
+  [README](../README.md) syscall table and [CLAUDE.md](../CLAUDE.md)'s
+  "syscall ABI" table name (`verify`, `arbitrate`, `liveness`,
+  `productivity`, `efficiency`, `improve`, `resume`, `reward`, the picker
+  substrate, …): their importable locations, call signatures, and verdict
+  return types. New keyword-only parameters with safe defaults may be added
+  in a minor; anything else is a Stable break.
+- **The closed verdict vocabularies.** The member sets of the shipped verdict
+  enums (SHIPPED/NOT_SHIPPED, ADVANCING/SPINNING/STALLED, KEEP/REVERT/ESCALATE,
+  …) and the base reason registry. Additive growth only, except through the
+  deprecation process.
+- **The CLI.** Verb names, documented flags, documented exit codes, and the
+  top-level keys of every documented `--json` output. JSON output is
+  additive: existing keys keep their name, type, and meaning; new keys may
+  appear in any release, so a consumer must tolerate unknown keys.
+- **Hook-dialect bytes.** For a given dialect and verdict, the rendered hook
+  output a host runtime parses. These bytes are an interface to software we
+  do not control; changing them is a Stable break even when it looks
+  cosmetic.
+- **The plugin seams.** For each entry-point group below: the group name, the
+  contract type a registered occupant must satisfy (the Protocol's method
+  names and signatures, or the spec dataclass's fields), and by-name
+  resolution with the listed built-in default still serving when a named
+  occupant is missing or broken. This roster is pinned against the source by
+  `tests/test_stability_policy.py` — if the code grows a seam this table does
+  not name, the suite goes red.
+
+  | Entry-point group | Contract | Kernel seam module |
+  |---|---|---|
+  | `dos.judges` | `Judge` Protocol | `dos.judges` |
+  | `dos.predicates` | `AdmissionPredicate` Protocol | `dos.admission` |
+  | `dos.overlap_policies` | `OverlapPolicy` Protocol | `dos.overlap_policy` |
+  | `dos.notifiers` | `Notifier` Protocol | `dos.notify` |
+  | `dos.hook_dialects` | `HookDialect` Protocol | `dos.hook_dialect` |
+  | `dos.renderers` | `Renderer` Protocol | `dos.render` |
+  | `dos.stop_policies` | `StopPolicy` Protocol | `dos.stop_policy` |
+  | `dos.plan_sources` | `PlanSource` Protocol | `dos.plan_source` |
+  | `dos.exporters` | `Exporter` Protocol | `dos.exporter` |
+  | `dos.evidence_sources` | `EvidenceSource` Protocol | `dos.evidence` |
+  | `dos.log_sources` | `LogSource` Protocol | `dos.log_source` |
+  | `dos.scope_sources` | `ScopeSource` Protocol | `dos.scope_source` |
+  | `dos.enforce_handlers` | `EnforcementHandler` Protocol | `dos.enforce` |
+  | `dos.hook_installs` | `HostHookSpec` spec | `dos.hook_install` |
+
+- **The `dos.toml` schema.** A declared key keeps its meaning; new keys are
+  additive; an unknown key keeps failing loud where it does today.
+- **The deprecation machinery itself.** `dos.deprecation.DosDeprecationWarning`
+  and `dos.deprecation.warn_deprecated` (both re-exported from `dos`).
+
+## What the version number means
+
+The current line is 0.x. Strict SemVer reads 0.x as "anything may change";
+this policy is deliberately stronger:
+
+- **PATCH** (`0.25.0 → 0.25.1`): never removes, renames, or re-means a Stable
+  surface. Fixes and additions only.
+- **MINOR** (`0.25 → 0.26`): may add Stable surface, and may REMOVE a surface
+  only if its deprecation window (below) has fully elapsed.
+- At **1.0+**, removal moves to MAJOR releases only; minors become purely
+  additive.
+
+**The one stated exception — safety outranks compatibility.** DOS is a trust
+substrate. If a Stable surface is found to loosen a deterministic floor or
+make a verdict forgeable (a Frozen guarantee at risk), the fix lands in the
+next release of any size, without a window. The release notes must flag it
+loudly as a safety break. This exception cannot be used to remove something
+for convenience — it applies only when keeping compatibility would mean
+keeping a hole in a Frozen guarantee.
+
+## How a deprecation happens
+
+1. **The deprecating release** keeps the surface working. Every use emits a
+   `DosDeprecationWarning` — via the one sanctioned helper,
+   `dos.deprecation.warn_deprecated` — whose message names the surface, the
+   version that deprecated it, the earliest version that may remove it, and
+   the replacement when one exists. The release notes say the same.
+2. **The window:** at least **two minor releases**. A surface deprecated in
+   0.25.x may be removed no earlier than 0.27.0.
+3. **The removing release** names the removal in its release notes.
+
+`DosDeprecationWarning` subclasses `DeprecationWarning`, so Python's default
+visibility rules hold (quiet in production, surfaced by pytest and `-W`).
+Because it is OUR subclass, you can hold us to this file mechanically:
+
+```python
+import warnings
+from dos import DosDeprecationWarning
+
+warnings.filterwarnings("error", category=DosDeprecationWarning)
+# CI now fails the moment your code touches a deprecated DOS surface —
+# and nothing else's deprecations can trip it.
+```
+
+## How this file stays true
+
+A promise document rots unless something pins it. `tests/test_stability_policy.py`
+pins this file's seam roster to the entry-point groups actually declared in
+the source (both directions), and pins that the warning category documented
+here is the real, importable one. The conformance suite (docs/306) is the
+out-of-tree half: a plugin's own CI can prove the Frozen seam laws against
+the `dos-kernel` version it actually installed.
 
 <!-- ====== source: SECURITY.md ====== -->
 
