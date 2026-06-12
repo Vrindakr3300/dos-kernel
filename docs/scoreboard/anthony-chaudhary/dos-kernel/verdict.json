@@ -1,0 +1,53 @@
+{
+  "schema": "dos-scoreboard-verdict/v1",
+  "repo": "anthony-chaudhary/dos-kernel",
+  "generated": "2026-06-12",
+  "grader": {
+    "tool": "dos-kernel commit-audit --sweep",
+    "version": "0.25.0"
+  },
+  "methodology": "https://anthony-chaudhary.github.io/dos-kernel/drift-scoreboard.html",
+  "opt_in": true,
+  "range": {
+    "described": "full visible public history (abe74e8..HEAD at sweep time)",
+    "head_sha": "4ea6a2aa7d8707b7f6345de08e66d8ceb6719410",
+    "commits_audited": 203
+  },
+  "claims": {
+    "checkable": 134,
+    "witnessed": 131,
+    "unwitnessed": 3,
+    "abstained": 69,
+    "drift_rate": 0.022388059701492536
+  },
+  "by_kind": {
+    "doc": {
+      "unwitnessed": 3,
+      "witnessed": 103,
+      "abstain": 0
+    },
+    "none": {
+      "unwitnessed": 0,
+      "witnessed": 0,
+      "abstain": 69
+    },
+    "code_effect": {
+      "unwitnessed": 0,
+      "witnessed": 23,
+      "abstain": 0
+    },
+    "test": {
+      "unwitnessed": 0,
+      "witnessed": 5,
+      "abstain": 0
+    }
+  },
+  "receipts": {
+    "unwitnessed_shas": [
+      "0843842",
+      "cc00bf1",
+      "bf05e27"
+    ]
+  },
+  "advisory": "Drift is a claim-vs-diff mismatch, never a correctness or malice grade."
+}

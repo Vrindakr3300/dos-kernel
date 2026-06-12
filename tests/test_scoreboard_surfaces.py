@@ -144,3 +144,40 @@ def test_badge_is_a_pure_projection_of_the_verdict():
     assert ss.badge_payload(v) == ss.badge_payload(v)
     assert repr(v) == before
 
+
+# ---------------------------------------------------------------------------
+# The P2 rot-pins — repo #1's own tracked artifacts. The tracked badge must
+# BE the projection of the tracked verdict (it cannot drift), and the README
+# embed must reference the tracked path (it cannot silently vanish).
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SELF_DIR = _REPO_ROOT / "docs" / "scoreboard" / "anthony-chaudhary" / "dos-kernel"
+
+
+def _load(name: str) -> dict:
+    import json
+    return json.loads((_SELF_DIR / name).read_text(encoding="utf-8"))
+
+
+def test_self_verdict_artifact_is_v1_and_inspectable():
+    v = _load("verdict.json")
+    assert v["schema"] == "dos-scoreboard-verdict/v1"
+    assert v["repo"] == "anthony-chaudhary/dos-kernel"
+    assert v["opt_in"] is True
+    assert v["range"]["head_sha"], "the audited range must be pinned to a SHA"
+    # receipts back the headline — inspectable all the way down
+    assert len(v["receipts"]["unwitnessed_shas"]) == v["claims"]["unwitnessed"]
+    assert v["claims"]["witnessed"] + v["claims"]["unwitnessed"] \
+        == v["claims"]["checkable"]
+
+
+def test_self_badge_equals_the_projection_of_the_self_verdict():
+    assert _load("badge.json") == ss.badge_payload(_load("verdict.json"))
+
+
+def test_readme_embeds_the_self_badge():
+    from urllib.parse import unquote
+    readme = (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert ("docs/scoreboard/anthony-chaudhary/dos-kernel/badge.json"
+            in unquote(readme))
