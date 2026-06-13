@@ -10,6 +10,10 @@
 > (the calls it actually REFUSED), not a total inflated by advisory warns; the rate
 > denominator splits the same way; `dos helped --advisory` keeps the cautions one
 > keystroke away. See "Phase 3" below.
+> **Phase 4 (2026-06-13):** grounding + value — `dos helped --explain` now shows
+> the adjudicated denominator (the number that grounds the count), a `value:` line
+> per reason class (*why* the block mattered, not just what it means), and an honest
+> footer tiering load-bearing refusals from low-signal advisory warns. See "Phase 4".
 
 ## The gap
 
@@ -217,3 +221,57 @@ data-derived headline (incl. a multi-reason-class case that would catch a
 hardcoded-two-category regression), the advisory-only headline, the `--advisory`
 view + JSON split, the short-label never-invent rule, and the rate's
 `refused`/`advised` split with its `intervened >= refused + advised` invariant.
+
+## Phase 4 — grounding + value: "is this number real, and was the block worth it?" (2026-06-13)
+
+Phase 3 made the count *honest* (refused vs advisory). Phase 4 answers the two
+questions an operator asks of the deepest view, `dos helped --explain`: **is the
+count grounded in a real denominator, and what did each block actually buy me?**
+Audited on this repo, `--explain` had three gaps — every one a *missing* honest
+fact, not a wrong one (the projection was already byte-clean):
+
+1. **No grounding number on the deepest view.** The bare rollup shows the
+   adjudicated denominator (*"of 14997 tool calls … 154 refused (1.0%)"*); the
+   `--explain` drill-down — the one an operator opens to scrutinize — showed
+   *none*. So the most-examined surface was the only one a reader could not
+   ground. Fixed: `render_explain_text` now takes the same folded
+   `hook_observation.InterventionRate` and renders the same self-contained block
+   (reusing `_rate_lines`). Absent log ⇒ no block, byte-identical to before.
+2. **What a class MEANS, never what the block BOUGHT.** `means:` glossed each
+   class; nothing said *why stopping it mattered*. Added `REASON_VALUE` /
+   `value_of` — a closed reference-data map (same keys, same never-invent rule as
+   `REASON_GLOSSARY`) rendered as a `value:` line: `SELF_MODIFY` → *"prevented a
+   kernel-corrupting self-edit — the agent would have rewritten the code that was
+   adjudicating it"*; `admission` → *"prevented two workers colliding on the same
+   files."* An unknown class gets no value line, exactly as it gets no gloss.
+3. **No honest tiering of load-bearing vs noise.** On this repo 178 refusals
+   withheld a real call; 629 advisory warns (mostly read-only Read/Grep against a
+   busy lane) *ran anyway and changed nothing*. `--explain` listed them without
+   saying which mattered. Added a closing footer derived from two env-authored
+   counts — `withheld` (load-bearing refusals on write-capable tools) vs the
+   advisory bucket (`by_advisory_tool`, named, flagged low-signal). This is the
+   structural answer to *"is blocking a Read ever worth it?"*: the honest one on
+   this repo is "those particular ones weren't," and the output now says so.
+
+A fourth, smaller honesty fix is in the bare rollup: the headline counts every
+withheld OP_ENFORCE on the lane journal (178) while the rate counts `deny`
+outcomes in the observation log's shorter window (154) — two true numbers for the
+same idea, four lines apart. The `_rate_lines` caveat now names *why* they differ
+("two lenses on the same enforcement, not a disagreement") so the operator does
+not read it as a bug.
+
+**Still byte-clean, still no new store.** `REASON_VALUE` and `_WRITE_CAPABLE_TOOLS`
+are closed reference data (the write-capable set is tool-NAME granularity — the
+projection's altitude — deliberately NOT importing `pretool_sensor`'s bash-program
+prefixes, which would be a category error and a sensor dependency). Every count
+the footer renders is off the env-authored `withheld` / `tool` fields; no `reason`
+prose feeds a value claim. `render_explain_text` gains a `rate=` param and three
+lines; the fold is unchanged.
+
+**Out of scope, surfaced not papered over.** A per-call *severity* score (beyond
+the class-level value map) would need a new env-authored field at the sensor — not
+invented into this projection. The model-dimension gap from Phase 3 (#143) is
+unchanged. Pinned by 8 added tests in `tests/test_help_summary.py`: `value_of`
+known/unknown/case-insensitive, the value line shown/omitted, the grounding rate
+present/absent (byte-identical when absent), the load-bearing footer split + the
+advisory-only case, and the reworded two-lenses caveat.

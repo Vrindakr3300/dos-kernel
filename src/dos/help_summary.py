@@ -115,6 +115,53 @@ def short_label(reason_class: str) -> str:
         reason_class, REASON_SHORT_LABEL.get(reason_class.upper(), ""))
 
 
+# The VALUE of the block — "why did stopping this matter?", one line per reason
+# class. `REASON_GLOSSARY` says what a class MEANS; this says what the operator
+# GOT OUT of the refusal. Same closed-set, same env-authored keys, same
+# never-invent rule (an unknown class gets no value line, exactly as it gets no
+# gloss). This is reference DATA explaining an already-counted help — it never
+# decides whether one IS a help, and no agent `reason` prose feeds it. The
+# advisory classes (a read-only tool warned and ran anyway) deliberately have NO
+# value line: the honest answer to "what did warning that Read get me?" is
+# "nothing changed", and the load-bearing footer says so rather than inventing a
+# value here.
+REASON_VALUE: dict[str, str] = {
+    "SELF_MODIFY": "prevented a kernel-corrupting self-edit — the agent would "
+                   "have rewritten the code that was adjudicating it",
+    "UNKNOWN_LANE": "stopped work routed to a lane this workspace never declared",
+    "SCHEMA_UNREADABLE": "refused a record this kernel can't safely parse, "
+                         "rather than mis-reading stale data",
+    "CLASS_BUDGET_EXHAUSTED": "held a new worker back until the concurrency "
+                              "budget for its class freed up",
+    "admission": "prevented two workers colliding on the same files "
+                 "(a held-lane overlap)",
+    "provenance": "refused a claimed effect the kernel could not witness",
+}
+
+
+def value_of(reason_class: str) -> str:
+    """The one-line "why the block mattered" for a reason class, or "" if unknown.
+
+    Case-insensitive lookup into `REASON_VALUE`. Returns "" for an unknown class
+    so a renderer omits the value line rather than inventing a benefit — the same
+    never-guess rule as `explain_reason`. Pure (a string in, a string out)."""
+    if not reason_class:
+        return ""
+    return REASON_VALUE.get(reason_class, REASON_VALUE.get(reason_class.upper(), ""))
+
+
+# Tools that can mutate the tree — a WITHHELD refusal on one of these stopped a
+# real state change, so it is the load-bearing kind of help (vs an advisory warn
+# on a read-only tool that ran anyway and changed nothing). Bash/PowerShell count
+# as write-capable: they can invoke any program. This is tool-NAME granularity
+# (the projection's altitude), deliberately NOT the bash-program prefixes
+# `pretool_sensor` tracks — importing that set would be a category error and
+# would pull a sensor dependency into this pure leaf. A tool not in the set is
+# treated as not-proven-load-bearing (the safe direction, the never-invent rule).
+_WRITE_CAPABLE_TOOLS: frozenset[str] = frozenset({
+    "Write", "Edit", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"})
+
+
 def _refused_breakdown(summary: "HelpSummary") -> str:
     """The headline sub-line: "168 SELF_MODIFY (kernel-self-edit), 8 admission …".
 
@@ -557,9 +604,15 @@ def _rate_lines(rate) -> list[str]:
         lines.append(
             f"    of those, {refused} were refused ({rate.refused_pct:.1f}%) and "
             f"{advised} were advised-but-allowed ({rate.advised_pct:.1f}%)")
+    # Why this `refused` can differ from the headline's `refused N calls`: two
+    # lenses on the same enforcement, not a contradiction. The headline counts
+    # every withheld OP_ENFORCE on the lane journal since that journal began; this
+    # rate counts `deny` outcomes in the observation log's own (shorter) window.
+    # Naming that here keeps the operator from reading two numbers as a bug.
     lines.append(
-        "    (from the per-call hook observation log — its window and scope "
-        "differ from the catch counts above)")
+        "    (this rate is from the per-call hook observation log; its window is "
+        "shorter than the lane journal the headline counts, so the two refused "
+        "totals are two lenses on the same enforcement, not a disagreement)")
     return lines
 
 
@@ -664,14 +717,55 @@ def _bucket_label(total: int, rungs: dict[str, int]) -> str:
     return ", ".join(parts) if parts else plural(total, "catch")
 
 
-def render_explain_text(summary: HelpSummary, *, scope: str = "") -> str:
-    """The `dos helped --explain` drill-down — per reason class: meaning + examples.
+def _load_bearing_line(summary: HelpSummary) -> str:
+    """The honest "which of these actually mattered?" footer for `--explain`. PURE.
 
-    The answer to "but WHICH ones, and what does `admission` mean?": for each reason
-    class, the plain-English gloss, the count, and a few concrete examples (the file
-    blocked, the tool, the kernel's own one-line reason). Every shown field is
-    env-authored (docs/138) — the gloss is reference data, the examples are bytes the
-    sensor wrote downstream of the verdict; no agent narration appears. Pure.
+    Answers the operator's "is blocking a Read ever worth it?" structurally, from
+    two env-authored counts — never prose. A WITHHELD refusal stopped a real call
+    (the load-bearing kind); an advisory caution on a read-only tool that ran
+    anyway changed nothing (low signal). Names the read-only tools that dominate
+    the advisory bucket (from `by_advisory_tool`) so the operator sees *why* the
+    cautions were cheap. Empty string when there is nothing to say (no helps)."""
+    withheld = summary.withheld
+    advisory = summary.advisory
+    if not withheld and not advisory:
+        return ""
+    parts: list[str] = []
+    if withheld:
+        noun = "call that" if withheld == 1 else "calls that"
+        parts.append(
+            f"{withheld} {noun} would have changed state, withheld "
+            f"(the load-bearing refusals)")
+    if advisory:
+        # Name the top tools driving the advisory bucket — mostly read-only/
+        # non-mutating calls (Read, Grep) that got a busy-lane caution and ran
+        # anyway: the "blocking a Read changed nothing" case the operator asks
+        # about. Tools come from `by_advisory_tool` (ordered by count), so the
+        # name list is env-authored, never a hardcoded "Read/Grep".
+        top = ", ".join(list(summary.by_advisory_tool)[:3])
+        tail = (f" (top: {top})" if top else "")
+        noun = "caution" if advisory == 1 else "cautions"
+        parts.append(
+            f"{advisory} advisory {noun} on tools that ran anyway{tail} — "
+            f"mostly non-mutating calls flagged against a busy lane "
+            f"(low signal; see `dos helped --advisory`)")
+    return ". ".join(parts) + "."
+
+
+def render_explain_text(summary: HelpSummary, *, scope: str = "", rate=None) -> str:
+    """The `dos helped --explain` drill-down — per reason class: meaning, value, examples.
+
+    The answer to "but WHICH ones, what does `admission` mean, and was blocking it
+    worth it?": for each reason class, the plain-English gloss, the VALUE the
+    refusal bought (`value:`), the count, and a few concrete examples (the file
+    blocked, the tool, the kernel's own one-line reason). `rate` (an optional
+    `hook_observation.InterventionRate`) grounds the count — when present it adds
+    the "of N tool calls adjudicated …" denominator block (the same one the bare
+    rollup shows), so the deepest view is no longer the only one without a number.
+    A closing line is honest about which blocks were load-bearing vs low-signal.
+    Every shown field is env-authored (docs/138) — the gloss and value are
+    reference data, the examples and counts are bytes the sensor wrote downstream
+    of the verdict; no agent narration appears. Pure.
     """
     out: list[str] = []
     title = "# dos helped --explain"
@@ -685,6 +779,11 @@ def render_explain_text(summary: HelpSummary, *, scope: str = "") -> str:
     call_noun = "call" if summary.withheld == 1 else "calls"
     out.append(f"  DOS has refused {summary.withheld} {call_noun}{since_tail}"
                + (f"  ·  +{summary.advisory} advisory" if summary.advisory else ""))
+    # The grounding number (the same self-contained block the bare rollup shows):
+    # "of N tool calls adjudicated, … refused (X%) / advised (Y%)". Renders
+    # nothing when there is no observation log (rate is None / 0 adjudicated), so
+    # the output is byte-identical to today on a workspace without one.
+    out.extend(_rate_lines(rate))
     if not summary.total:
         out.append("")
         out.append("  (no behavior-changing interventions recorded yet — "
@@ -697,6 +796,9 @@ def render_explain_text(summary: HelpSummary, *, scope: str = "") -> str:
         gloss = explain_reason(reason)
         if gloss:
             out.append(f"    means: {gloss}")
+        value = value_of(reason)
+        if value:
+            out.append(f"    value: {value}")
         exs = summary.examples.get(reason, ())
         if exs:
             out.append("    e.g.")
@@ -706,6 +808,10 @@ def render_explain_text(summary: HelpSummary, *, scope: str = "") -> str:
                 out.append(f"      · {where}{tool}")
                 if e.reason:
                     out.append(f"        {e.reason}")
+    footer = _load_bearing_line(summary)
+    if footer:
+        out.append("")
+        out.append(f"  {footer}")
     return "\n".join(out)
 
 

@@ -486,6 +486,102 @@ def test_explain_label_falls_back_to_neutral_catches():
     assert "blocks" not in text
 
 
+# ---------------------------------------------------------------------------
+# Phase 4 — the value of the block + grounding the count + load-bearing tiering.
+# ---------------------------------------------------------------------------
+
+
+def test_value_of_known_unknown_and_case_insensitive():
+    """`value_of` returns the one-line benefit for a known class, "" otherwise — never invents."""
+    assert "self-edit" in hs.value_of("SELF_MODIFY")
+    assert "self-edit" in hs.value_of("self_modify")          # case-insensitive
+    assert "colliding" in hs.value_of("admission")
+    assert hs.value_of("TOTALLY_MADE_UP") == ""               # never invents
+    assert hs.value_of("") == ""
+
+
+def test_explain_shows_value_line_for_known_class():
+    """`--explain` prints a `value:` line under `means:` for a class with a value."""
+    recs = [_enforce(reason_class="SELF_MODIFY", tool="Write", reason=_SM_REASON)]
+    text = hs.render_explain_text(hs.summarize(recs, with_examples=True))
+    assert "means:" in text
+    assert "value: prevented a kernel-corrupting self-edit" in text
+
+
+def test_explain_omits_value_line_for_unknown_class():
+    """An unknown reason class gets a gloss-less, value-less bucket — no invented benefit."""
+    recs = [_enforce(reason_class="MYSTERY_CLASS", tool="Write",
+                     reason="lane 'Write' did a thing (foo.py) — refusing")]
+    text = hs.render_explain_text(hs.summarize(recs, with_examples=True))
+    assert "MYSTERY_CLASS" in text
+    assert "value:" not in text
+
+
+class _FakeRate:
+    """Duck-typed `hook_observation.InterventionRate` for the rate-on-explain pin."""
+    adjudicated = 1000
+    passed = 950
+    intervened = 50
+    passed_pct = 95.0
+    intervened_pct = 5.0
+    refused = 10
+    advised = 40
+    refused_pct = 1.0
+    advised_pct = 4.0
+
+
+def test_explain_renders_grounding_rate_when_present():
+    """`--explain` shows the "of N tool calls adjudicated …" denominator when a rate is passed."""
+    recs = [_enforce(reason_class="SELF_MODIFY", tool="Write", reason=_SM_REASON)]
+    text = hs.render_explain_text(hs.summarize(recs, with_examples=True),
+                                  rate=_FakeRate())
+    assert "of 1000 tool calls adjudicated" in text
+    assert "10 were refused" in text and "40 were advised-but-allowed" in text
+
+
+def test_explain_grounding_rate_absent_is_byte_identical():
+    """No rate ⇒ no denominator block; output matches the rate-less render exactly."""
+    recs = [_enforce(reason_class="SELF_MODIFY", tool="Write", reason=_SM_REASON)]
+    s = hs.summarize(recs, with_examples=True)
+    assert hs.render_explain_text(s, rate=None) == hs.render_explain_text(s)
+    assert "adjudicated" not in hs.render_explain_text(s)
+
+
+def test_explain_load_bearing_footer_splits_withheld_from_advisory():
+    """The footer credits withheld refusals as load-bearing, names the advisory tools as low-signal."""
+    recs = [
+        _enforce(intervention="BLOCK", reason_class="SELF_MODIFY", tool="Write",
+                 withheld=True, reason=_SM_REASON),
+        _enforce(intervention="WARN", reason_class="admission", tool="Read",
+                 withheld=False, reason="lane 'Read' has an EMPTY tree"),
+        _enforce(intervention="WARN", reason_class="admission", tool="Grep",
+                 withheld=False, reason="lane 'Grep' has an EMPTY tree"),
+    ]
+    text = hs.render_explain_text(hs.summarize(recs, with_examples=True))
+    assert "1 call that would have changed state, withheld (the load-bearing refusals)" in text
+    assert "2 advisory cautions on tools that ran anyway" in text
+    assert "low signal" in text
+
+
+def test_explain_load_bearing_footer_advisory_only():
+    """An all-advisory summary names the cautions as low-signal, no load-bearing claim."""
+    recs = [
+        _enforce(intervention="WARN", reason_class="admission", tool="Read",
+                 withheld=False, reason="lane 'Read' has an EMPTY tree"),
+    ]
+    text = hs.render_explain_text(hs.summarize(recs, with_examples=True))
+    assert "load-bearing" not in text
+    assert "1 advisory caution on tools that ran anyway" in text
+
+
+def test_rate_caveat_names_the_two_lenses():
+    """The rate footer explains WHY its refused total can differ from the headline's."""
+    recs = [_enforce(reason_class="SELF_MODIFY", tool="Write", reason=_SM_REASON)]
+    text = hs.render_summary_text(hs.summarize(recs), rate=_FakeRate())
+    assert "two lenses on the same enforcement" in text
+    assert "not a disagreement" in text
+
+
 def test_explain_json_carries_examples_and_glossary(tmp_path, capsys):
     import json
     from dos import cli

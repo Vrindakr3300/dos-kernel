@@ -5765,7 +5765,9 @@ def cmd_helped(args: argparse.Namespace) -> int:
     if advisory:
         print(_help.render_advisory_text(summary, scope=scope))
     elif explain:
-        print(_help.render_explain_text(summary, scope=scope))
+        # Pass the same folded rate the rollup uses so the deepest view is also
+        # grounded ("of N tool calls adjudicated …"); None when there's no log.
+        print(_help.render_explain_text(summary, scope=scope, rate=rate))
     else:
         print(_help.render_summary_text(summary, scope=scope, rate=rate))
     return 0
