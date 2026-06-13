@@ -1795,6 +1795,89 @@ def cmd_model_health(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# model-reroute  (the auto-HEALING actuator — propose a reroute to a sibling)
+#   EXIT: 0 = nothing to heal / all REROUTE proposed, 5 = an ESCALATE is needed
+#   (no sibling / unnamed — an operator must act), 2 = contract error.
+# ---------------------------------------------------------------------------
+_MODEL_REROUTE_EXITS = ExitMap({
+    "healed": 0,        # nothing down, or every down model got a REROUTE proposal
+    "escalate": 5,      # at least one ESCALATE — an operator must act
+    "contract_error": 2,
+})
+_MODEL_REROUTE_EXIT_CODES = _MODEL_REROUTE_EXITS.codes
+
+
+def _load_model_reroute():
+    """Resolve the model-reroute DRIVER by name — never a static import (the
+    watchdog idiom: the kernel CLI reaches a driver lazily, with a clean
+    'not installed' message rather than an import crash)."""
+    import importlib
+
+    try:
+        return importlib.import_module("dos.drivers.model_reroute")
+    except ModuleNotFoundError as e:  # pragma: no cover - the driver ships in-tree
+        if (e.name or "") in ("dos.drivers.model_reroute", "dos.drivers"):
+            raise ValueError(
+                "the model-reroute driver (dos.drivers.model_reroute) is not "
+                "installed; `dos model-reroute` needs it — reinstall the package") from None
+        raise
+
+
+def cmd_model_reroute(args: argparse.Namespace) -> int:
+    """The auto-HEALING actuator: from a model-health verdict + a host roster,
+    PROPOSE a re-dispatch of each down model's units on a sibling (never launched).
+
+    The other half of model-health: model-health says WHICH model is down; this
+    says WHAT to route to (a sibling from --roster) and carries the re-dispatch
+    command — one paste away. Propose-not-enact (the watchdog boundary): it
+    launches nothing. The roster is host policy, passed in.
+    """
+    import glob as _glob
+    from dos import model_health as _mh
+
+    roster = [m.strip() for m in (getattr(args, "roster", "") or "").split(",") if m.strip()]
+    if not roster:
+        print("model-reroute: --roster M1,M2,… is required (the host's model roster, "
+              "best-first — the kernel names no model)", file=sys.stderr)
+        return _MODEL_REROUTE_EXIT_CODES["contract_error"]
+
+    session = getattr(args, "session", None)
+    paths = list(getattr(args, "transcript", None) or [])
+    g = getattr(args, "transcripts_glob", None)
+    if g:
+        paths.extend(sorted(_glob.glob(g)))
+
+    if session and paths:
+        print("model-reroute: --session is mutually exclusive with "
+              "--transcript/--transcripts-glob", file=sys.stderr)
+        return _MODEL_REROUTE_EXIT_CODES["contract_error"]
+    if session:
+        health = _mh.model_health_from_session(session)
+    elif paths:
+        health = _mh.model_health_from_transcripts(paths)
+    else:
+        print("model-reroute: nothing to fold — pass --session SESSION.jsonl, or "
+              "--transcript PATH … / --transcripts-glob GLOB", file=sys.stderr)
+        return _MODEL_REROUTE_EXIT_CODES["contract_error"]
+
+    reroute = _load_model_reroute()
+    proposals = reroute.propose_reroutes(
+        health, roster, command_template=getattr(args, "command_template", "") or "")
+
+    if getattr(args, "json", False):
+        print(json.dumps([p.to_dict() for p in proposals], sort_keys=True))
+    else:
+        print(reroute.render_text(proposals))
+
+    needs_escalate = any(p.action is reroute.RerouteAction.ESCALATE for p in proposals)
+    return (
+        _MODEL_REROUTE_EXIT_CODES["escalate"]
+        if needs_escalate
+        else _MODEL_REROUTE_EXIT_CODES["healed"]
+    )
+
+
+# ---------------------------------------------------------------------------
 # arbitrate  (the admission kernel)
 # ---------------------------------------------------------------------------
 def _arbitrate_followup_note(decision, requested_lane: str, lanes) -> str | None:
@@ -8348,6 +8431,45 @@ def build_parser() -> argparse.ArgumentParser:
                           "reroute_targets, model_unavailable, tallies, headline, …} "
                           "instead of the text lines")
     pmh.set_defaults(func=cmd_model_health)
+
+    pmr = sub.add_parser(
+        "model-reroute",
+        help="the auto-HEALING actuator: from a model-health verdict + a host "
+             "roster, PROPOSE a re-dispatch of each down model's units on a sibling",
+        description=(
+            "The other half of model-health, the auto-healing word: model-health "
+            "says WHICH model is down across the fleet; this says WHAT to route to "
+            "(the first non-down model in --roster, preference = roster order) and "
+            "carries the re-dispatch command with the sibling substituted — one paste "
+            "away. PROPOSE-NOT-ENACT (the watchdog boundary): it launches NOTHING; "
+            "the spawn is the operator's paste or a further host driver. Input is the "
+            "same as model-health (--session auto-discovers descendants, or "
+            "--transcript/--transcripts-glob). FAIL-CLOSED: if every roster model is "
+            "down, or a down model is unnamed, the proposal is an ESCALATE (an "
+            "operator must act), never a silent drop. The roster is HOST policy — the "
+            "kernel names no model; you pass it in. EXIT: 0 = nothing down or every "
+            "down model got a REROUTE, 5 = an ESCALATE is needed, 2 = contract error."),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    _add_workspace_flags(pmr)
+    pmr.add_argument("--roster", default="", metavar="M1,M2,…",
+                     help="the host's model roster, best-first (REQUIRED). The first "
+                          "model that is not itself down is the reroute target. The "
+                          "kernel names no model — this is where the roster lives")
+    pmr.add_argument("--session", default=None, metavar="SESSION.jsonl",
+                     help="a session transcript — auto-discover descendants (as in "
+                          "model-health). Mutually exclusive with --transcript/-glob")
+    pmr.add_argument("--transcript", action="append", default=None, metavar="PATH",
+                     help="a descendant transcript JSONL (repeatable)")
+    pmr.add_argument("--transcripts-glob", default=None, metavar="GLOB",
+                     help="a glob of descendant transcript JSONLs")
+    pmr.add_argument("--command-template", default="", metavar="TMPL",
+                     help="a re-dispatch command template; '{model}' is replaced with "
+                          "the chosen sibling (e.g. 'claude -p --model {model} …'). "
+                          "Carried in the proposal, NEVER run")
+    pmr.add_argument("--json", action="store_true",
+                     help="emit the proposals as a JSON array [{action, down_model, "
+                          "sibling, units, command, reason}] instead of the text plan")
+    pmr.set_defaults(func=cmd_model_reroute)
 
     pln = sub.add_parser(
         "liveness",
