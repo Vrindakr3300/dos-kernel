@@ -156,6 +156,13 @@ class Decision:
     dup_count: int = 1          # how many identical rows this one stands in for (see
                                 # `_dedup`): a journal that recorded the SAME refusal N
                                 # times collapses to one row carrying dup_count=N.
+    resolved: bool = False      # an ENFORCE_BREAKER storm whose condition already
+                                # cleared (holder gone + quiet past the window, #106):
+                                # not a live alarm. Hidden from the default queue,
+                                # shown under `--all`. Only `_from_enforce_storms`
+                                # ever sets this True; every other source leaves it
+                                # False (a refusal/wedge/soak is live-or-superseded,
+                                # not resolved-in-place).
 
     def to_dict(self) -> dict:
         return {
@@ -172,6 +179,7 @@ class Decision:
             "proposed_command": self.proposed_command,
             "handle": self.handle,
             "dup_count": self.dup_count,
+            "resolved": self.resolved,
         }
 
 
@@ -582,6 +590,83 @@ def _enforce_target(entry: dict) -> str:
     return reason
 
 
+# The quiet window after which a storm with no live holder is RESOLVED (issue
+# #106). Default mirrors the `[cooldown]` `window_ms` (6h) — the issue's named
+# "[cooldown]-style declared horizon": long enough that a storm still being
+# retried stays live, short enough that a cleared one ages out in hours, not the
+# `journal_max_age_days` recency horizon's days. `_quiet_window_seconds` reads it
+# off the workspace's own cooldown policy so a repo that tuned the window gets its
+# value, with this constant as the no-policy fallback.
+_DEFAULT_STORM_QUIET_SECONDS = 6 * 60 * 60  # 6h
+
+
+def _live_lease_holders(config) -> frozenset[str]:
+    """The set of holder strings currently holding a live lease — the boundary I/O.
+
+    Folds the WAL via `lane_lease.live_leases(config, expire_dead=True)` — the
+    CONTENTION view (a provably-dead orphan is dropped, docs/281), which is the
+    right read for "is the storming agent still on the machine right now." A
+    read/import fault degrades to the empty set (a read-only projection never
+    crashes on a torn WAL) — and the empty set is the conservative direction for
+    the OTHER half of `_storm_is_resolved`: with no known live holders, a storm
+    is resolved only if it is ALSO quiet past the window, never on liveness alone.
+    """
+    try:
+        from dos import lane_lease as _lane_lease
+
+        leases = _lane_lease.live_leases(config, expire_dead=True)
+        return frozenset(
+            str(l.get("holder") or "") for l in leases if l.get("holder")
+        )
+    except Exception:  # noqa: BLE001 — a lease-read fault must not crash the queue
+        return frozenset()
+
+
+def _quiet_window_seconds(config) -> int:
+    """The storm quiet window (seconds) from the workspace's `[cooldown]` policy.
+
+    Pure-ish (reads a config value, no I/O). Reuses `config.cooldown.window_ms`
+    (the declared anti-churn horizon) so #106 adds no new knob; degrades to
+    `_DEFAULT_STORM_QUIET_SECONDS` for a minimal/hand-built config with no
+    cooldown policy.
+    """
+    cooldown = getattr(config, "cooldown", None)
+    window_ms = getattr(cooldown, "window_ms", None) if cooldown else None
+    if isinstance(window_ms, (int, float)) and window_ms > 0:
+        return int(window_ms / 1000)
+    return _DEFAULT_STORM_QUIET_SECONDS
+
+
+def _storm_is_resolved(
+    holder: str,
+    latest_deny_ts: str | None,
+    live_holders: frozenset[str] | set[str],
+    *,
+    now: dt.datetime | None,
+    quiet_seconds: int,
+) -> bool:
+    """True when an OPEN storm's condition has already cleared (issue #106). PURE.
+
+    RESOLVED iff the storming `holder` holds NO live lease AND the newest deny is
+    older than `quiet_seconds`. Both halves are journal/WAL facts (a live-lease
+    set folded from the WAL, a deny timestamp) — never narration, the same
+    evidence discipline as the rest of the queue.
+
+    Conservative on both halves (the fire-reducing-ONLY direction — we never hide
+    a storm we are unsure about):
+      * an un-ageable `latest_deny_ts` (missing/garbled) → NOT resolved: a storm
+        we cannot date stays a live alarm;
+      * a holder still in `live_holders` → NOT resolved, regardless of age (the
+        agent is on the machine; the parked edit is still its problem).
+    """
+    if holder and holder in live_holders:
+        return False
+    age = _age_seconds(latest_deny_ts, now=now)
+    if age is None:
+        return False  # cannot date the storm → keep it live (conservative)
+    return age > quiet_seconds
+
+
 def _enforce_decision_tag(entry: dict) -> str:
     """deny / override-admit / "" for an ENFORCE entry, from its recorded shape. Pure.
 
@@ -596,7 +681,13 @@ def _enforce_decision_tag(entry: dict) -> str:
     return ""
 
 
-def _from_enforce_storms(config, *, now: dt.datetime | None = None) -> list[Decision]:
+def _from_enforce_storms(
+    config,
+    *,
+    now: dt.datetime | None = None,
+    live_holders: frozenset[str] | set[str] | None = None,
+    quiet_seconds: int | None = None,
+) -> list[Decision]:
     """Recurring hook denies of the SAME edit, escalated through the breaker.
 
     Reads the same WAL as `_from_lane_journal` (the ENFORCE records are already
@@ -606,12 +697,25 @@ def _from_enforce_storms(config, *, now: dt.datetime | None = None) -> list[Deci
     override-admit is `record_success` — and a final OPEN circuit lifts ONE
     Decision naming the target and the count. A single isolated deny (or two)
     stays under the threshold and raises nothing.
+
+    Each OPEN storm is then marked `resolved` (issue #106) when its condition has
+    already cleared: the storming holder holds no live lease AND the newest deny
+    is older than the quiet window (`_storm_is_resolved`). A resolved storm is
+    still RETURNED (so `--all` can show it), but `collect_decisions` hides it from
+    the default queue. `live_holders` is the set of holder strings currently
+    holding a lease (the caller folds it once from the WAL and passes it down so
+    this stays unit-testable with an injected set); `quiet_seconds` overrides the
+    `[cooldown]`-derived window. Both default from the config/WAL when omitted.
     """
     path = config.paths.lane_journal
     try:
         entries = lane_journal.read_all(path)
     except Exception:
         return []
+    if quiet_seconds is None:
+        quiet_seconds = _quiet_window_seconds(config)
+    if live_holders is None:
+        live_holders = _live_lease_holders(config)
     # (holder, target) -> the threaded breaker counts + the latest deny entry.
     counts: dict[tuple[str, str], _breaker.BreakerCounts] = {}
     last_deny: dict[tuple[str, str], dict] = {}
@@ -642,11 +746,34 @@ def _from_enforce_storms(config, *, now: dt.datetime | None = None) -> list[Deci
         n = state.consecutive
         tool = str(e.get("tool") or e.get("lane") or "")
         token = _enforce_reason_class(e) or "SELF_MODIFY"
-        reason_text = (
-            f"agent {holder or '?'} has been refused {n}x editing {target} "
-            f"({token}) — the edit needs you: make it between loop runs, arm the "
-            f"override window, or stop the loop"
-        )
+        latest_ts = e.get("ts")
+        age = _age_seconds(latest_ts, now=now)
+        # #106: has the storm's condition already cleared? Holder gone + quiet
+        # past the window = a RESOLVED storm, not a live alarm.
+        resolved = _storm_is_resolved(
+            holder, latest_ts, live_holders, now=now, quiet_seconds=quiet_seconds)
+        if resolved:
+            reason_text = (
+                f"RESOLVED: agent {holder or '?'}'s {n}x {token} storm on {target} "
+                f"has gone quiet — holder holds no live lease and the last deny is "
+                f"older than the {quiet_seconds // 60}m window"
+            )
+        else:
+            reason_text = (
+                f"agent {holder or '?'} has been refused {n}x editing {target} "
+                f"({token}) — the edit needs you: make it between loop runs, arm the "
+                f"override window, or stop the loop"
+            )
+        evidence = [
+            f"journal seq #{e.get('seq', '?')} (latest deny)",
+            f"{deny_total.get(key, n)} denies for holder={holder or '?'}",
+            verdict.reason,
+        ]
+        if resolved:
+            evidence.append(
+                f"resolved: holder not live; last deny {_fmt_age(age)} old "
+                f"> {quiet_seconds // 60}m quiet window"
+            )
         out.append(Decision(
             kind=DecisionKind.ENFORCE_BREAKER,
             # The breaker's own trip names the rung (docs/223 Escalation.HUMAN).
@@ -657,14 +784,11 @@ def _from_enforce_storms(config, *, now: dt.datetime | None = None) -> list[Deci
             run_id=str(e.get("run_id") or ""),
             # The decision's clock is the LATEST deny: a storm that stopped ages
             # out via the recency filter like any other point-in-time refusal.
-            age_seconds=_age_seconds(e.get("ts"), now=now),
+            age_seconds=age,
             source_path=str(path),
-            evidence=(
-                f"journal seq #{e.get('seq', '?')} (latest deny)",
-                f"{deny_total.get(key, n)} denies for holder={holder or '?'}",
-                verdict.reason,
-            ),
+            evidence=tuple(evidence),
             dup_count=n,
+            resolved=resolved,
         ))
     return out
 
@@ -1112,7 +1236,10 @@ def collect_decisions(
     clock = now if now is not None else _now()
     decisions: list[Decision] = []
     decisions.extend(_from_lane_journal(cfg, now=clock))
-    decisions.extend(_from_enforce_storms(cfg, now=clock))
+    # One live-lease read, folded here and passed down, so the storm fold stays
+    # unit-testable with an injected set (#106). The collector owns the I/O.
+    live_holders = _live_lease_holders(cfg)
+    decisions.extend(_from_enforce_storms(cfg, now=clock, live_holders=live_holders))
     decisions.extend(_from_verdict_envelopes(cfg, now=clock))
     decisions.extend(_from_soaks(cfg))
 
@@ -1126,6 +1253,14 @@ def collect_decisions(
     if max_age_seconds is not None:
         decisions = [d for d in decisions
                      if not _is_stale(d, max_age_seconds=max_age_seconds)]
+
+    # #106: a RESOLVED enforcement storm (holder gone + quiet past the window) is
+    # not a live alarm — hide it from the default "what needs me" queue. The
+    # `--all` surface (`resolver is None`) keeps it, marked RESOLVED in its
+    # reason_text/evidence, so the audit trail survives without a new render
+    # section. Only ENFORCE_BREAKER rows ever carry `resolved=True`.
+    if resolver is not None:
+        decisions = [d for d in decisions if not d.resolved]
 
     if resolver is not None:
         want = resolver.strip().upper()

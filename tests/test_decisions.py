@@ -1227,7 +1227,11 @@ _SM_REASON = (
 )
 
 
-def _seed_enforce(cfg, *, seq, ts="2026-06-01T10:00:00Z", holder="S1",
+# Default seed within the 6h quiet window of the frozen now (2026-06-02T12:00Z)
+# so a bare-seeded storm models a RECENT, still-active one — a live alarm. The
+# #106 resolution rung hides a storm only when its last deny is past that window
+# AND the holder is gone (see TestEnforceStormResolution for both axes).
+def _seed_enforce(cfg, *, seq, ts="2026-06-02T10:00:00Z", holder="S1",
                   tool="Write", reason=_SM_REASON, reason_class="SELF_MODIFY",
                   decision="deny", lift_reason_class=True):
     """Append one OP_ENFORCE record, in either writer's shape.
@@ -1265,7 +1269,7 @@ class TestEnforceStorms:
     def test_three_denies_raise_one_human_decision(self, tmp_path: Path):
         cfg = default_config(tmp_path)
         for i in range(3):
-            _seed_enforce(cfg, seq=i + 1, ts=f"2026-06-01T10:0{i}:00Z")
+            _seed_enforce(cfg, seq=i + 1, ts=f"2026-06-02T10:0{i}:00Z")
         rows = D.collect_decisions(cfg)  # default resolver="HUMAN"
         assert len(rows) == 1
         d = rows[0]
@@ -1395,3 +1399,85 @@ class TestEnforceStorms:
             _seed_enforce(cfg, seq=i + 1, reason=arm)
         rows = D.collect_decisions(cfg)
         assert [d.kind.value for d in rows] == ["ENFORCE_BREAKER"]
+
+
+class TestEnforceStormResolution:
+    """#106: a storm whose condition cleared — holder gone AND quiet past the
+    `[cooldown]`-derived window — folds to RESOLVED: hidden from the default
+    "what needs me" queue, still visible under `--all`. A live holder, or a deny
+    inside the window, keeps it a live alarm (the fire-reducing-only direction).
+
+    The quiet window is the default 6h; the frozen now is 2026-06-02T12:00Z.
+    """
+
+    # Past the 6h window: 2026-06-01T10:00Z is ~26h before the frozen now.
+    _QUIET_TS = "2026-06-01T10:00:00Z"
+    # Inside the window: 2026-06-02T10:00Z is 2h before the frozen now.
+    _RECENT_TS = "2026-06-02T10:00:00Z"
+
+    def _open_storm(self, cfg, *, ts):
+        for i in range(3):
+            _seed_enforce(cfg, seq=i + 1, ts=ts)
+
+    def test_holder_gone_and_quiet_is_resolved(self, tmp_path: Path):
+        # No live lease for S1 + last deny past the window -> resolved: hidden
+        # from the default queue, present under --all marked RESOLVED.
+        cfg = default_config(tmp_path)
+        self._open_storm(cfg, ts=self._QUIET_TS)
+        assert D.collect_decisions(cfg) == []          # default: hidden
+        allrows = D.collect_decisions(cfg, resolver=None)
+        assert [d.kind.value for d in allrows] == ["ENFORCE_BREAKER"]
+        assert allrows[0].resolved is True
+        assert allrows[0].reason_text.startswith("RESOLVED:")
+
+    def test_live_holder_stays_a_live_alarm(self, tmp_path: Path):
+        # The storming holder still holds a lease -> NOT resolved even though the
+        # last deny is past the window (the agent is on the machine). Asserted at
+        # the fold seam with an injected live_holders set (the plan's unit seam).
+        cfg = default_config(tmp_path)
+        self._open_storm(cfg, ts=self._QUIET_TS)
+        rows = D._from_enforce_storms(
+            cfg, now=D._now(), live_holders={"S1"}, quiet_seconds=6 * 3600)
+        assert len(rows) == 1
+        assert rows[0].resolved is False
+
+    def test_recent_deny_inside_window_stays_live(self, tmp_path: Path):
+        # Holder gone but the last deny is INSIDE the window -> NOT resolved: the
+        # storm may still be active. The window half is load-bearing.
+        cfg = default_config(tmp_path)
+        self._open_storm(cfg, ts=self._RECENT_TS)
+        rows = D.collect_decisions(cfg)  # default
+        assert [d.kind.value for d in rows] == ["ENFORCE_BREAKER"]
+        assert rows[0].resolved is False
+
+    def test_unageable_deny_is_not_resolved(self, tmp_path: Path):
+        # A storm whose latest deny carries no parseable ts cannot be dated, so it
+        # is conservatively kept LIVE (never hidden on liveness alone).
+        cfg = default_config(tmp_path)
+        for i in range(3):
+            _seed_enforce(cfg, seq=i + 1, ts="")
+        rows = D._from_enforce_storms(
+            cfg, now=D._now(), live_holders=frozenset(), quiet_seconds=6 * 3600)
+        assert len(rows) == 1
+        assert rows[0].resolved is False
+
+    def test_resolved_flag_round_trips_in_to_dict(self, tmp_path: Path):
+        cfg = default_config(tmp_path)
+        self._open_storm(cfg, ts=self._QUIET_TS)
+        d = D.collect_decisions(cfg, resolver=None)[0]
+        assert d.to_dict()["resolved"] is True
+
+    def test_quiet_window_reads_the_cooldown_policy(self, tmp_path: Path):
+        # No new knob: the window is the workspace's [cooldown] window_ms.
+        cfg = default_config(tmp_path)
+        from dos.cooldown import CooldownPolicy
+        import dataclasses
+        # A 1h window: the 26h-old storm is well past it -> resolved.
+        cfg_short = dataclasses.replace(cfg, cooldown=CooldownPolicy(window_ms=3600_000))
+        assert D._quiet_window_seconds(cfg_short) == 3600
+        # A 100h window: the same storm is INSIDE it -> not resolved.
+        cfg_long = dataclasses.replace(cfg, cooldown=CooldownPolicy(window_ms=100 * 3600_000))
+        self._open_storm(cfg_long, ts=self._QUIET_TS)
+        rows = D._from_enforce_storms(
+            cfg_long, now=D._now(), live_holders=frozenset())
+        assert rows[0].resolved is False
