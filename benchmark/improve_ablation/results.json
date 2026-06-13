@@ -1,0 +1,2078 @@
+{
+ "bench": "improve_ablation",
+ "plan": "docs/318 P1",
+ "issue": 21,
+ "master_seed": 0,
+ "cycles": 50,
+ "initial_recipe": {
+  "order": 1,
+  "add_k": 1.0
+ },
+ "ref_nll0_bits": 2.2577,
+ "policy": {
+  "max_consecutive_reverts": 8
+ },
+ "headline": {
+  "witnessed_gain_gap_A_minus_B_mbits": 2202.828,
+  "overclaims_kept": {
+   "A": 1,
+   "B": 11,
+   "C": 1
+  },
+  "final_fresh_gain_mbits": {
+   "A": 1029.58,
+   "B": -1173.248,
+   "C": 1028.366
+  },
+  "final_claimed_gain_mbits": {
+   "A": 1301.682,
+   "B": 1742.197,
+   "C": 1295.731
+  }
+ },
+ "arms": {
+  "A": {
+   "arm": "A",
+   "gate_seeds": 5,
+   "kept": 7,
+   "reverted": 18,
+   "overclaims_kept": 1,
+   "escalated_at_cycle": 24,
+   "final_recipe": {
+    "order": 3,
+    "add_k": 0.010018
+   },
+   "final_fresh_gain_mbits": 1029.58,
+   "final_claimed_gain_mbits": 1301.682,
+   "curve_witnessed_mbits": [
+    71.584,
+    842.604,
+    842.604,
+    842.604,
+    856.214,
+    856.214,
+    986.442,
+    986.442,
+    1043.77,
+    1043.77,
+    1043.77,
+    1043.77,
+    1052.861,
+    1052.861,
+    1052.861,
+    1052.861,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753,
+    1038.753
+   ],
+   "curve_claimed_mbits": [
+    74.101,
+    872.299,
+    872.299,
+    872.299,
+    1008.647,
+    1008.647,
+    1157.283,
+    1157.283,
+    1243.545,
+    1243.545,
+    1243.545,
+    1243.545,
+    1269.472,
+    1269.472,
+    1269.472,
+    1269.472,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682,
+    1301.682
+   ],
+   "rows": [
+    {
+     "cycle": 0,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.256326
+     },
+     "mutation": "add_k 1->0.256326",
+     "claimed_delta_mbits": 74.101,
+     "claims_improvement": true,
+     "gate_work": 79,
+     "baseline_work_before": 19,
+     "baseline_work_after": 79,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 1,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.256326
+     },
+     "mutation": "order 1->2",
+     "claimed_delta_mbits": 798.199,
+     "claims_improvement": true,
+     "gate_work": 872,
+     "baseline_work_before": 79,
+     "baseline_work_after": 872,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 2,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.256326
+     },
+     "mutation": "order 2->1",
+     "claimed_delta_mbits": -815.032,
+     "claims_improvement": false,
+     "gate_work": 83,
+     "baseline_work_before": 872,
+     "baseline_work_after": 872,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 3,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.987775
+     },
+     "mutation": "add_k 0.256326->0.987775",
+     "claimed_delta_mbits": -300.836,
+     "claims_improvement": false,
+     "gate_work": 552,
+     "baseline_work_before": 872,
+     "baseline_work_after": 872,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 4,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.256326
+     },
+     "mutation": "order 2->3",
+     "claimed_delta_mbits": 136.348,
+     "claims_improvement": true,
+     "gate_work": 874,
+     "baseline_work_before": 872,
+     "baseline_work_after": 874,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 5,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.578595
+     },
+     "mutation": "add_k 0.256326->0.578595",
+     "claimed_delta_mbits": -253.366,
+     "claims_improvement": false,
+     "gate_work": 632,
+     "baseline_work_before": 874,
+     "baseline_work_after": 874,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 6,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.113652
+     },
+     "mutation": "add_k 0.256326->0.113652",
+     "claimed_delta_mbits": 148.637,
+     "claims_improvement": true,
+     "gate_work": 995,
+     "baseline_work_before": 874,
+     "baseline_work_after": 995,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 7,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.113652
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -206.489,
+     "claims_improvement": false,
+     "gate_work": 937,
+     "baseline_work_before": 995,
+     "baseline_work_after": 995,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 8,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.048657
+     },
+     "mutation": "add_k 0.113652->0.0486572",
+     "claimed_delta_mbits": 86.262,
+     "claims_improvement": true,
+     "gate_work": 1054,
+     "baseline_work_before": 995,
+     "baseline_work_after": 1054,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 9,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.048657
+     },
+     "mutation": "order 3->4",
+     "claimed_delta_mbits": 10.849,
+     "claims_improvement": true,
+     "gate_work": 827,
+     "baseline_work_before": 1054,
+     "baseline_work_after": 1054,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 10,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.048657
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -248.001,
+     "claims_improvement": false,
+     "gate_work": 984,
+     "baseline_work_before": 1054,
+     "baseline_work_after": 1054,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 11,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.167107
+     },
+     "mutation": "add_k 0.048657->0.167107",
+     "claimed_delta_mbits": -148.204,
+     "claims_improvement": false,
+     "gate_work": 946,
+     "baseline_work_before": 1054,
+     "baseline_work_after": 1054,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 12,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.030631
+     },
+     "mutation": "add_k 0.048657->0.0306307",
+     "claimed_delta_mbits": 25.927,
+     "claims_improvement": true,
+     "gate_work": 1057,
+     "baseline_work_before": 1054,
+     "baseline_work_after": 1057,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 13,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.030631
+     },
+     "mutation": "order 3->4",
+     "claimed_delta_mbits": 43.986,
+     "claims_improvement": true,
+     "gate_work": 811,
+     "baseline_work_before": 1057,
+     "baseline_work_after": 1057,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 14,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.012537
+     },
+     "mutation": "add_k 0.030631->0.0125375",
+     "claimed_delta_mbits": 28.144,
+     "claims_improvement": true,
+     "gate_work": 1051,
+     "baseline_work_before": 1057,
+     "baseline_work_after": 1057,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 15,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.075421
+     },
+     "mutation": "add_k 0.030631->0.0754214",
+     "claimed_delta_mbits": -62.366,
+     "claims_improvement": false,
+     "gate_work": 1057,
+     "baseline_work_before": 1057,
+     "baseline_work_after": 1057,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 16,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.010018
+     },
+     "mutation": "add_k 0.030631->0.0100182",
+     "claimed_delta_mbits": 32.209,
+     "claims_improvement": true,
+     "gate_work": 1070,
+     "baseline_work_before": 1057,
+     "baseline_work_after": 1070,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 17,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.010018
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -277.289,
+     "claims_improvement": false,
+     "gate_work": 1033,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 18,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.019366
+     },
+     "mutation": "add_k 0.010018->0.0193665",
+     "claimed_delta_mbits": -14.742,
+     "claims_improvement": false,
+     "gate_work": 1044,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 19,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.028785
+     },
+     "mutation": "add_k 0.010018->0.0287847",
+     "claimed_delta_mbits": -29.343,
+     "claims_improvement": false,
+     "gate_work": 1041,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 20,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.010018
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -285.232,
+     "claims_improvement": false,
+     "gate_work": 1016,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 21,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.010018
+     },
+     "mutation": "order 3->4",
+     "claimed_delta_mbits": 81.109,
+     "claims_improvement": true,
+     "gate_work": 810,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 22,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.022909
+     },
+     "mutation": "add_k 0.010018->0.0229094",
+     "claimed_delta_mbits": -20.209,
+     "claims_improvement": false,
+     "gate_work": 1047,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 23,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.010018
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -278.567,
+     "claims_improvement": false,
+     "gate_work": 1008,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 24,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.003366
+     },
+     "mutation": "add_k 0.010018->0.00336605",
+     "claimed_delta_mbits": 10.837,
+     "claims_improvement": true,
+     "gate_work": 1012,
+     "baseline_work_before": 1070,
+     "baseline_work_after": 1070,
+     "verdict": "ESCALATE",
+     "kept": false,
+     "record_refutes_claim": true
+    }
+   ]
+  },
+  "B": {
+   "arm": "B",
+   "gate_seeds": 0,
+   "kept": 17,
+   "reverted": 33,
+   "overclaims_kept": 11,
+   "escalated_at_cycle": null,
+   "final_recipe": {
+    "order": 8,
+    "add_k": 0.0001
+   },
+   "final_fresh_gain_mbits": -1173.248,
+   "final_claimed_gain_mbits": 1742.197,
+   "curve_witnessed_mbits": [
+    71.584,
+    842.604,
+    842.604,
+    842.604,
+    856.214,
+    856.214,
+    986.442,
+    986.442,
+    1043.77,
+    807.122,
+    807.122,
+    807.122,
+    823.658,
+    494.407,
+    482.684,
+    482.684,
+    403.085,
+    403.085,
+    403.085,
+    403.085,
+    403.085,
+    69.399,
+    69.399,
+    69.399,
+    -45.756,
+    -45.756,
+    -203.752,
+    -203.752,
+    -268.154,
+    -268.154,
+    -716.152,
+    -716.152,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1088.486,
+    -1195.086,
+    -1195.086,
+    -1195.086,
+    -1195.086
+   ],
+   "curve_claimed_mbits": [
+    74.101,
+    872.299,
+    872.299,
+    872.299,
+    1008.647,
+    1008.647,
+    1157.283,
+    1157.283,
+    1243.545,
+    1254.394,
+    1254.394,
+    1254.394,
+    1308.044,
+    1318.222,
+    1425.725,
+    1425.725,
+    1484.852,
+    1484.852,
+    1484.852,
+    1484.852,
+    1484.852,
+    1559.325,
+    1559.325,
+    1559.325,
+    1588.842,
+    1588.842,
+    1600.028,
+    1600.028,
+    1601.709,
+    1601.709,
+    1655.175,
+    1655.175,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1740.004,
+    1742.197,
+    1742.197,
+    1742.197,
+    1742.197
+   ],
+   "rows": [
+    {
+     "cycle": 0,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.256326
+     },
+     "mutation": "add_k 1->0.256326",
+     "claimed_delta_mbits": 74.101,
+     "claims_improvement": true,
+     "gate_work": 79,
+     "baseline_work_before": 19,
+     "baseline_work_after": 79,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 1,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.256326
+     },
+     "mutation": "order 1->2",
+     "claimed_delta_mbits": 798.199,
+     "claims_improvement": true,
+     "gate_work": 872,
+     "baseline_work_before": 79,
+     "baseline_work_after": 872,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 2,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.256326
+     },
+     "mutation": "order 2->1",
+     "claimed_delta_mbits": -815.032,
+     "claims_improvement": false,
+     "gate_work": 83,
+     "baseline_work_before": 872,
+     "baseline_work_after": 872,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 3,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.987775
+     },
+     "mutation": "add_k 0.256326->0.987775",
+     "claimed_delta_mbits": -300.836,
+     "claims_improvement": false,
+     "gate_work": 552,
+     "baseline_work_before": 872,
+     "baseline_work_after": 872,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 4,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.256326
+     },
+     "mutation": "order 2->3",
+     "claimed_delta_mbits": 136.348,
+     "claims_improvement": true,
+     "gate_work": 874,
+     "baseline_work_before": 872,
+     "baseline_work_after": 874,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 5,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.578595
+     },
+     "mutation": "add_k 0.256326->0.578595",
+     "claimed_delta_mbits": -253.366,
+     "claims_improvement": false,
+     "gate_work": 632,
+     "baseline_work_before": 874,
+     "baseline_work_after": 874,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 6,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.113652
+     },
+     "mutation": "add_k 0.256326->0.113652",
+     "claimed_delta_mbits": 148.637,
+     "claims_improvement": true,
+     "gate_work": 995,
+     "baseline_work_before": 874,
+     "baseline_work_after": 995,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 7,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.113652
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -206.489,
+     "claims_improvement": false,
+     "gate_work": 937,
+     "baseline_work_before": 995,
+     "baseline_work_after": 995,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 8,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.048657
+     },
+     "mutation": "add_k 0.113652->0.0486572",
+     "claimed_delta_mbits": 86.262,
+     "claims_improvement": true,
+     "gate_work": 1054,
+     "baseline_work_before": 995,
+     "baseline_work_after": 1054,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 9,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.048657
+     },
+     "mutation": "order 3->4",
+     "claimed_delta_mbits": 10.849,
+     "claims_improvement": true,
+     "gate_work": 827,
+     "baseline_work_before": 1054,
+     "baseline_work_after": 827,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 10,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.048657
+     },
+     "mutation": "order 4->3",
+     "claimed_delta_mbits": -12.603,
+     "claims_improvement": false,
+     "gate_work": 1055,
+     "baseline_work_before": 827,
+     "baseline_work_after": 827,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 11,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.167107
+     },
+     "mutation": "add_k 0.048657->0.167107",
+     "claimed_delta_mbits": -268.236,
+     "claims_improvement": false,
+     "gate_work": 649,
+     "baseline_work_before": 827,
+     "baseline_work_after": 827,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 12,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.030631
+     },
+     "mutation": "add_k 0.048657->0.0306307",
+     "claimed_delta_mbits": 53.65,
+     "claims_improvement": true,
+     "gate_work": 824,
+     "baseline_work_before": 827,
+     "baseline_work_after": 824,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 13,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.030631
+     },
+     "mutation": "order 4->5",
+     "claimed_delta_mbits": 10.178,
+     "claims_improvement": true,
+     "gate_work": 488,
+     "baseline_work_before": 824,
+     "baseline_work_after": 488,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 14,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.012537
+     },
+     "mutation": "add_k 0.030631->0.0125375",
+     "claimed_delta_mbits": 107.503,
+     "claims_improvement": true,
+     "gate_work": 473,
+     "baseline_work_before": 488,
+     "baseline_work_after": 473,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 15,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.030869
+     },
+     "mutation": "add_k 0.012537->0.0308693",
+     "claimed_delta_mbits": -101.84,
+     "claims_improvement": false,
+     "gate_work": 556,
+     "baseline_work_before": 473,
+     "baseline_work_after": 473,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 16,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.0041
+     },
+     "mutation": "add_k 0.012537->0.00410035",
+     "claimed_delta_mbits": 59.126,
+     "claims_improvement": true,
+     "gate_work": 453,
+     "baseline_work_before": 473,
+     "baseline_work_after": 453,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 17,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.0041
+     },
+     "mutation": "order 5->4",
+     "claimed_delta_mbits": -70.621,
+     "claims_improvement": false,
+     "gate_work": 780,
+     "baseline_work_before": 453,
+     "baseline_work_after": 453,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 18,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.007926
+     },
+     "mutation": "add_k 0.0041->0.007926",
+     "claimed_delta_mbits": -25.898,
+     "claims_improvement": false,
+     "gate_work": 422,
+     "baseline_work_before": 453,
+     "baseline_work_after": 453,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 19,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.011781
+     },
+     "mutation": "add_k 0.0041->0.0117805",
+     "claimed_delta_mbits": -51.672,
+     "claims_improvement": false,
+     "gate_work": 448,
+     "baseline_work_before": 453,
+     "baseline_work_after": 453,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 20,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.0041
+     },
+     "mutation": "order 5->4",
+     "claimed_delta_mbits": -72.564,
+     "claims_improvement": false,
+     "gate_work": 736,
+     "baseline_work_before": 453,
+     "baseline_work_after": 453,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 21,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.0041
+     },
+     "mutation": "order 5->6",
+     "claimed_delta_mbits": 74.473,
+     "claims_improvement": true,
+     "gate_work": 63,
+     "baseline_work_before": 453,
+     "baseline_work_after": 63,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 22,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.009376
+     },
+     "mutation": "add_k 0.0041->0.00937597",
+     "claimed_delta_mbits": -55.685,
+     "claims_improvement": false,
+     "gate_work": 111,
+     "baseline_work_before": 63,
+     "baseline_work_after": 63,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 23,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.0041
+     },
+     "mutation": "order 6->5",
+     "claimed_delta_mbits": -86.136,
+     "claims_improvement": false,
+     "gate_work": 387,
+     "baseline_work_before": 63,
+     "baseline_work_after": 63,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 24,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.001378
+     },
+     "mutation": "add_k 0.0041->0.0013776",
+     "claimed_delta_mbits": 29.517,
+     "claims_improvement": true,
+     "gate_work": 0,
+     "baseline_work_before": 63,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 25,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.003446
+     },
+     "mutation": "add_k 0.001378->0.00344578",
+     "claimed_delta_mbits": -23.09,
+     "claims_improvement": false,
+     "gate_work": 79,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 26,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.000365
+     },
+     "mutation": "add_k 0.001378->0.000364852",
+     "claimed_delta_mbits": 11.186,
+     "claims_improvement": true,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 27,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.001234
+     },
+     "mutation": "add_k 0.000365->0.00123361",
+     "claimed_delta_mbits": -9.818,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 28,
+     "candidate": {
+      "order": 6,
+      "add_k": 0.000216
+     },
+     "mutation": "add_k 0.000365->0.00021585",
+     "claimed_delta_mbits": 1.681,
+     "claims_improvement": true,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 29,
+     "candidate": {
+      "order": 5,
+      "add_k": 0.000216
+     },
+     "mutation": "order 6->5",
+     "claimed_delta_mbits": -86.98,
+     "claims_improvement": false,
+     "gate_work": 76,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 30,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 6->7",
+     "claimed_delta_mbits": 53.465,
+     "claims_improvement": true,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 31,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000661
+     },
+     "mutation": "add_k 0.000216->0.000660985",
+     "claimed_delta_mbits": -6.701,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 32,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.000216
+     },
+     "mutation": "order 7->8",
+     "claimed_delta_mbits": 84.829,
+     "claims_improvement": true,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 33,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -83.643,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 34,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.000437
+     },
+     "mutation": "add_k 0.000216->0.000437055",
+     "claimed_delta_mbits": -3.998,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 35,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -76.443,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 36,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -81.636,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 37,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -85.35,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 38,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -81.148,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 39,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -83.767,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 40,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -76.493,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 41,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.000845
+     },
+     "mutation": "add_k 0.000216->0.000844714",
+     "claimed_delta_mbits": -11.776,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 42,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.000425
+     },
+     "mutation": "add_k 0.000216->0.00042494",
+     "claimed_delta_mbits": -3.904,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 43,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.000531
+     },
+     "mutation": "add_k 0.000216->0.000531452",
+     "claimed_delta_mbits": -5.967,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 44,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -81.295,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 45,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.000216
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -83.376,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 46,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.0001
+     },
+     "mutation": "add_k 0.000216->0.0001",
+     "claimed_delta_mbits": 2.193,
+     "claims_improvement": true,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 47,
+     "candidate": {
+      "order": 8,
+      "add_k": 0.000207
+     },
+     "mutation": "add_k 0.0001->0.000206703",
+     "claimed_delta_mbits": -1.968,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 48,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.0001
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -76.12,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 49,
+     "candidate": {
+      "order": 7,
+      "add_k": 0.0001
+     },
+     "mutation": "order 8->7",
+     "claimed_delta_mbits": -76.613,
+     "claims_improvement": false,
+     "gate_work": 0,
+     "baseline_work_before": 0,
+     "baseline_work_after": 0,
+     "verdict": "",
+     "kept": false,
+     "record_refutes_claim": false
+    }
+   ]
+  },
+  "C": {
+   "arm": "C",
+   "gate_seeds": 1,
+   "kept": 7,
+   "reverted": 18,
+   "overclaims_kept": 1,
+   "escalated_at_cycle": 24,
+   "final_recipe": {
+    "order": 3,
+    "add_k": 0.009578
+   },
+   "final_fresh_gain_mbits": 1028.366,
+   "final_claimed_gain_mbits": 1295.731,
+   "curve_witnessed_mbits": [
+    71.584,
+    842.604,
+    842.604,
+    842.604,
+    842.604,
+    842.604,
+    927.424,
+    927.424,
+    927.424,
+    986.442,
+    986.442,
+    986.442,
+    1025.497,
+    1025.497,
+    1053.144,
+    1053.144,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509,
+    1037.509
+   ],
+   "curve_claimed_mbits": [
+    74.101,
+    872.299,
+    872.299,
+    872.299,
+    872.299,
+    872.299,
+    952.466,
+    952.466,
+    952.466,
+    1151.738,
+    1151.738,
+    1151.738,
+    1204.313,
+    1204.313,
+    1264.852,
+    1264.852,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731,
+    1295.731
+   ],
+   "rows": [
+    {
+     "cycle": 0,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.256326
+     },
+     "mutation": "add_k 1->0.256326",
+     "claimed_delta_mbits": 74.101,
+     "claims_improvement": true,
+     "gate_work": 38,
+     "baseline_work_before": 5,
+     "baseline_work_after": 38,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 1,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.256326
+     },
+     "mutation": "order 1->2",
+     "claimed_delta_mbits": 798.199,
+     "claims_improvement": true,
+     "gate_work": 870,
+     "baseline_work_before": 38,
+     "baseline_work_after": 870,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 2,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.256326
+     },
+     "mutation": "order 2->1",
+     "claimed_delta_mbits": -815.032,
+     "claims_improvement": false,
+     "gate_work": 102,
+     "baseline_work_before": 870,
+     "baseline_work_after": 870,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 3,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.987775
+     },
+     "mutation": "add_k 0.256326->0.987775",
+     "claimed_delta_mbits": -300.836,
+     "claims_improvement": false,
+     "gate_work": 489,
+     "baseline_work_before": 870,
+     "baseline_work_after": 870,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 4,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.256326
+     },
+     "mutation": "order 2->3",
+     "claimed_delta_mbits": 136.348,
+     "claims_improvement": true,
+     "gate_work": 863,
+     "baseline_work_before": 870,
+     "baseline_work_after": 870,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 5,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.578595
+     },
+     "mutation": "add_k 0.256326->0.578595",
+     "claimed_delta_mbits": -147.348,
+     "claims_improvement": false,
+     "gate_work": 685,
+     "baseline_work_before": 870,
+     "baseline_work_after": 870,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 6,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.113652
+     },
+     "mutation": "add_k 0.256326->0.113652",
+     "claimed_delta_mbits": 80.167,
+     "claims_improvement": true,
+     "gate_work": 987,
+     "baseline_work_before": 870,
+     "baseline_work_after": 987,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 7,
+     "candidate": {
+      "order": 1,
+      "add_k": 0.113652
+     },
+     "mutation": "order 2->1",
+     "claimed_delta_mbits": -898.836,
+     "claims_improvement": false,
+     "gate_work": 108,
+     "baseline_work_before": 987,
+     "baseline_work_after": 987,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 8,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.048657
+     },
+     "mutation": "add_k 0.113652->0.0486572",
+     "claimed_delta_mbits": 42.81,
+     "claims_improvement": true,
+     "gate_work": 975,
+     "baseline_work_before": 987,
+     "baseline_work_after": 987,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 9,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.113652
+     },
+     "mutation": "order 2->3",
+     "claimed_delta_mbits": 199.272,
+     "claims_improvement": true,
+     "gate_work": 991,
+     "baseline_work_before": 987,
+     "baseline_work_after": 991,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 10,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.113652
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -204.927,
+     "claims_improvement": false,
+     "gate_work": 978,
+     "baseline_work_before": 991,
+     "baseline_work_after": 991,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 11,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.390325
+     },
+     "mutation": "add_k 0.113652->0.390325",
+     "claimed_delta_mbits": -272.498,
+     "claims_improvement": false,
+     "gate_work": 797,
+     "baseline_work_before": 991,
+     "baseline_work_after": 991,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 12,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.071546
+     },
+     "mutation": "add_k 0.113652->0.0715465",
+     "claimed_delta_mbits": 52.575,
+     "claims_improvement": true,
+     "gate_work": 1001,
+     "baseline_work_before": 991,
+     "baseline_work_after": 1001,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 13,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.071546
+     },
+     "mutation": "order 3->4",
+     "claimed_delta_mbits": -13.466,
+     "claims_improvement": false,
+     "gate_work": 788,
+     "baseline_work_before": 1001,
+     "baseline_work_after": 1001,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 14,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.029284
+     },
+     "mutation": "add_k 0.071546->0.0292843",
+     "claimed_delta_mbits": 60.539,
+     "claims_improvement": true,
+     "gate_work": 1072,
+     "baseline_work_before": 1001,
+     "baseline_work_after": 1072,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 15,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.072105
+     },
+     "mutation": "add_k 0.029284->0.0721048",
+     "claimed_delta_mbits": -60.004,
+     "claims_improvement": false,
+     "gate_work": 1057,
+     "baseline_work_before": 1072,
+     "baseline_work_after": 1072,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 16,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.009578
+     },
+     "mutation": "add_k 0.029284->0.00957761",
+     "claimed_delta_mbits": 30.879,
+     "claims_improvement": true,
+     "gate_work": 1105,
+     "baseline_work_before": 1072,
+     "baseline_work_after": 1105,
+     "verdict": "KEEP",
+     "kept": true,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 17,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.009578
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -277.671,
+     "claims_improvement": false,
+     "gate_work": 988,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 18,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.018516
+     },
+     "mutation": "add_k 0.009578->0.0185159",
+     "claimed_delta_mbits": -14.13,
+     "claims_improvement": false,
+     "gate_work": 1039,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 19,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.02752
+     },
+     "mutation": "add_k 0.009578->0.0275205",
+     "claimed_delta_mbits": -28.13,
+     "claims_improvement": false,
+     "gate_work": 1042,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 20,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.009578
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -285.612,
+     "claims_improvement": false,
+     "gate_work": 1018,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 21,
+     "candidate": {
+      "order": 4,
+      "add_k": 0.009578
+     },
+     "mutation": "order 3->4",
+     "claimed_delta_mbits": 82.122,
+     "claims_improvement": true,
+     "gate_work": 758,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": true
+    },
+    {
+     "cycle": 22,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.021903
+     },
+     "mutation": "add_k 0.009578->0.0219032",
+     "claimed_delta_mbits": -19.365,
+     "claims_improvement": false,
+     "gate_work": 1013,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 23,
+     "candidate": {
+      "order": 2,
+      "add_k": 0.009578
+     },
+     "mutation": "order 3->2",
+     "claimed_delta_mbits": -278.942,
+     "claims_improvement": false,
+     "gate_work": 981,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "REVERT",
+     "kept": false,
+     "record_refutes_claim": false
+    },
+    {
+     "cycle": 24,
+     "candidate": {
+      "order": 3,
+      "add_k": 0.003218
+     },
+     "mutation": "add_k 0.009578->0.00321821",
+     "claimed_delta_mbits": 10.372,
+     "claims_improvement": true,
+     "gate_work": 1012,
+     "baseline_work_before": 1105,
+     "baseline_work_after": 1105,
+     "verdict": "ESCALATE",
+     "kept": false,
+     "record_refutes_claim": true
+    }
+   ]
+  }
+ },
+ "sweep": {
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ],
+  "per_arm": {
+   "A": {
+    "mean_witnessed_gain_mbits": 982.4,
+    "min_witnessed_gain_mbits": 541.3,
+    "max_witnessed_gain_mbits": 1133.7,
+    "mean_claimed_gain_mbits": 1176.9,
+    "total_overclaims_kept": 5,
+    "escalated_runs": 10,
+    "mean_stop_cycle": 20.4
+   },
+   "B": {
+    "mean_witnessed_gain_mbits": -1077.3,
+    "min_witnessed_gain_mbits": -1631.8,
+    "max_witnessed_gain_mbits": -593.7,
+    "mean_claimed_gain_mbits": 1689.2,
+    "total_overclaims_kept": 111,
+    "escalated_runs": 0,
+    "mean_stop_cycle": null
+   },
+   "C": {
+    "mean_witnessed_gain_mbits": 978.3,
+    "min_witnessed_gain_mbits": 541.3,
+    "max_witnessed_gain_mbits": 1138.6,
+    "mean_claimed_gain_mbits": 1149.1,
+    "total_overclaims_kept": 4,
+    "escalated_runs": 10,
+    "mean_stop_cycle": 19.4
+   }
+  },
+  "mean_gap_A_minus_B_mbits": 2059.6,
+  "mean_gap_A_minus_C_mbits": 4.1,
+  "per_seed_witnessed_gain_mbits": {
+   "A": [
+    1029.6,
+    541.3,
+    1019.8,
+    954.7,
+    971.5,
+    1130.1,
+    940.6,
+    1062.4,
+    1040.0,
+    1133.7
+   ],
+   "B": [
+    -1173.2,
+    -804.6,
+    -1133.5,
+    -1217.4,
+    -1375.9,
+    -754.4,
+    -1631.8,
+    -1187.7,
+    -593.7,
+    -900.6
+   ],
+   "C": [
+    1028.4,
+    541.3,
+    1019.8,
+    954.7,
+    971.5,
+    1135.2,
+    940.6,
+    1012.7,
+    1040.0,
+    1138.6
+   ]
+  }
+ }
+}
