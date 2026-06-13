@@ -1,0 +1,44 @@
+# Smithery configuration — the local-stdio listing for the DOS MCP server.
+# https://smithery.ai/docs/config#smitheryyaml
+#
+# Smithery (smithery.ai) is the de-facto registry of MCP servers. A repo with a
+# valid smithery.yaml is listable there, which is also the on-ramp to the
+# awesome-mcp-servers crawl. This file fronts the SAME shipped server the Claude
+# bundle (claude-plugin/.mcp.json), the Gemini extension (gemini-extension.json),
+# and the MCP Registry manifest (server.json) all launch: `dos_mcp.server`.
+#
+# Why `type: stdio` and NOT a hosted container: DOS adjudicates GROUND TRUTH from
+# the caller's own git repo — it reads git ancestry and the working tree to decide
+# whether a claimed phase actually shipped. A network-sandboxed hosted runtime
+# cannot see the user's repo, so the verdict it could return would be hollow. The
+# server therefore runs LOCALLY (stdio) next to the repo it adjudicates — the same
+# reason verify-action checks out full history and the GitLab template forces
+# GIT_DEPTH=0. Smithery lists it; it runs on the user's machine.
+#
+# No API key, no secret, no LLM: DOS is deterministic. The one optional knob is
+# the workspace to adjudicate (the git repo root), which also rides every tool
+# call as a per-call `workspace` argument — so the default (the launch cwd) is
+# correct for the common case of one server per repo.
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema for the (entirely optional) configuration. DOS needs no
+    # credentials; `workspace` just pins which git repo the server adjudicates.
+    type: object
+    required: []
+    properties:
+      workspace:
+        type: string
+        description: >-
+          Path of the git workspace the server should adjudicate. Defaults to the
+          server's working directory; every tool also accepts a per-call
+          `workspace` argument, so this is only needed when the server is launched
+          somewhere other than the repo it should read.
+  commandFunction: |-
+    (config) => ({
+      command: 'uvx',
+      args: ['--from', 'dos-kernel[mcp]', 'dos-mcp'],
+      env: config.workspace ? { DISPATCH_WORKSPACE: config.workspace } : {}
+    })
+  exampleConfig: {}

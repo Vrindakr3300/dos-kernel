@@ -45,6 +45,12 @@ The same manifest is what Google's auto-indexed
 [extensions gallery](https://geminicli.com/extensions/) crawls, so the listing
 is automatic.
 
+**Browsing an MCP registry?** A repo-root `smithery.yaml` lists DOS on
+[Smithery](https://smithery.ai), the de-facto MCP-server registry. It declares a
+**local stdio** launch (`uvx --from 'dos-kernel[mcp]' dos-mcp`) on purpose: DOS
+adjudicates *your* git repo, so it runs next to it rather than in a hosted
+sandbox that couldn't see your history. No API key — DOS is deterministic.
+
 ### …then make the verdict *act* (hooks)
 
 To go from "the agent can ask" to "the host won't let a bad call through", wire

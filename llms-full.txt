@@ -575,6 +575,12 @@ The same manifest is what Google's auto-indexed
 [extensions gallery](https://geminicli.com/extensions/) crawls, so the listing
 is automatic.
 
+**Browsing an MCP registry?** A repo-root `smithery.yaml` lists DOS on
+[Smithery](https://smithery.ai), the de-facto MCP-server registry. It declares a
+**local stdio** launch (`uvx --from 'dos-kernel[mcp]' dos-mcp`) on purpose: DOS
+adjudicates *your* git repo, so it runs next to it rather than in a hosted
+sandbox that couldn't see your history. No API key — DOS is deterministic.
+
 ### …then make the verdict *act* (hooks)
 
 To go from "the agent can ask" to "the host won't let a bad call through", wire
@@ -1240,7 +1246,7 @@ from the long README:
 
 ```bash
 pip install -e ".[dev,mcp]"       # editable + the test/lint toolchain (exactly what CI installs)
-python -m pytest -q               # the full kernel suite — must stay green (~4,100 tests, ~3–4 min)
+python -m pytest -q               # the full kernel suite — must stay green (~4,900 tests, ~4–5 min)
 dos doctor --workspace .          # what IS this workspace? (the config seam, made visible)
 ruff check src/dos src/dos_mcp    # lint exactly as CI does (the wider tree is NOT lint-clean — don't "fix" it)
 ```
@@ -1434,7 +1440,10 @@ agents claim subtasks and write back compact verified updates — gaining up to
 10.5 points on SWE-bench Verified at roughly half the cost per task.
 `dos arbitrate` is the same shape applied to the file tree: agents share one
 workspace, and a collision is refused at admission time — before the edit
-exists — instead of being discovered at merge time.
+exists — instead of being discovered at merge time. The full design-review
+checklist — the four places concurrent agents contend, which worktrees cover,
+and the one command for each of the rest — is
+[Running parallel AI agents safely](PARALLEL_AGENTS_SAFELY.md).
 
 ## How do I detect that an agent loop is spinning — running but not progressing?
 
@@ -3210,7 +3219,7 @@ non-distillable label; `breaker`, `exec_capability`, `hook_exit`);
 
 ```bash
 pip install -e ".[dev,mcp]" # editable + test toolchain (a bare `-e .` ships no pytest)
-python -m pytest -q         # full suite — must stay green (~4,100 tests, ~3–4 min; run foreground)
+python -m pytest -q         # full suite — must stay green (~4,900 tests, ~4–5 min; run foreground)
 dos doctor --workspace .    # the active workspace + lane taxonomy
 dos verify --workspace . PLAN PHASE   # the truth syscall (no plan needed)
 ```
