@@ -13,7 +13,11 @@ monkeypatching — the claim is about surfaces, so the surfaces are what run):
   1. a lane lease durably taken via the CLI verb (`dos lease-lane acquire`,
      the surface a shelling host wraps) DENIES the colliding Write arriving
      through the HOOK surface (`dos hook pretool`, the surface Claude Code /
-     Gemini fire) — same WAL, one arbiter;
+     Gemini fire) — same WAL, one arbiter. The hook calls here run in LOOP
+     context (`DOS_LOOP` set): a dispatch loop is hard-denied on a declared
+     collision, while an interactive operator (no loop-context env) is
+     softened to an advisory WARN (4019dfc; pinned cross-host at the end of
+     this file, and at the decide() level in `test_hook_pretool.py`);
   2. the deny is dialect-independent: the SAME event through `--dialect
      claude-code` and `--dialect gemini` both refuse, each in its own host's
      envelope (the decided-once/rendered-per-host seam, docs/217 — its suite
@@ -31,6 +35,7 @@ style); this suite never touches the kernel repo's own live `.dos/`.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -70,25 +75,39 @@ def _lease(repo: Path, lane: str, owner: str) -> None:
     assert proc.returncode == 0, proc.stderr
 
 
-def _hook_pretool(repo: Path, file_path: str, *, dialect: str,
-                  session: str) -> subprocess.CompletedProcess:
-    """Surface B — the hook path a runtime fires, in that runtime's dialect."""
+_LOOP_ENV_VARS = ("DOS_LOOP", "CID_RUN_ID", "DISPATCH_LOOP_TS")
+
+
+def _hook_pretool(repo: Path, file_path: str, *, dialect: str, session: str,
+                  loop: bool = True) -> subprocess.CompletedProcess:
+    """Surface B — the hook path a runtime fires, in that runtime's dialect.
+
+    The contention verdict is session-kind-dependent (4019dfc): a DISPATCH LOOP
+    (loop-context env present) is hard-denied; an interactive OPERATOR (none
+    set) gets an advisory WARN. The loop-context env is set/stripped EXPLICITLY
+    so the verdict under test never depends on the environment the test runner
+    itself happens to be in (pytest inside a dispatch loop carries CID_RUN_ID).
+    """
     event = {
         "tool_name": "Write",
         "session_id": session,
         "cwd": str(repo),
         "tool_input": {"file_path": str(repo / file_path)},
     }
+    env = {k: v for k, v in os.environ.items() if k not in _LOOP_ENV_VARS}
+    if loop:
+        env["DOS_LOOP"] = "1"
     return subprocess.run(
         [sys.executable, "-m", "dos.cli", "hook", "pretool",
          "--workspace", str(repo), "--dialect", dialect],
-        input=json.dumps(event), capture_output=True, text=True,
+        input=json.dumps(event), capture_output=True, text=True, env=env,
     )
 
 
 def test_cli_lease_denies_hook_write_claude_code(repo: Path):
     """The cross-host moment: a lease one surface wrote refuses another surface's
-    colliding call — in the envelope real Claude Code enforces."""
+    colliding call — a racing dispatch loop, hard-denied in the envelope real
+    Claude Code enforces."""
     _lease(repo, "alpha", "host-a")
 
     proc = _hook_pretool(repo, "alpha/file.py", dialect="claude-code", session="S-b")
@@ -101,8 +120,8 @@ def test_cli_lease_denies_hook_write_claude_code(repo: Path):
 
 
 def test_same_event_denies_in_gemini_envelope_too(repo: Path):
-    """Dialect-independence of the DECISION: the same colliding event through the
-    gemini dialect also refuses — rendered as the `continue: false` envelope
+    """Dialect-independence of the DECISION: the same colliding loop event through
+    the gemini dialect also refuses — rendered as the `continue: false` envelope
     Gemini's BeforeTool gate actually enforces (docs/268), not CC's shape."""
     _lease(repo, "alpha", "host-a")
 
@@ -143,3 +162,31 @@ def test_one_dot_dos_accumulates_every_surface(repo: Path):
     obs_rows = [json.loads(l) for l in obs.read_text(encoding="utf-8").splitlines() if l.strip()]
     denies = [r for r in obs_rows if r.get("verb") == "pretool" and r.get("outcome") == "deny"]
     assert {r.get("dialect") for r in denies} >= {"claude-code", "gemini"}, obs_rows
+
+
+def test_operator_session_softens_same_collision_to_warn_cross_host(repo: Path):
+    """The other half of the 4019dfc split, pinned through the same real surfaces:
+    the IDENTICAL colliding event from an INTERACTIVE operator (no loop-context
+    env) is softened to an advisory WARN in BOTH dialects — context injected,
+    nothing blocked. A held lane's declared region is a defensive claim, not
+    proof of a real collision; the human-in-command owns their own blast radius."""
+    _lease(repo, "alpha", "host-a")
+
+    cc = _hook_pretool(repo, "alpha/file.py", dialect="claude-code",
+                       session="S-op-cc", loop=False)
+    assert cc.returncode == 0, cc.stderr
+    cc_payload = json.loads(cc.stdout)
+    cc_hso = cc_payload["hookSpecificOutput"]
+    # A CC WARN carries additionalContext and OMITS permissionDecision — the
+    # normal permission flow runs (turn-preserving passthrough).
+    assert "permissionDecision" not in cc_hso, cc_payload
+    assert "alpha" in cc_hso["additionalContext"]
+
+    gm = _hook_pretool(repo, "alpha/file.py", dialect="gemini",
+                       session="S-op-gm", loop=False)
+    assert gm.returncode == 0, gm.stderr
+    gm_payload = json.loads(gm.stdout)
+    # A Gemini WARN never sets the `continue: false` BeforeTool stop — the
+    # context rides hookSpecificOutput.additionalContext only.
+    assert gm_payload.get("continue") is not False, gm_payload
+    assert "alpha" in gm_payload["hookSpecificOutput"]["additionalContext"]
