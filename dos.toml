@@ -15,9 +15,9 @@ workspace = "."
 # top-level directories; curate them as your real concurrency topics emerge.
 # `dos arbitrate` reads this; `dos doctor --check` flags a lane with no tree.
 [lanes]
-concurrent = ["benchmark", "ci", "claude-plugin", "docs", "examples", "go", "meta", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
+concurrent = ["benchmark", "ci", "claude", "claude-plugin", "docs", "examples", "go", "meta", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
 exclusive = ["global"]
-autopick = ["benchmark", "ci", "claude-plugin", "docs", "examples", "go", "meta", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
+autopick = ["benchmark", "ci", "claude", "claude-plugin", "docs", "examples", "go", "meta", "paper", "scripts", "spikes", "src", "tests", "verify-action"]
 
 [lanes.trees]
 benchmark = ["benchmark/**"]
@@ -25,6 +25,11 @@ benchmark = ["benchmark/**"]
 # `global` lane, where the SELF_MODIFY guard rightly refuses a live loop — but a
 # CI edit is disjoint from every source lane and deserves concurrent admission.
 ci = [".github/**"]
+# Curated (not dir-derived; issue #104, the ci-lane precedent): skill/settings
+# edits under `.claude/` matched no lane and fell through to the exclusive
+# `global` lane — a session editing a skill took no lease at all. A clean dir
+# prefix, disjoint from every other lane, strict subset of `global`.
+claude = [".claude/**"]
 claude-plugin = ["claude-plugin/**"]
 docs = ["docs/**"]
 examples = ["examples/**"]
