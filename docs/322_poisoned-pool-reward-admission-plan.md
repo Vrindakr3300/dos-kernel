@@ -12,9 +12,16 @@
 
 *Status: P1 shipped 2026-06-12 — the rig (`benchmark/poisoned_pool/`), the
 suite pin (`tests/test_poisoned_pool_bench.py`), and run 1's committed
-evidence (`benchmark/poisoned_pool/RESULTS.md` + `results.json`). P2 open
-(real weights), gated on a GPU/key budget. Believe `dos verify`, not this
-sentence.*
+evidence (`benchmark/poisoned_pool/RESULTS.md` + `results.json`). P2 apparatus
+shipped 2026-06-12 — the real-weights rig (`benchmark/poisoned_pool/p2/`: the
+pure manifest converter + ablation, the pure eval fold, the LoRA-SFT driver,
+the orchestration CLI), its CPU-runnable suite pin
+(`tests/test_poisoned_pool_p2.py`), and the committed manifest preflight
+(`RESULTS_run3.md` — the structural floor visible in the training set: Arm S
+poison 0.46, Arm W poison 0.00 by construction). The weights-moved evidence
+block awaits one GPU run (`python -m benchmark.poisoned_pool.p2.run_p2 …`,
+documented in `p2/README.md`), gated on a GPU/key budget. Believe `dos verify`,
+not this sentence.*
 
 ## 0. What is new here (and what is not)
 
@@ -98,7 +105,7 @@ via `Fixes #36` on the evidence commit.
 **Done when:** the suite pin is green and the committed evidence file carries
 the per-generation over-claim / true-success curves for both arms.
 
-### P2 — real weights (open; gated on a GPU/key budget)
+### P2 — real weights (apparatus shipped; weights-moved evidence gated on a GPU)
 
 Upgrade selection pressure from few-shot conditioning to actual parameter
 movement: LoRA SFT on each arm's admitted pool, or DPO where Arm W's
@@ -106,7 +113,42 @@ REJECT_POISON rows are the dispreferred members (the `RewardLabel.
 dispreferred` field is already the loader shape). Same metrics, same held-out
 set, weights actually move. This is the strict form of the docs/234 theorem
 at training scale; P1's rig is reused (the pool format is the training
-manifest). Not started; needs compute this machine does not assume.
+manifest).
+
+**Built (`benchmark/poisoned_pool/p2/`, the layered subpackage):**
+
+- `manifest.py` (PURE) — turns each arm's admitted pool into an SFT manifest
+  and Arm W's REJECT_POISON pairs into a DPO manifest. The one-boolean
+  ablation lives here: Arm S = every train trajectory that *claimed* RESOLVED
+  (poison included); Arm W = only the trajectories `dos.reward.admit` ACCEPTed
+  (poison **0 by construction** — the kernel cannot admit a refuted claim).
+  Membership is the kernel verdict, not a reimplemented bit. The patch text is
+  the **real emitted bytes** (the P1 row records only `patch_chars`), pulled
+  from the run directory's completion files.
+- `eval.py` (PURE) — folds a trained model's held-out completions into P1's
+  `fold_batch` metrics via the SAME witness subprocess and the SAME
+  `dos.reward.admit`. The only change from P1 eval is that the completions came
+  from a model whose weights moved.
+- `train.py` (the DRIVER — the only module that names a vendor/accelerator;
+  transformers/peft/trl/torch imported lazily behind `requirements-gpu.txt`) —
+  LoRA-SFTs a small code base model on one arm's manifest and generates
+  held-out completions (greedy, no tools, the no-execution rule preserved).
+- `run_p2.py` — the CLI: synthesize a deterministic P1 run (run 2's config, so
+  the manifest's patches exist on disk), build both manifests, train both arms,
+  eval both, fold + stamp `RESULTS_run3.md`. `--manifest-only` is the GPU-free
+  CPU preflight the suite pins.
+
+Pinned by `tests/test_poisoned_pool_p2.py` (CPU-runnable, no GPU): the ablation
+(S poison > 0, W poison = 0), kernel-decided W membership, real-patch
+completions, the eval fold (true-success / over-claim / REJECT_POISON caught by
+the witness), determinism, and the DPO pairs (chosen ACCEPT, rejected
+REJECT_POISON). The committed `RESULTS_run3.md` carries the manifest preflight:
+Arm S training-set poison 0.46, Arm W 0.00.
+
+**Remaining (the GPU run):** one invocation of `run_p2.py` with the `[gpu]`
+deps on an L4/A100 (see `p2/README.md`, incl. the Google Cloud recipe) writes
+the weights-moved evidence block — held-out over-claim / true-success for both
+trained arms. Needs compute + auth this machine does not assume.
 
 ## 3. Threats to validity (named in the evidence file, not hidden)
 

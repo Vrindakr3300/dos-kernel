@@ -1,0 +1,19 @@
+{
+  "plan": "docs/322",
+  "issue": 36,
+  "mode": "manifest-only",
+  "rows_source": "synthesized P1 run (run2 config)",
+  "audit": {
+    "S": {
+      "size": 113,
+      "poison_n": 52,
+      "poison_frac": 0.46017699115044247
+    },
+    "W": {
+      "size": 61,
+      "poison_n": 0,
+      "poison_frac": 0.0
+    }
+  },
+  "dpo_W_pairs": 26
+}

@@ -1,0 +1,17 @@
+# docs/322 P2 — the GPU training deps for the real-weights poisoned-pool run.
+# Optional: only train.py imports these, lazily, behind the driver boundary.
+# Nothing else in the rig (manifest.py, eval.py, the CPU preflight, the suite)
+# needs them. Versions are floors known to carry the SFTConfig/LoraConfig API
+# train.py uses; pin tighter on a real GPU box if the resolver drifts.
+#
+#     pip install -r benchmark/poisoned_pool/p2/requirements-gpu.txt
+#
+# torch is intentionally unpinned here — install the build that matches the
+# box's CUDA (e.g. the cu121 wheel index) BEFORE the rest:
+#     pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.3
+transformers>=4.44
+peft>=0.12
+trl>=0.10
+datasets>=2.20
+accelerate>=0.33
