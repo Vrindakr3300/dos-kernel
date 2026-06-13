@@ -125,6 +125,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 # The reference-app convention, imported once at the top so the back-compat
 # aliases below (`_PROGRESS_MARKER_WORDS`, `_REPO_PATH_RE`, the infra sets) can be
@@ -286,6 +287,13 @@ class _Matchers:
                        release-prefix scan and the body-scan's in-summary check.
       bookkeeping    — the compiled, start-anchored, case-insensitive matcher for
                        a NAMES-but-doesn't-ship subject.
+      ambiguous_plans— `{number-head: (basenames…)}` for every head SHARED by
+                       ≥ 2 declared plan docs (docs/317 P1). Gathered from the
+                       workspace's `plans_glob` at the same boundary that
+                       resolves the convention; empty when the workspace has
+                       no plans (verify still needs no plan). The slug-or-
+                       nothing rule and the bare-head-query ambiguity both
+                       read this map.
     """
 
     convention: object
@@ -293,6 +301,7 @@ class _Matchers:
     summary_subject: str
     bookkeeping: "re.Pattern[str]"
     repo_path: "re.Pattern[str]"
+    ambiguous_plans: "dict[str, tuple[str, ...]] | None" = None
 
     def direct_ship_core(self, series_re: str, phase_alt: str) -> str:
         """The full direct-ship regex core for this convention (see `dos.stamp`).
@@ -346,7 +355,64 @@ def _subject_matchers(cfg: object | None = None) -> _Matchers:
         summary_subject=conv.summary_subject_re(),
         bookkeeping=conv.bookkeeping_subject_re(),
         repo_path=conv.repo_path_re(),
+        ambiguous_plans=_gather_ambiguous_plan_heads(cfg),
     )
+
+
+_PLAN_HEAD_RE = re.compile(r"^(\d[a-z0-9]*)_", re.IGNORECASE)
+
+
+def duplicate_plan_heads(
+    basenames: "list[str] | tuple[str, ...]",
+) -> "dict[str, tuple[str, ...]]":
+    """Map each NUMBER HEAD shared by ≥ 2 declared plan basenames to those
+    basenames (docs/317 P1). PURE — no I/O, unit-testable.
+
+    The head is the leading digit-run token before the first underscore
+    (`306_work-kind-account-plan.md` → `306`), lowercased — the same short
+    spelling `_series_variants` derives from a full plan id, so the two sides
+    of the ambiguity test key identically. A basename with no `<digits>_`
+    head shape contributes nothing (it has no short spelling to collide on).
+    Only heads carried by ≥ 2 DISTINCT basenames survive — a unique number
+    changes nothing anywhere.
+    """
+    by_head: dict[str, set[str]] = {}
+    for name in basenames:
+        base = str(name).replace("\\", "/").rsplit("/", 1)[-1]
+        if base.lower().endswith(".md"):
+            base = base[:-3]
+        m = _PLAN_HEAD_RE.match(base)
+        if m:
+            by_head.setdefault(m.group(1).lower(), set()).add(base)
+    return {h: tuple(sorted(n)) for h, n in by_head.items() if len(n) >= 2}
+
+
+def _gather_ambiguous_plan_heads(
+    cfg: object | None = None,
+) -> "dict[str, tuple[str, ...]]":
+    """Boundary read for `duplicate_plan_heads` (docs/317 P1): glob the
+    workspace's DECLARED plan location (`cfg.paths.plans_glob`, the same glob
+    `oracle.default_plan_doc_map` walks) and fold the duplicate-head index
+    from the matched BASENAMES — one readdir, zero file reads.
+
+    Fail-safe and total: a workspace with no plans glob, no matching files,
+    or an unreadable tree yields `{}` — the empty index makes every
+    docs/317 check a no-op, so `verify` still needs no plan and a plan-less
+    workspace is byte-identical to before.
+    """
+    try:
+        if cfg is None:
+            from dos import config as _config
+
+            cfg = _config.active()
+        paths = getattr(cfg, "paths", None)
+        root = Path(getattr(paths, "root", "."))
+        glob = str(getattr(paths, "plans_glob", "") or "")
+        if not glob:
+            return {}
+        return duplicate_plan_heads([p.name for p in root.glob(glob)])
+    except (OSError, ValueError):
+        return {}
 
 
 def _parse_batch_line(line: str) -> tuple[str, str, str | None]:
@@ -595,7 +661,9 @@ def _phase_variants(phase: str, series: str = "") -> list[str]:
     return sorted(re.escape(v) for v in variants)
 
 
-def _series_variants(series: str) -> list[str]:
+def _series_variants(
+    series: str, ambiguous_heads: "frozenset[str] | set[str]" = frozenset()
+) -> list[str]:
     """Regex-escaped plan-id spellings for the TRAILER rung (docs/289).
 
     A trailer names the plan as registered, and the two spellings in the wild
@@ -614,11 +682,21 @@ def _series_variants(series: str) -> list[str]:
     "docs/286"                   -> ["docs/286"]          (already the head)
     "RS4-port"                   -> ["RS4-port"]          (no underscore head)
     "my_plan"                    -> ["my_plan"]           (head has no digit)
+
+    docs/317 P1 — slug-or-nothing: when the head's NUMBER token is in
+    `ambiguous_heads` (≥ 2 declared plans share it), the short spelling is
+    NOT added — a bare `(docs/306 Pk)` trailer then witnesses NO plan while
+    two docs/306 exist, and only a slug-carrying stamp resolves. Refuse-more
+    only: the full id always stays in the set, so a slug stamp keeps
+    witnessing exactly its own plan.
     """
     variants = {series}
     m = re.match(r"^([^_\s]*\d[a-z0-9]*)_", series, re.IGNORECASE)
     if m:
-        variants.add(m.group(1))
+        head = m.group(1)
+        token = head.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if token not in ambiguous_heads:
+            variants.add(head)
     return sorted(re.escape(v) for v in variants)
 
 
@@ -687,6 +765,25 @@ def _check_phase_with_cache(
     """
     if matchers is None:
         matchers = _subject_matchers()
+    # docs/317 P1 — typed ambiguity for a bare-head QUERY. Asking about a bare
+    # number head (`docs/306` / `306`) while ≥ 2 declared plans share that head
+    # has no honest answer: any match would silently pick one plan's stamps for
+    # the other's claim. Refuse with a distinct `via` naming both files — the
+    # caller re-queries with the full plan id. A full-id query (carries the
+    # `_slug`) never trips this: its tail token is not a bare head.
+    dupes = (matchers.ambiguous_plans or {}).get(
+        series.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    )
+    if dupes:
+        return {
+            "shipped": False,
+            "sha": "",
+            "summary": (
+                f"plan number '{series}' is ambiguous — {len(dupes)} declared "
+                f"plans share it ({', '.join(dupes)}); query the full plan id"
+            ),
+            "via": "ambiguous-number",
+        }
     series_re = re.escape(series)
     # Direct-ship variant set: includes the `Phase N` ↔ `<SERIES>N` synonyms.
     # The direct-ship prefix (`docs/<SERIES>:`) IS the series qualifier, so
@@ -782,7 +879,11 @@ def _check_phase_with_cache(
     # Pass 1b where the release-bump footprint guards apply, so a version cut
     # ending in a phrase-shaped paren can never be promoted to a direct ship.
     if getattr(matchers.convention, "trailer_stamp", False):
-        series_alt = "|".join(_series_variants(series))
+        # docs/317 P1 — the ambiguous-head set drops the bare-number spelling
+        # from the trailer alternation (slug-or-nothing; see _series_variants).
+        series_alt = "|".join(
+            _series_variants(series, frozenset(matchers.ambiguous_plans or {}))
+        )
         trailer_core = matchers.convention.trailer_ship_core(series_alt, phase_alt)
         trailer_pat = re.compile(
             rf"^([a-f0-9]+)\s+.*{trailer_core}", re.IGNORECASE
