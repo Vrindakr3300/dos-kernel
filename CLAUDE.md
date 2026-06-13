@@ -404,6 +404,30 @@ shipping commit closes it. Triage labels: `ready` (done-condition present —
 anyone may pick it), `design` (plan first), `human-only` (operator judgment;
 the fleet skips it).
 
+### Hand the baton — end with a goal prompt for the next agent
+
+A finished session usually knows what the next session should do. Do not let
+that knowledge dissolve into report prose — **when the work leaves a concrete
+next move, end your final report with a goal prompt the operator can paste
+into the next session** (`/goal …`). Default to including one; skip it only
+when nothing is genuinely queued (a pure question-answer session, or a thread
+that closed itself).
+
+A good baton is small and self-grounding — written so an agent with zero
+context from this session can act on it:
+
+- **Name the handle.** The issue number, the `docs/NN` phase, or the failing
+  test the next agent starts from — never "continue improving X".
+- **State done as a witness.** The command whose verdict closes the goal
+  (`dos verify …`, a named test going green, a CI run turning green) — so the
+  goal-gate adjudicates from evidence the agent did not author, never from
+  its say-so.
+- **Name the first command.** The cheapest probe that loads the state — often
+  `python scripts/backlog_triage.py --top 12` (the typed, ordered backlog
+  queue) or the failing test file.
+
+The memory note is the archive; the baton is the dispatch.
+
 ## Releasing (dev tooling — outside the kernel)
 
 Two user-invokable skills cut and promote versions. They are **tooling that
