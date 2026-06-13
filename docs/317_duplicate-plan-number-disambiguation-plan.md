@@ -1,10 +1,20 @@
 # docs/317 — duplicate plan numbers must not cross-witness: slug-or-nothing stamps + the duplicate-number lint
 
-> **Status:** design written 2026-06-12; no phase started. Tracking handle:
-> issue [#80](https://github.com/anthony-chaudhary/dos-kernel/issues/80). The
+> **Status:** P1 executed 2026-06-12 (`de45c1d`, re-stamped under the full
+> slug in `c956d2a`); P2/P3 not started. Tracking handle: issue
+> [#80](https://github.com/anthony-chaudhary/dos-kernel/issues/80). The
 > adjudicator for each phase is
 > `dos verify docs/317_duplicate-plan-number-disambiguation-plan Pk`, never
 > this sentence.
+>
+> **P1 fired live the day it shipped.** Between P1's commit and its verify,
+> two sibling in-flight plans appeared on disk also numbered 317 — the new
+> rule refused the bare `(docs/317 P1)` stamp as ambiguous (correct), and
+> the slug-carrying re-stamp resolved it. The number stays with this plan
+> (first wearer); the untracked siblings renumber before committing. Note
+> the index reads the ON-DISK glob, not git — so an uncommitted stray plan
+> makes the head ambiguous for everyone until it is renumbered or removed.
+> That is the conservative direction, chosen on purpose.
 
 ## The problem — one number, two plans, one witness pool
 
