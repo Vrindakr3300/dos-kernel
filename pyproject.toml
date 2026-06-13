@@ -123,6 +123,18 @@ export-otlp = [
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp-proto-http>=1.20",
 ]
+# The Mem0 memory-store driver (src/dos/drivers/memory_mem0, docs/314 P3). Kept OUT
+# of the core for the same reason as [mcp]/[tui]/[notify-slack]: the kernel stays
+# near-stdlib. `dos memory recall/verify/admit` work with NO extra (the built-in
+# `file` store; the admit gate reads only candidate bytes); this extra adds only the
+# Mem0 SDK so the same gates sweep a HOSTED memory store. The driver imports the SDK
+# LAZILY (inside the client builder, never at module load) and fails with an install
+# hint only when a read is attempted — so entry-point discovery of the driver never
+# fails for lack of it (the notify_slack discipline). The store seam
+# (dos.memory_stores) names no provider and stays dependency-free.
+memory-mem0 = [
+    "mem0ai>=0.1",
+]
 # The arXiv paper bundle tooling (paper/arxiv/make_bundle.py). NOT part of the
 # kernel â€” it operates on the paper, which itself only `import dos`-es nothing
 # (the paper is downstream of the code, the one-way arrow). Kept OUT of the core
@@ -297,6 +309,20 @@ antigravity = "dos.drivers.hook_dialects:antigravity_install_spec"
 # note carries the one Cowork-specific fact: the product does not fire hooks yet
 # (anthropics/claude-code#63360, docs/298).
 claude-cowork = "dos.drivers.hook_dialects:claude_cowork_install_spec"
+
+# The memory-STORE providers (docs/314 P2/P3) — where a fleet's memories live, so
+# the recall gate (docs/103) and the write gate (`dos memory admit`) can run against
+# hosted memory, not just a directory of markdown. The kernel seam
+# (`dos.memory_stores`) holds the read-only MemoryStore Protocol + resolver + the
+# ONE unshadowable `file` built-in; every provider store names its vendor as code
+# (a Mem0 store is inherently Mem0-specific), which the vendor-blindness litmus
+# forbids in a kernel module — so it lives in a DRIVER and registers here, the same
+# kernel/driver split as `dos.judges` / `dos.notifiers`. `--store-kind mem0`
+# discovers it by name; the kernel imports none of them. The `mem0` store needs the
+# `[memory-mem0]` extra; its lazy import means discovering it here never fails when
+# the extra is absent (it resolves, and reports the install hint only on a read).
+[project.entry-points."dos.memory_stores"]
+mem0 = "dos.drivers.memory_mem0:Mem0Store"
 
 [project.urls]
 Homepage = "https://github.com/anthony-chaudhary/dos-kernel"
