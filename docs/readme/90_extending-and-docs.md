@@ -61,8 +61,11 @@ back verbatim:
   (liveness), an [infra monorepo](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/05_infra-monorepo.md) (refusals).
 - [**Debug a stuck fleet** + FAQ](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/06_debug-a-stuck-fleet.md) —
   symptom → the one command that diagnoses it.
-- Three cookbooks: [from Python](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md),
-  [CI / MCP integration](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-ci-integration.md), and
+- Four cookbooks: [from Python](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md),
+  [CI / MCP integration](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-ci-integration.md),
+  [the exit-code tier](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md) — *any* command-running
+  environment (aider, a git `pre-push`, a generic runner) reads a `dos` verb's
+  exit code, no hook adapter or MCP client needed — and
   [fleet frameworks](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-fleet-frameworks.md) — LangGraph,
   CrewAI, AutoGen, the OpenAI/Claude Agents SDK — with every framework recipe also
   shipped as a runnable, suite-pinned file under

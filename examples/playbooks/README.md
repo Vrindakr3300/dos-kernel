@@ -55,7 +55,7 @@ Start with the onboarding quickstart, then jump to your archetype:
    as an arbitrary-exec entry point. Runs entirely against QEMU's `edu` device
    and static fixtures — no physical hardware.
 
-## Three cookbooks (recipes, not walkthroughs)
+## Four cookbooks (recipes, not walkthroughs)
 
 - **[`cookbook-fleet-frameworks.md`](cookbook-fleet-frameworks.md)** — already
   running a fleet through **LangGraph, CrewAI, AutoGen, or the OpenAI / Claude
@@ -69,8 +69,15 @@ Start with the onboarding quickstart, then jump to your archetype:
   building a `SubstrateConfig`, the reason/stamp registries. For when you're
   embedding DOS in your own tool rather than shelling out.
 - **[`cookbook-ci-integration.md`](cookbook-ci-integration.md)** — wire DOS into
-  a pipeline: a GitHub Actions ship-gate, a pre-commit hook, and the MCP-host
-  config so an agent can call the referee directly.
+  a pipeline: a GitHub Actions ship-gate, a GitLab include, a pre-commit hook,
+  and the MCP-host config so an agent can call the referee directly.
+- **[`cookbook-exit-code-tier.md`](cookbook-exit-code-tier.md)** — the third
+  integration tier: **any environment that runs a command** reads a `dos` verb's
+  exit code, no hook adapter and no MCP client required. Recipes for **aider**
+  (a kernel verdict inside its auto-fix loop, one flag), a **git pre-push** gate,
+  and a **generic command step** for any runner the Action and GitLab template
+  don't reach (Jenkins, Make, `package.json`, a bespoke CLI agent on a hook-less
+  host). The honest tier for Windsurf / Warp / Zed today.
 
 ## Runnable example workspaces
 

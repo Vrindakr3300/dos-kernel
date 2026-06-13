@@ -324,7 +324,7 @@ reachable through every row here, lowest-friction first:
 |---|---|---|
 | **MCP server** | you drive an agent through an MCP host (Claude Desktop, Cursor, Cline, an Agent-SDK app) | add one line to the host config (`{ "command": "dos-mcp" }`) and ask the agent to `dos_verify` its own last claim — **zero code**. The *advisory* path (the agent asks). See [Give your agent a lie detector](#give-your-agent-a-lie-detector-mcp). |
 | **Runtime hooks** | you run an agent loop (Claude Code, Cursor, Codex CLI, Gemini CLI) and want the verdict to *act*, not just be available | `dos init --hooks <runtime>` wires the verdict into that host's own hook config — a refused call is **denied before it runs**, a false "done" is **refused**. The *enforcement* path (the host denies). One command, no hand-edited YAML. See [QUICKSTART](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/QUICKSTART.md) + [docs/221](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/221_the-cross-vendor-hook-installer.md). |
-| **CLI exit-code** | you have a shell pipeline or CI step that trusts an agent's "done" | replace that step with `dos verify PLAN PHASE` and branch on the exit code (`0` shipped / `1` not) — **the verdict *is* the exit code**. The day-one win above. |
+| **CLI exit-code** | you have *any* command-running environment — a CI step, a `pre-push` hook, or an agentic CLI like **aider** whose lint/test-cmd trusts a "done" | branch on a `dos` verb's exit code (`dos verify`: `0` shipped / `1` not; `dos commit-audit`: `0` clean / `1` over-claim) — **the verdict *is* the exit code**, no hook adapter and no MCP client. The honest tier for hook-less hosts (Windsurf, Warp, Zed). The [exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md). |
 | **Python API** | your dispatcher/orchestrator is already Python | `import dos` and call the pure syscalls (`dos.oracle.is_shipped`, `dos.arbiter.arbitrate`, …) — state-in / verdict-out, no subprocess. The [Python cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md). |
 | **Fleet framework** | your fleet already runs on LangGraph, CrewAI, AutoGen, or the OpenAI/Claude Agents SDK | bolt the referee onto the framework's own seam — a referee node, a termination condition only git can satisfy, an output guardrail with a git tripwire. One function, no rewrite; every seam executed against the real framework. The [fleet-framework cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-fleet-frameworks.md). |
 | **Swarm runtime** | your agents run on **Hermes, OpenClaw**, or a SwarmClaw-style autonomous swarm — privileged tools, shared memory docs / task boards, and **no lock manager** for either | drop a two-function adapter into the tool-execution loop: `guard_action` refuses an arbitrary-exec command **before it runs**, and `acquire_lease` / `release_lease` bracket each shared-state write so the lost update never lands. No `import dos` — it shells the CLI; Hermes' `pre_tool_call` hook also speaks DOS natively (`dos hook pretool --dialect hermes`). The runnable, A/B-measured [Hermes / OpenClaw worked example](https://github.com/anthony-chaudhary/dos-kernel/tree/master/examples/hermes_integration) + [docs/278](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/278_integrating-dos-with-hermes-and-openclaw-the-missing-lock-manager-for-agent-swarms.md). |
@@ -655,6 +655,33 @@ yourself: the per-platform wheels bundle the binary, so a wheel install gets
 the native fast path with no Go toolchain — and any platform without a bundled
 binary (including a plain source install) just runs the pure-Python path
 ([docs/286](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/286_shipping-the-go-binary-through-pypi-per-platform-wheels.md)).
+
+### …and when your host has neither (the exit-code tier)
+
+MCP is the **advisory** tier (the agent *asks*); hooks are the **enforcement**
+tier (the host *blocks*). Both ask DOS to speak the host's language — an MCP
+client, or a per-host hook dialect. The third tier asks nothing: **any
+environment that runs a command** reads a `dos` verb's exit code, because every
+verb already follows the universal Unix convention (`0` = ok, non-zero = a
+verdict). The verdict *is* the exit code.
+
+That tier is what reaches the long tail no dialect will ever cover, and it is
+the **honest** surface for a hook-less host (Windsurf, Warp, Zed today): rather
+than invent a fake enforcement envelope a host would never read, DOS rides the
+one contract every runner already has.
+
+```bash
+# aider runs --test-cmd after every edit and feeds a non-zero exit back to the
+# model's auto-fix loop — so a kernel verdict drops into a top-tier CLI agent
+# with NO hook machinery and NO MCP client, in one flag:
+aider --test-cmd 'dos commit-audit --workspace . HEAD' --auto-test
+```
+
+The same one line is a `pre-push` gate, a Jenkins/Buildkite stage, a `Makefile`
+target, or a `package.json` script. The full set of runnable recipes — aider, a
+git `pre-push` hook, and a generic command step, plus `dos hook-exit` for
+wrapping a *non-DOS* script onto the intervention ladder — is
+**[the exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md)**.
 
 *Next level up — what to watch once a fleet runs through these hooks: [Operating a fleet](#operating-a-fleet).*
 
@@ -1063,8 +1090,11 @@ back verbatim:
   (liveness), an [infra monorepo](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/05_infra-monorepo.md) (refusals).
 - [**Debug a stuck fleet** + FAQ](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/06_debug-a-stuck-fleet.md) —
   symptom → the one command that diagnoses it.
-- Three cookbooks: [from Python](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md),
-  [CI / MCP integration](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-ci-integration.md), and
+- Four cookbooks: [from Python](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md),
+  [CI / MCP integration](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-ci-integration.md),
+  [the exit-code tier](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md) — *any* command-running
+  environment (aider, a git `pre-push`, a generic runner) reads a `dos` verb's
+  exit code, no hook adapter or MCP client needed — and
   [fleet frameworks](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-fleet-frameworks.md) — LangGraph,
   CrewAI, AutoGen, the OpenAI/Claude Agents SDK — with every framework recipe also
   shipped as a runnable, suite-pinned file under

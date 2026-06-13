@@ -139,4 +139,31 @@ the native fast path with no Go toolchain — and any platform without a bundled
 binary (including a plain source install) just runs the pure-Python path
 ([docs/286](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/286_shipping-the-go-binary-through-pypi-per-platform-wheels.md)).
 
+### …and when your host has neither (the exit-code tier)
+
+MCP is the **advisory** tier (the agent *asks*); hooks are the **enforcement**
+tier (the host *blocks*). Both ask DOS to speak the host's language — an MCP
+client, or a per-host hook dialect. The third tier asks nothing: **any
+environment that runs a command** reads a `dos` verb's exit code, because every
+verb already follows the universal Unix convention (`0` = ok, non-zero = a
+verdict). The verdict *is* the exit code.
+
+That tier is what reaches the long tail no dialect will ever cover, and it is
+the **honest** surface for a hook-less host (Windsurf, Warp, Zed today): rather
+than invent a fake enforcement envelope a host would never read, DOS rides the
+one contract every runner already has.
+
+```bash
+# aider runs --test-cmd after every edit and feeds a non-zero exit back to the
+# model's auto-fix loop — so a kernel verdict drops into a top-tier CLI agent
+# with NO hook machinery and NO MCP client, in one flag:
+aider --test-cmd 'dos commit-audit --workspace . HEAD' --auto-test
+```
+
+The same one line is a `pre-push` gate, a Jenkins/Buildkite stage, a `Makefile`
+target, or a `package.json` script. The full set of runnable recipes — aider, a
+git `pre-push` hook, and a generic command step, plus `dos hook-exit` for
+wrapping a *non-DOS* script onto the intervention ladder — is
+**[the exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md)**.
+
 *Next level up — what to watch once a fleet runs through these hooks: [Operating a fleet](#operating-a-fleet).*
