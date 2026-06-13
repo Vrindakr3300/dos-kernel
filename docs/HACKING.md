@@ -1021,3 +1021,43 @@ dos reindex [--prune]         # rebuild the projection from the .dos/ dirs
 emit / verify / refuse / `man`): the cross-project aggregate is **data that
 informs tuning, never monkeypatching** — the same closed-enums-as-data thesis as
 `[reasons]`.
+
+## When two plans collide on one number — the renumber playbook (✅ shipped)
+
+Two concurrent agents can mint the same `docs/NN` plan number on the same day.
+The number is a STAMP HANDLE: ship commits say `(docs/NN Pk)`, and the truth
+syscall reads those stamps. So a shared number used to let one plan's commits
+witness the other plan's phases — one loop's stamps closing another loop's
+claims. Since docs/317 the kernel refuses that instead (three rails, all
+data-driven from your `plans_glob`):
+
+- **The oracle is slug-or-nothing under collision.** While ≥ 2 declared plans
+  share a number, a bare `(docs/NN Pk)` stamp witnesses NO plan, and a
+  bare-number `dos verify docs/NN Pk` query answers a typed
+  `ambiguous-number` refusal naming both files. A stamp carrying the FULL
+  plan slug — `(docs/NN_full-slug Pk)` — always witnesses exactly its own
+  plan, collision or not.
+- **`dos lint` / `dos doctor --check` flag it the day it lands**
+  (`PLAN_NUMBER_DUPLICATE`, one warning per shared number, naming every
+  colliding file).
+- **`dos plan` shows a ⚠ DUPLICATE row** on the board, beside the phases the
+  collision affects.
+
+The recovery, step by step (the junior plan — the one committed SECOND —
+moves; the number stays with its first wearer):
+
+1. `git mv` the junior plan to the next free number. Check the sibling's
+   UNCOMMITTED `docs/` too (`git status`) — an in-flight plan can collide
+   with yours before either is committed.
+2. Update in-tree references to the old number (docstrings, comments, the
+   plan's own title line).
+3. One renumber commit, naming both plans and the cause.
+4. One `git commit --allow-empty` re-stamp per already-shipped phase, with
+   the NEW number (or the full slug) in the trailer and the original ship
+   SHA in the body — the durable pointer from the new handle to the old
+   witness.
+5. Re-run `dos verify` on BOTH plans' phases and read the verdicts.
+
+If you cannot move the other plan (it is another loop's in-flight work),
+stamp YOUR phases with the full slug and keep going — the slug spelling
+stays unambiguous no matter how many strays share the number.

@@ -236,3 +236,42 @@ def test_cli_lint_clean_without_duplicates(tmp_path: Path):
     assert not any(
         f["kind"] == "PLAN_NUMBER_DUPLICATE" for f in payload["findings"]
     ), payload
+
+
+# ---------------------------------------------------------------------------
+# docs/317 P3 — the `dos plan` board surfaces the collision.
+# ---------------------------------------------------------------------------
+
+
+def test_plan_board_surfaces_duplicate_row(two_306: Path):
+    """The board carries the shared-number facts and renders one ⚠ row per
+    head — the operator reads the collision the day it lands, not from a
+    silent verify abstain later."""
+    import json as _json
+
+    from dos import plan_board as PB
+
+    frame = PB.snapshot(_cfg(two_306), verify=lambda p, ph: False)
+    assert frame.duplicate_plans == (
+        ("306", ("306_alpha-widget-plan", "306_beta-gadget-plan")),
+    )
+    text = PB.render_frame_text(frame)
+    assert "DUPLICATE plan number '306'" in text
+    assert "306_alpha-widget-plan" in text
+    assert "306_beta-gadget-plan" in text
+    payload = frame.to_dict()
+    assert payload["duplicate_plans"] == [
+        {"head": "306", "plans": ["306_alpha-widget-plan", "306_beta-gadget-plan"]}
+    ]
+    _json.dumps(payload)  # stays JSON-serializable
+
+
+def test_plan_board_clean_without_duplicates(tmp_path: Path):
+    """A unique-number workspace renders no duplicate row — byte-identical
+    board for the clean case."""
+    from dos import plan_board as PB
+
+    repo = _repo_with_plans(tmp_path, ["410_solo-plan.md"])
+    frame = PB.snapshot(_cfg(repo), verify=lambda p, ph: False)
+    assert frame.duplicate_plans == ()
+    assert "DUPLICATE plan number" not in PB.render_frame_text(frame)

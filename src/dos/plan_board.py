@@ -280,6 +280,11 @@ class Frame:
     activity: tuple[dict, ...] = ()       # recent commits [{sha, subject}, …] — the floor
     plan_source: str = "markdown"         # which source produced the rows
     initialized: bool = True              # did a dos.toml exist (vs. bare repo)?
+    # docs/317 P3 — number heads shared by ≥ 2 declared plan docs, as sorted
+    # `(head, (basenames…))` pairs. Non-empty means every bare-number stamp on
+    # those heads is ambiguous (the oracle refuses it — slug-or-nothing), so the
+    # board surfaces the collision the day it lands.
+    duplicate_plans: tuple = ()
 
     def to_dict(self) -> dict:
         return {
@@ -289,6 +294,9 @@ class Frame:
             "initialized": self.initialized,
             "phases": [p.to_dict() for p in self.phases],
             "activity": [dict(c) for c in self.activity],
+            "duplicate_plans": [
+                {"head": h, "plans": list(names)} for h, names in self.duplicate_plans
+            ],
             "summary": self.summary(),
         }
 
@@ -379,6 +387,14 @@ def snapshot(
     except Exception:
         activity = []
 
+    # --- shared plan numbers (docs/317 P3) — the same gather the oracle and the
+    #     lint read, already fail-safe-to-empty; a clean namespace adds nothing.
+    try:
+        from dos.phase_shipped import _gather_ambiguous_plan_heads
+        dup = tuple(sorted(_gather_ambiguous_plan_heads(cfg).items()))
+    except Exception:
+        dup = ()
+
     return Frame(
         workspace=str(cfg.root),
         now_iso=now.replace(microsecond=0).isoformat(),
@@ -386,6 +402,7 @@ def snapshot(
         activity=tuple(activity),
         plan_source=src_label,
         initialized=(cfg.root / "dos.toml").exists(),
+        duplicate_plans=dup,
     )
 
 
@@ -511,6 +528,15 @@ def render_frame_text(frame: Frame) -> str:
         out.append("  (no dos.toml — generic main/global; `dos init` to declare lanes/plans)")
     out.append("")
     out.append(render_phases_text(frame.phases))
+    # docs/317 P3 — one ⚠ row per shared plan number, the day the collision
+    # lands. A bare-number stamp on a shared head witnesses NO plan (the
+    # slug-or-nothing oracle rule), so the operator reads the fix here, not
+    # from a silent verify abstain weeks later.
+    for head, names in frame.duplicate_plans:
+        out.append(
+            f"  ⚠ DUPLICATE plan number {head!r}: {', '.join(names)} — "
+            f"bare-number stamps refuse; renumber the junior plan (docs/317)"
+        )
     out.append("")
     out.append(render_activity_text(frame.activity))
     out.append("─" * _WIDTH)
