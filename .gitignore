@@ -7,6 +7,12 @@ build/
 dist/
 .pytest_cache/
 .ruff_cache/
+# coverage.py artifacts — binary, bake in absolute dev-machine paths (a PUBLISH_LEAK
+# floor hit), and are a per-run test byproduct, never a shippable file.
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 .venv/
 venv/
 

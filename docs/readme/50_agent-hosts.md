@@ -31,6 +31,20 @@ thinks to. The per-host wiring for Cursor / Codex / Gemini is in
 **[the MCP README](https://github.com/anthony-chaudhary/dos-kernel/blob/master/src/dos_mcp/README.md)** — all four are MCP clients, so this
 works on every one of them with zero code.
 
+**Gemini CLI users get a one-liner.** DOS ships a `gemini-extension.json`
+manifest at the repo root, so the whole referee — the MCP server plus a context
+file that tells the model to gate its own done-claims — installs as one Gemini
+extension, no clone and no config edit:
+
+```bash
+pip install 'dos-kernel[mcp]'   # the server the extension launches
+gemini extensions install https://github.com/anthony-chaudhary/dos-kernel
+```
+
+The same manifest is what Google's auto-indexed
+[extensions gallery](https://geminicli.com/extensions/) crawls, so the listing
+is automatic.
+
 ### …then make the verdict *act* (hooks)
 
 To go from "the agent can ask" to "the host won't let a bad call through", wire

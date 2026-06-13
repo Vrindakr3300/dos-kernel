@@ -32,13 +32,13 @@ import dos
 _REPO_ROOT = Path(dos.__file__).resolve().parents[2]
 _BUMP_PY = _REPO_ROOT / "scripts" / "release_bump.py"
 
-# The six markers the bumper must keep on the package's leash — the keys it
-# reports under `targets`. The five LOCKSTEP markers carry one canonical value, fed
+# The seven markers the bumper must keep on the package's leash — the keys it
+# reports under `targets`. The six LOCKSTEP markers carry one canonical value, fed
 # to the drift guard; `docs` is the FTUE doc/skill literal sweep, keyed on the
 # old→new pair and excluded from the drift guard. If a refactor drops one (the exact
 # way the plugin — then the docs, then server.json — drifted), this set stops
 # matching and the test fails loudly.
-_LOCKSTEP_TARGETS = {"pyproject", "init", "plugin", "marketplace", "server"}
+_LOCKSTEP_TARGETS = {"pyproject", "init", "plugin", "gemini", "marketplace", "server"}
 _EXPECTED_TARGETS = _LOCKSTEP_TARGETS | {"docs"}
 
 
@@ -60,14 +60,16 @@ def _dry_run(version: str) -> dict:
     return json.loads(proc.stdout)
 
 
-def test_bump_covers_all_six_version_markers():
-    """The bumper targets pyproject + __init__ + plugin + marketplace + server + docs.
+def test_bump_covers_all_seven_version_markers():
+    """The bumper targets pyproject + __init__ + plugin + gemini + marketplace + server + docs.
 
     This is the structural regression guard: the plugin bundle drifted because the
     bumper had no `plugin`/`marketplace` target, the FTUE docs/skills drifted because
     it had no `docs` target, and server.json stranded the registry publish because it
-    had no `server` target (issue #30). Pin the full set so dropping one is caught
-    here, not by a red plugin/version-drift/registry-preflight failure later.
+    had no `server` target (issue #30). The `gemini` target (gemini-extension.json,
+    fronting the auto-indexed Gemini gallery, #101) joins the leash the same way. Pin
+    the full set so dropping one is caught here, not by a red plugin/version-drift/
+    registry-preflight failure later.
     """
     report = _dry_run("9.9.9")
     assert set(report["targets"]) == _EXPECTED_TARGETS, (

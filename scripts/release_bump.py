@@ -10,7 +10,7 @@ the uninstalled-source-tree case (running from a bare checkout that was never
 shipped `0.2.0`, so every `dos` CLI command misreported its version from a
 source checkout), and the comment in `__init__.py` records the scar.
 
-So there are six targets, and the whole point of this script over six hand
+So there are seven targets, and the whole point of this script over seven hand
 edits is that it keeps them in lockstep:
 
   1. pyproject.toml          — `version = "X.Y.Z"`  (the source of truth)
@@ -23,6 +23,9 @@ edits is that it keeps them in lockstep:
   6. server.json — the MCP Registry manifest's three version references
      (`.version`, `.packages[0].version`, and the `dos-kernel[mcp]==X.Y.Z`
      `--from` pin), the surface `tests/test_server_json_version.py` guards.
+  7. gemini-extension.json — the Gemini CLI extension manifest's `"version"`
+     (the repo-root manifest fronting the auto-indexed Gemini extensions
+     gallery), the surface `tests/test_gemini_extension.py` guards.
 
 Target 6 was added after the SAME class of drift recurred on the registry surface
 (issue #30): server.json was authored for the registry publish but never on the
@@ -176,6 +179,34 @@ def bump_plugin_manifest(root: Path, new: str, *, dry_run: bool) -> dict:
     """
     rel = "claude-plugin/.claude-plugin/plugin.json"
     path = root / "claude-plugin" / ".claude-plugin" / "plugin.json"
+    if not path.exists():
+        return {"path": rel, "ok": False, "reason": "not found"}
+    text = read(path)
+    pattern = re.compile(r'("version"\s*:\s*)"([^"]+)"')
+    m = pattern.search(text)
+    if not m:
+        return {"path": rel, "ok": False, "reason": 'no "version" key found'}
+    old = m.group(2)
+    new_text = pattern.sub(rf'\g<1>"{new}"', text, count=1)
+    changed = new_text != text
+    if changed:
+        write(path, new_text, dry_run=dry_run)
+    return {"path": rel, "old": old, "new": new, "changed": changed, "ok": True}
+
+
+def bump_gemini_extension(root: Path, new: str, *, dry_run: bool) -> dict:
+    """Bump the Gemini CLI extension manifest `version` (gemini-extension.json).
+
+    The repo-root manifest fronts the package on Google's auto-indexed extensions
+    gallery (geminicli.com/extensions), so its advertised version must track the
+    package the same way the Claude plugin manifest does — pinned by
+    `tests/test_gemini_extension.py::test_gemini_extension_version_tracks_package`.
+    The manifest has a single top-level `"version"` key, so an anchored first-match
+    sub is safe and preserves the file's formatting (vs a JSON round-trip), the same
+    choice and reason as bump_plugin_manifest.
+    """
+    rel = "gemini-extension.json"
+    path = root / "gemini-extension.json"
     if not path.exists():
         return {"path": rel, "ok": False, "reason": "not found"}
     text = read(path)
@@ -428,6 +459,7 @@ def main() -> int:
         "pyproject": lambda: bump_pyproject(root, new_version, dry_run=args.dry_run),
         "init": lambda: bump_init(root, new_version, dry_run=args.dry_run),
         "plugin": lambda: bump_plugin_manifest(root, new_version, dry_run=args.dry_run),
+        "gemini": lambda: bump_gemini_extension(root, new_version, dry_run=args.dry_run),
         "marketplace": lambda: bump_marketplace(root, new_version, dry_run=args.dry_run),
         "server": lambda: bump_server_json(root, new_version, dry_run=args.dry_run),
         # The FTUE doc/skill sweep is the ONE target keyed on the old→new pair (the
