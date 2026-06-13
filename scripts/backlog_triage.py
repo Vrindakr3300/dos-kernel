@@ -342,10 +342,12 @@ def gather_t1_surfaces():
 def gather_planned_numbers(root: Path) -> tuple:
     """Which issue numbers already have a plan doc behind them.
 
-    Two signals, unioned: a plan doc that references `#N` / `issues/N`, and
-    an issue body that names a `docs/NN_` plan which exists on disk is caught
-    later via `body_names_existing_plan` — this gathers the first plus the
-    set of existing plan numbers for the second."""
+    Returns `(referenced, existing)`: `referenced` is the set of `#N` /
+    `issues/N` a plan doc names (the plan claiming the issue — the sound
+    signal), `existing` is the set of plan numbers on disk. The body-side
+    signal (`body_names_existing_plan`) is ANDed with `referenced` at the
+    call site — the two-way handshake (#124): a one-way body mention is
+    citation-as-evidence, not the issue's own plan, and stays NEEDS_PLAN."""
     referenced = set()
     existing = set()
     for p in sorted(root.glob("docs/**/*-plan.md")):
@@ -460,7 +462,14 @@ def main(argv=None) -> int:
     referenced, existing = gather_planned_numbers(root)
     planned = set(referenced)
     for i in issues:
-        if body_names_existing_plan(i["body"], existing):
+        # Two-way handshake (#124): a body that names an existing `docs/NN`
+        # only counts as THIS issue's plan when the plan references `#N` back.
+        # A one-way mention is citation-as-evidence (the issue reports the
+        # plan, e.g. a collision) — indistinguishable from mention-as-my-plan
+        # by bare regex, so it stays NEEDS_PLAN. Mis-typing toward NEEDS_PLAN
+        # costs a redundant plan-check; toward execute-plan it sends a worker
+        # to ship phases of a plan that was never theirs.
+        if i["number"] in referenced and body_names_existing_plan(i["body"], existing):
             planned.add(i["number"])
 
     try:

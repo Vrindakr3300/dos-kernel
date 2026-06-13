@@ -275,24 +275,72 @@ def test_recorded_attempt_round_trips_into_cooldown(tmp_path):
 
 
 def test_cli_replay_mode_json(tmp_path):
+    # Hermetic journal (via _triage_json): a real recorded attempt on #80/#81
+    # would otherwise hold the row COOLING and flip the exit code — the replay
+    # verdict must be a function of the input alone.
     issues = [
         {"number": 80, "title": "a", "labels": [{"name": "ready"}], "body": "",
          "updatedAt": ""},
         {"number": 81, "title": "b", "labels": [{"name": "human-only"}], "body": "",
          "updatedAt": ""},
     ]
+    data = _triage_json(tmp_path, issues)
+    assert [r["number"] for r in data["queue"]] == [80]
+    assert data["counts"][bt.OPERATOR_GATED] == 1
+
+
+def _triage_json(tmp_path, issues):
+    """Run the CLI in replay mode with an ISOLATED journal, return parsed JSON.
+    Isolating `DISPATCH_LANE_JOURNAL_PATH` keeps the cooldown fold from holding
+    a synthetic issue number that happens to carry a real recorded attempt —
+    the pin must be a function of the input alone, not the host journal."""
+    import os
     f = tmp_path / "issues.json"
     f.write_text(json.dumps(issues), encoding="utf-8")
+    env = {**os.environ, "DISPATCH_LANE_JOURNAL_PATH": str(tmp_path / "lj.jsonl")}
     proc = subprocess.run(
         [sys.executable, str(_HELPER_PATH), "--issues-json", str(f), "--json",
          "--root", str(tmp_path)],
         capture_output=True, text=True, encoding="utf-8",
-        cwd=str(_HELPER_PATH.parents[1]),
+        cwd=str(_HELPER_PATH.parents[1]), env=env,
     )
     assert proc.returncode == bt.EXIT_WORK_AVAILABLE, proc.stderr
-    data = json.loads(proc.stdout)
-    assert [r["number"] for r in data["queue"]] == [80]
-    assert data["counts"][bt.OPERATOR_GATED] == 1
+    return json.loads(proc.stdout)
+
+
+def test_one_way_body_cite_is_needs_plan_not_execute_plan(tmp_path):
+    """#124: a `design` issue whose body cites an existing plan that does NOT
+    reference the issue back is NEEDS_PLAN — a one-way mention is citation-as-
+    evidence (e.g. reporting the colliding plan), not the issue's own plan."""
+    (tmp_path / "docs").mkdir()
+    # docs/306 exists but names some OTHER issue, not #80.
+    (tmp_path / "docs" / "306_some-plan.md").write_text(
+        "# 306 — a plan that owns #99\n", encoding="utf-8")
+    issues = [{"number": 80, "title": "reports a collision with docs/306",
+               "labels": [{"name": "design"}],
+               "body": "see docs/306 — the plan this issue collides with",
+               "updatedAt": ""}]
+    data = _triage_json(tmp_path, issues)
+    row = next(r for r in data["queue"] if r["number"] == 80)
+    assert row["disposition"] == bt.NEEDS_PLAN
+    assert row["work_kind"] == "write-plan"
+
+
+def test_two_way_handshake_is_execute_plan(tmp_path):
+    """#124: the same body cite types as execute-plan once the plan references
+    the issue back — the intersection, the sound signal."""
+    (tmp_path / "docs").mkdir()
+    # docs/306 now references #80 back — the handshake closes.
+    (tmp_path / "docs" / "306_some-plan.md").write_text(
+        "# 306 — the plan for #80\n", encoding="utf-8")
+    issues = [{"number": 80, "title": "design: the thing docs/306 plans",
+               "labels": [{"name": "design"}],
+               "body": "the plan is docs/306",
+               "updatedAt": ""}]
+    data = _triage_json(tmp_path, issues)
+    row = next(r for r in data["queue"] if r["number"] == 80)
+    assert row["disposition"] == bt.READY
+    assert row["work_kind"] == "execute-plan"
 
 
 def test_cli_record_attempt_requires_outcome():
