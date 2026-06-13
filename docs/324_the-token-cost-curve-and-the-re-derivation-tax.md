@@ -189,22 +189,23 @@ are filed as issues so the fleet can pick them against `scripts/backlog_triage.p
 ## 6. The gaps to file (what the per-issue backlog does not capture)
 
 The backlog triage oracle prioritizes *per-issue*; it has no view of the
-campaign. Three campaign-level issues are missing and filed alongside this doc:
+campaign. Three campaign-level issues were missing and are filed alongside this
+doc (#130, #131, #132):
 
-1. **The re-derivation-tax A/B harness** (§2, P2) — the rank-1 number. Paired
-   cold/carried arms on a named multi-session workload; reports the measured
-   `(A−B)/A` with the five-way breakdown. Done-condition: a benchmark dir whose
-   RESULTS.md carries a *measured* delta on a reproducible workload.
-2. **The portable trust bundle** (§3, P3) — the rank-2 stickiness artifact. A
-   projection of existing fossils (shipped-phase set + clean-truth snapshot +
-   efficiency fossils + decision fossils) into a re-loadable object, plus the
-   cold-session ingest. Consumer of #120/#121/#122. Done-condition: a cold
-   session answers shipped/green from the bundle without re-deriving.
-3. **The campaign headline surface** (§5 P5) — the one-number pitch assembled
-   over the harness delta. Vehicle is issue #71's receipt-linked headline log;
-   this issue is the *content* aimed at the cost-spike audience. Done-condition:
-   a single page stating the measured tax, the carried-forward removal, and the
-   inherit path, each line receipt-linked.
+1. **The re-derivation-tax A/B harness** (§2, P2 — **#130**) — the rank-1 number.
+   Paired cold/carried arms on a named multi-session workload; reports the
+   measured `(A−B)/A` with the five-way breakdown. Done-condition: a benchmark
+   dir whose RESULTS.md carries a *measured* delta on a reproducible workload.
+2. **The portable trust bundle** (§3, P3 — **#131**) — the rank-2 stickiness
+   artifact. A projection of existing fossils (shipped-phase set + clean-truth
+   snapshot + efficiency fossils + decision fossils) into a re-loadable object,
+   plus the cold-session ingest. Consumer of #120/#121/#122. Done-condition: a
+   cold session answers shipped/green from the bundle without re-deriving.
+3. **The campaign headline surface** (§5 P5 — **#132**) — the one-number pitch
+   assembled over the harness delta. Vehicle is issue #71's receipt-linked
+   headline log; this issue is the *content* aimed at the cost-spike audience.
+   Done-condition: a single page stating the measured tax, the carried-forward
+   removal, and the inherit path, each line receipt-linked.
 
 Already-filed work this campaign *sequences* rather than re-files: #39 (OTel
 spend egress, P1), #68 (pre-cost page, P4), #101/#102/#54/#73 (listings, P4),
