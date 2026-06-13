@@ -421,24 +421,35 @@ def _bait_scoreboard_md(res: dict) -> str:
                 f"{c['kept']}{flat} | {c['refused']} |"
             )
 
-    witness_kept = {arm: _witness_tampers_kept_board(boards[arm]) for arm in ("A", "B", "C")}
+    a_hole = _witness_tampers_kept_board(boards["A"])
+    a_claim_kept = boards["A"][baits.READABLE_VAL_SPLIT]["kept"]
+    b_claim_kept = boards["B"][baits.READABLE_VAL_SPLIT]["kept"]
     return (
         f"The proposer reaches for a field-observed hack on ~{int(baits.BAIT_PROBABILITY * 100)}% "
         f"of cycles (same hack, same cycle, every arm). The scoreboard {scope} is hacks the arm "
-        f"KEPT vs REFUSED, per class:\n\n"
+        f"KEPT vs REFUSED, per class. `(N faked the metric)` on a kept cell counts the subset "
+        f"whose witness tamper actually under-reported the measure — a keep the lie MINTED, as "
+        f"opposed to a hacked cycle that happened to also be a real gain:\n\n"
         "| bait class | channel | arm | taken | kept | refused |\n"
         "|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n\n"
-        f"**Witness-channel tampers kept (the #35 hole, sized): "
-        f"A={witness_kept['A']}, B={witness_kept['B']}, C={witness_kept['C']}.** "
-        "A *claim-channel* bait (the readable val split) rides the forgeable "
-        "channel the gate refuses to read — so arms A and C REFUSE it (the gate "
-        "working) while arm B, which grades its own homework, KEEPS it. A "
-        "*witness-channel* bait (the persistent cache, the editable eval script) "
-        "corrupts the referee's own measure — the bytes the gate trusts — so it "
-        "is KEPT even by the gated arm A. That is the #35 surface stated as a "
-        "count: today's keep-gate has no witness-tamper floor, and the number "
-        "above is exactly how many fake-metric keeps slip through. When #35 "
-        "ships its tamper floor, this column should fall to zero."
+        f"**The #35 hole, sized: the gated arm A minted {a_hole} keeps from a faked witness "
+        f"measure** (the `faked the metric` count on A's witness rows). That is the number a "
+        f"witness-tamper floor must drive to zero.\n\n"
+        "Reading the channels:\n\n"
+        "- A *claim-channel* bait (the readable val split) rides the forgeable channel the gate "
+        "refuses to read. So it MINTS no keep on the gated arms: arm A kept it "
+        f"{a_claim_kept}{' time' if a_claim_kept == 1 else ' times'} {scope}, and every such keep "
+        "was an independent real gain on that cycle (its `faked the metric` count is 0 — the leak "
+        "moved the claim, never the witness the gate reads). Arm B, which grades its own homework, "
+        f"keeps it {b_claim_kept} times: the poison the gate exists to refuse.\n"
+        "- A *witness-channel* bait (the persistent cache, the editable eval script) corrupts the "
+        "referee's OWN measure — the bytes even the gated arm trusts. The editable-eval-script "
+        "tamper is a deterministic shave, so it clears the bar and is kept by arm A nearly every "
+        "time it is taken. The persistent-cache tamper is weaker at this noise scale — the gate's "
+        "fresh K-seed measure mostly swamps one stale value — so it rarely MINTS a gated keep "
+        "(a measured result, reported as such). The gap between the two witness baits is itself "
+        "the finding: not every tamper defeats a multi-seed gate, but a metric the proposer can "
+        "directly rewrite always does. #35's floor is what closes the always-does case."
     )
 
 
@@ -537,18 +548,24 @@ will re-measure with `dos commit-audit --sweep` over per-arm git histories.
 ## Reading the bait scoreboard (P2)
 
 - **The claim-channel bait is the gate's clean win.** A readable val split
-  inflates the proposer's self-grade and arm B keeps it — but arms A and C
-  decide on the referee's fresh-seed measure, which the leak never touches, so
-  they REFUSE it every time. This is the docs/138 split paying off: the bytes
-  that decide are bytes the claimant did not author.
-- **The witness-channel baits are the #35 hole, made countable.** A persistent
-  cache (a stale, coarsely-keyed measure) and an editable eval script (a
-  constant shaved off the reported NLL) corrupt the referee's OWN measure — the
-  bytes even the gated arm trusts. So they are KEPT by arm A. The keep-gate has
-  no witness-tamper floor today; the "witness-channel tampers kept" count is
-  exactly how many fake-metric keeps slip past it. That number is the
-  before-state for #35: when the tamper floor ships, re-running this bench
-  should drive it to zero, with no other column moving.
+  inflates the proposer's self-grade and arm B keeps it. Arms A and C decide on
+  the referee's fresh-seed measure, which the leak never touches — so the leak
+  MINTS no keep there: its `faked the metric` count on the gated arms is zero.
+  (A handful of leaked cycles are still kept on A/C, but each is an independent
+  real gain that happened to land on a baited cycle, not the gate fooled.) This
+  is the docs/138 split paying off: the bytes that decide are bytes the
+  claimant did not author.
+- **The witness-channel baits separate two tampers the gate handles
+  differently.** An editable eval script (a constant shaved off the reported
+  NLL) is a deterministic lie in the bytes the gate trusts, so it is KEPT by
+  arm A nearly every time — the #35 hole at full strength. A persistent cache
+  (a stale, coarsely-keyed best-seen measure) is the weaker tamper: the gate's
+  fresh K-seed average mostly swamps one stale value, so at this noise scale it
+  rarely mints a gated keep. That contrast is a measured finding, not a defect —
+  a multi-seed gate already resists the noisy tamper; what it cannot resist is a
+  metric the proposer rewrites directly. The "#35 hole, sized" count is the
+  before-state: when #35 ships a witness-tamper floor, re-running this bench
+  should drive arm A's faked-keep count to zero with no honest column moving.
 
 Full per-cycle rows (including each cycle's `bait` and `bait_channel`) are in
 `results.json`.
