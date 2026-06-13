@@ -25,10 +25,13 @@ A coding agent does some work, then tells you how it went. Usually the story is
 true. Sometimes it isn't — the cheerful *"all work completed!"* from a worker
 that actually shipped nothing is the single most common failure in agent
 fleets. With one agent you catch that yourself, because you read its work
-before trusting it.
+before trusting it — which is a real cost you're already paying, you just
+haven't called it one: re-reading the output is the tax for taking the report
+on faith.
 
-Run twenty agents at once and nobody reads everything. Each worker grades its
-own homework, you believe the reports because what else is there to go on, and
+Run twenty agents at once and that tax stops being payable — nobody reads
+everything. Each worker grades its own homework, you believe the reports
+because what else is there to go on, and
 the unchecked problems pile up quietly — a false "done" here, two agents
 overwriting the same file there, one worker spinning in circles burning money.
 None of it is loud. The codebase ends up *sorta* working, and nobody can safely
