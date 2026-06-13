@@ -16,8 +16,13 @@
 > memory providers and our own memory plan — verification memory is a
 > non-trivial thing to expand on."
 
-*Status: P1 SHIPPED 2026-06-12 (the write gate — `dos memory admit`, verify
-on master). P2–P5 open; P3/P4 have public issue handles.*
+*Status: P1–P4 SHIPPED 2026-06-12 (P1 the write gate — `dos memory admit`;
+P2 the `dos.memory_stores` seam + `--store-kind`; P3 the Mem0 driver behind
+`[memory-mem0]`, real-SDK-probed — the hosted round-trip waits on an
+operator `MEM0_API_KEY`, issue #99's last box; P4 the verdict fossils +
+flap surface, issue #100). P5 designed below (design-only by scope); its
+annex shape is now SETTLED against the shipped seam — implementation is a
+follow-on handle.*
 
 ## 0. Why the write moment is the high ground
 
@@ -131,9 +136,44 @@ extracted claim, its polarity, and the probe that confirmed it (the
 `expected_doc`-style disambiguators included). Recall then re-runs the
 declared probes instead of re-deriving them from prose — cheaper, and immune
 to extraction drift. This is the memory analogue of the docs/312
-`verdict.json`: the artifact carries its own checkable surface. Designed
-here; ships after P2 settles the store seam (the annex shape must survive a
-provider round-trip).
+`verdict.json`: the artifact carries its own checkable surface.
+
+**The shape, settled against the shipped P2 seam (2026-06-12).** The seam's
+`read(id)` returns `(text, meta)`, and the two travel differently: every
+store round-trips the TEXT verbatim (it is the thing the verdict is computed
+from), while `meta` is provider-shaped and lossy (Mem0's `metadata` dict,
+the file store's path facts). So the annex rides INSIDE the bytes — a
+`verification:` list under the frontmatter `metadata:` block, one row per
+claim — never in the store's side-channel meta. That is what survives a
+provider round-trip by construction:
+
+```yaml
+metadata:
+  type: project
+  verification:
+    schema: 1
+    adjudicated: 2026-06-12T00:00:00Z       # when the probes ran
+    claims:
+      - raw: "from os import path"          # the literal the probe binds
+        kind: CODE_TOKEN                     # ClaimKind token
+        polarity: ASSERTS_PRESENT            # Polarity token
+        target_file: src/app.py              # the probe anchor
+        probe: grep                          # which rung answered
+        status: CONFIRMS                     # what it said at write time
+```
+
+Three rules carry over from the shipped halves: the annex is a RECIPE, not
+a verdict cache — recall re-RUNS the declared probes (an annex can never
+substitute for ground truth, only aim the probe; the P4 fossil is the
+verdict cache, with its own staleness rules); a memory whose body drifted
+from its annex (claims extracted from prose that the annex does not name)
+is adjudicated on the UNION, worst-wins — an annex can add probes, never
+shadow one; and the writer of the annex is the writer of the memory, so the
+annex is FORGEABLE and grants no authority — it saves re-derivation, the
+probes still read only env-authored bytes (docs/138). Emission handle: a
+`dos memory admit --annex` flag rendering the gathered evidence as the YAML
+block above. Design-only by scope; implementation is a follow-on issue once
+the shape has soaked.
 
 ## The throughline tie (docs/313)
 
