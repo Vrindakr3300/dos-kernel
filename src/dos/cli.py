@@ -5720,6 +5720,7 @@ def cmd_memory(args: argparse.Namespace) -> int:
         return 2
     cfg = _config.active()
     store = getattr(args, "store", None) or None
+    store_kind = getattr(args, "store_kind", "") or "file"
     explain = bool(getattr(args, "explain", False))
 
     if args.memory_cmd == "admit":
@@ -5755,7 +5756,7 @@ def cmd_memory(args: argparse.Namespace) -> int:
 
     if args.memory_cmd == "recall":
         try:
-            v = mr.recall_one(args.name, cfg=cfg, store=store)
+            v = mr.recall_one(args.name, cfg=cfg, store=store, store_kind=store_kind)
         except ValueError as e:
             print(f"error: {e}", file=sys.stderr)
             return 2
@@ -5775,7 +5776,7 @@ def cmd_memory(args: argparse.Namespace) -> int:
 
     # `verify` — sweep the whole store.
     try:
-        verdicts = mr.sweep(cfg=cfg, store=store)
+        verdicts = mr.sweep(cfg=cfg, store=store, store_kind=store_kind)
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
@@ -9562,8 +9563,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_workspace_flags(mrec)
     mrec.add_argument("name", help="the memory's frontmatter name / slug, or a path")
     mrec.add_argument("--store", default="",
-                      help="the agent-memory dir (default: the documented "
-                           "~/.claude/projects/<ws>/memory layout)")
+                      help="the store ARG: the agent-memory dir for the `file` kind "
+                           "(default: the documented ~/.claude/projects/<ws>/memory "
+                           "layout); a provider selector for a driver kind")
+    mrec.add_argument("--store-kind", default="file",
+                      help="which memory store to read (docs/314): `file` built-in; "
+                           "provider drivers register via the dos.memory_stores "
+                           "entry-point group (e.g. mem0)")
     mrec.add_argument("--explain", action="store_true",
                       help="append the agent-facing interpretation line")
     mrec.add_argument("--json", action="store_true", help="machine-readable verdict")
@@ -9584,7 +9590,9 @@ def build_parser() -> argparse.ArgumentParser:
     mver = msub.add_parser("verify",
                            help="sweep the WHOLE memory store (STALE first)")
     _add_workspace_flags(mver)
-    mver.add_argument("--store", default="", help="the agent-memory dir (see `recall`)")
+    mver.add_argument("--store", default="", help="the store ARG (see `recall`)")
+    mver.add_argument("--store-kind", default="file",
+                      help="which memory store to sweep (see `recall`)")
     mver.add_argument("--route", action="store_true",
                       help="cross-post non-FRESH verdicts to `dos decisions` via "
                            "OP_REFUSE (needs RECALL_* declared in dos.toml [reasons])")

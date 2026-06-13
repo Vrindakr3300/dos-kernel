@@ -105,6 +105,7 @@ leaves.
   | `dos.scope_sources` | `ScopeSource` Protocol | `dos.scope_source` |
   | `dos.enforce_handlers` | `EnforcementHandler` Protocol | `dos.enforce` |
   | `dos.hook_installs` | `HostHookSpec` spec | `dos.hook_install` |
+  | `dos.memory_stores` | `MemoryStore` Protocol | `dos.memory_stores` |
 
 - **The `dos.toml` schema.** A declared key keeps its meaning; new keys are
   additive; an unknown key keeps failing loud where it does today.

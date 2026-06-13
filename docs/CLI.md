@@ -1759,11 +1759,15 @@ Adjudicate agent memory at BOTH moments the bytes are believed: recall
 `dos memory recall <name>` re-checks ONE memory's claims against ground truth
 (git + the working tree) and prints its closed verdict (RECALL_FRESH / STALE /
 UNVERIFIABLE) — the antidote to a frozen self-report injected as fact. `dos
-memory verify` sweeps the whole store, STALE first. Both are READ-ONLY by
-default; `--route` (sweep only) cross-posts non-FRESH verdicts to `dos
+memory verify` sweeps the whole store, STALE first. Both are READ-ONLY on the
+store; `--route` (sweep only) cross-posts non-FRESH verdicts to `dos
 decisions` via an OP_REFUSE (needs the host to have declared RECALL_* in
-dos.toml [reasons]). The driver is resolved BY NAME (the bulkhead); the store
-is the host's memory dir (`--store`, or the documented Claude Code layout).
+dos.toml [reasons]). The driver is resolved BY NAME (the bulkhead). The STORE
+is resolved by name too (docs/314 P2, the `dos.memory_stores` seam):
+`--store-kind` picks it (`file` built-in — the host's memory dir via
+`--store`, or the documented Claude Code layout; provider drivers like `mem0`
+register through the entry-point group, with `--store` carrying the provider
+selector, e.g. `user_id=alice`).
 
 `dos memory admit` (docs/314 P1) is the WRITE gate: it adjudicates a
 CANDIDATE memory (`--text-file F`, or the bytes on stdin) BEFORE it enters

@@ -1110,15 +1110,22 @@ def _resolve_store(store: Optional[str], cfg: "_config.SubstrateConfig") -> Path
     return d
 
 
-def _resolve_memory_path(name_or_path: str, store: Path) -> Path:
-    """A frontmatter `name`, a bare slug, or a direct path → the memory file."""
-    p = Path(name_or_path)
-    if p.is_file():
-        return p
-    cand = store / (name_or_path if name_or_path.endswith(".md") else f"{name_or_path}.md")
-    if cand.is_file():
-        return cand
-    raise ValueError(f"no memory named {name_or_path!r} under {store}")
+def _resolve_memory_store(
+    store_kind: str, store: Optional[str], cfg: "_config.SubstrateConfig"
+):
+    """The store boundary (docs/314 P2): a `dos.memory_stores.MemoryStore` by kind.
+
+    The default `file` kind keeps every existing call byte-identical: the dir
+    resolution (`--store` › the documented harness layout) is the same
+    `_resolve_store` it always was, now feeding the seam's built-in `FileStore`.
+    Any other kind resolves through the `dos.memory_stores` entry-point group —
+    the directory-of-markdown assumption stops here, at the boundary.
+    """
+    from dos import memory_stores
+
+    if store_kind in ("", memory_stores.FileStore.name):
+        return memory_stores.FileStore(_resolve_store(store, cfg))
+    return memory_stores.resolve_store(store_kind, store or "")
 
 
 def recall_one(
@@ -1127,18 +1134,26 @@ def recall_one(
     cfg: "Optional[_config.SubstrateConfig]" = None,
     store: Optional[str] = None,
     now_ms: Optional[int] = None,
+    store_kind: str = "file",
 ) -> RecallVerdict:
     """Re-verify ONE memory at recall time → its closed RecallVerdict.
 
     `name_or_path` is a frontmatter `name` / slug (resolved against the store) or a
-    direct path. `store` overrides the memory dir; default via `default_store`.
+    direct path. `store` is the store ARG (the dir for `file`; a provider selector
+    for a driver kind); `store_kind` picks the store by name (docs/314 P2).
     `now_ms` is injected here at the boundary (clock never read inside the verdict).
     """
     cfg = _config.ensure(cfg)
     nm = now_ms if now_ms is not None else int(time.time() * 1000)
-    store_dir = _resolve_store(store, cfg)
-    path = _resolve_memory_path(name_or_path, store_dir)
-    ev = gather(path, cfg=cfg, now_ms=nm)
+    st = _resolve_memory_store(store_kind, store, cfg)
+    try:
+        text, meta = st.read(name_or_path)
+    except OSError:
+        # Unreadable bytes degrade to empty evidence (the `gather` tolerance).
+        return classify_recall(RecallEvidence(
+            mem_name=Path(name_or_path).stem, mem_type="", now_ms=nm))
+    fallback = str(meta.get("stem") or meta.get("name") or Path(name_or_path).stem)
+    ev = gather_text(text, fallback_name=fallback, cfg=cfg, now_ms=nm)
     return classify_recall(ev)
 
 
@@ -1147,21 +1162,27 @@ def sweep(
     cfg: "Optional[_config.SubstrateConfig]" = None,
     store: Optional[str] = None,
     now_ms: Optional[int] = None,
+    store_kind: str = "file",
 ) -> list[RecallVerdict]:
     """Re-verify EVERY memory in the store → a list of verdicts (STALE first).
 
     The whole-store projection: `verify` fanned out over a memory store instead of
-    a plan registry (docs/103 §5). Read-only. Ranked STALE → UNVERIFIABLE → FRESH
-    so the rows that need attention lead.
+    a plan registry (docs/103 §5). Read-only on the store. Ranked STALE →
+    UNVERIFIABLE → FRESH so the rows that need attention lead.
     """
     cfg = _config.ensure(cfg)
     nm = now_ms if now_ms is not None else int(time.time() * 1000)
-    store_dir = _resolve_store(store, cfg)
+    st = _resolve_memory_store(store_kind, store, cfg)
     out: list[RecallVerdict] = []
-    for path in sorted(store_dir.glob("*.md")):
-        if path.name == "MEMORY.md":
-            continue  # the index, not a memory record
-        ev = gather(path, cfg=cfg, now_ms=nm)
+    for mid in st.list():
+        try:
+            text, meta = st.read(mid)
+        except OSError:
+            out.append(classify_recall(RecallEvidence(
+                mem_name=Path(mid).stem, mem_type="", now_ms=nm)))
+            continue
+        fallback = str(meta.get("stem") or meta.get("name") or Path(mid).stem)
+        ev = gather_text(text, fallback_name=fallback, cfg=cfg, now_ms=nm)
         out.append(classify_recall(ev))
     rank = {Recall.RECALL_STALE: 0, Recall.RECALL_UNVERIFIABLE: 1, Recall.RECALL_FRESH: 2}
     out.sort(key=lambda v: (rank.get(v.verdict, 9), v.evidence.mem_name))
