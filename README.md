@@ -1016,6 +1016,11 @@ for a copy-me skeleton.
 - **[docs/FAQ.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/FAQ.md)** — the arriving questions ("how do I
   verify an agent's claim?", "does it need an LLM?"), each answered in one
   self-contained block.
+- **[docs/answers/](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/answers/README.md)** — the answer corpus: one
+  sourced, self-contained page per high-intent question ("how to verify an AI
+  agent actually did the work", "how to stop two AI agents overwriting each
+  other"), each carrying an evidence table where every number links to the file
+  that proves it.
 - **[docs/ALTERNATIVES.md](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/ALTERNATIVES.md)** — DOS and the
   alternatives: evals, framework guardrails, Temporal, in-toto, plain CI —
   what each does well, what DOS adds, and when NOT to use DOS.
