@@ -184,7 +184,7 @@ def test_sweep_runs_against_the_toy_store(tmp_path: Path, monkeypatch):
     cfg = default_config(_repo(tmp_path))
     import importlib.metadata as md
     monkeypatch.setattr(md, "entry_points", _fake_eps(_StubEP("toy", _ToyStore)))
-    verdicts = mr.sweep(cfg=cfg, store_kind="toy")
+    verdicts = mr.sweep(cfg=cfg, store_kind="toy", journal=False)
     assert [v.evidence.mem_name for v in verdicts] == ["toy-r1"]
     assert verdicts[0].verdict is mr.Recall.RECALL_FRESH
 
@@ -193,10 +193,10 @@ def test_recall_one_reads_a_toy_record_by_id(tmp_path: Path, monkeypatch):
     cfg = default_config(_repo(tmp_path))
     import importlib.metadata as md
     monkeypatch.setattr(md, "entry_points", _fake_eps(_StubEP("toy", _ToyStore)))
-    v = mr.recall_one("r1", cfg=cfg, store_kind="toy")
+    v = mr.recall_one("r1", cfg=cfg, store_kind="toy", journal=False)
     assert v.verdict is mr.Recall.RECALL_FRESH
     with pytest.raises(ValueError, match="no memory named 'ghost'"):
-        mr.recall_one("ghost", cfg=cfg, store_kind="toy")
+        mr.recall_one("ghost", cfg=cfg, store_kind="toy", journal=False)
 
 
 def test_default_file_kind_is_byte_identical_for_the_existing_calls(tmp_path: Path):
@@ -206,9 +206,9 @@ def test_default_file_kind_is_byte_identical_for_the_existing_calls(tmp_path: Pa
     store.mkdir()
     (store / "m1.md").write_text(_TOY_BODY, encoding="utf-8")
     cfg = default_config(repo)
-    v_default = mr.recall_one("m1", cfg=cfg, store=str(store))
+    v_default = mr.recall_one("m1", cfg=cfg, store=str(store), journal=False)
     v_explicit = mr.recall_one("m1", cfg=cfg, store=str(store),
-                               store_kind="file")
+                               store_kind="file", journal=False)
     assert v_default.to_dict() == v_explicit.to_dict()
     assert v_default.verdict is mr.Recall.RECALL_FRESH
 

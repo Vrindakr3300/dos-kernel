@@ -5774,9 +5774,11 @@ def cmd_memory(args: argparse.Namespace) -> int:
         # STALE=3, UNVERIFIABLE=0 (surfaceable, not a failure).
         return 3 if d["verdict"] == "RECALL_STALE" else 0
 
-    # `verify` — sweep the whole store.
+    # `verify` — sweep the whole store. Fossils (docs/314 P4) answer a
+    # byte-unchanged STALE from the journal; `--reprobe` forces the full probe.
     try:
-        verdicts = mr.sweep(cfg=cfg, store=store, store_kind=store_kind)
+        verdicts = mr.sweep(cfg=cfg, store=store, store_kind=store_kind,
+                            consult_fossils=not getattr(args, "reprobe", False))
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
@@ -5787,9 +5789,20 @@ def cmd_memory(args: argparse.Namespace) -> int:
         except ValueError as e:
             print(f"error: --route failed: {e}", file=sys.stderr)
             return 2
+    # Flap detection (docs/314 P4): a memory whose journaled verdict history
+    # resurrected (STALE → later FRESH) is surfaced as suspicious — claim
+    # history is itself evidence. Read-only over the verdict journal.
+    flaps = mr.flap_suspects_for(cfg)
 
     if args.json or getattr(args, "output", None) == "json":
-        print(json.dumps([v.to_dict() for v in verdicts], sort_keys=True, ensure_ascii=False))
+        rows = []
+        for v in verdicts:
+            d = v.to_dict()
+            hist = flaps.get(v.evidence.mem_name)
+            if hist:
+                d["flap_history"] = list(hist)
+            rows.append(d)
+        print(json.dumps(rows, sort_keys=True, ensure_ascii=False))
         return 0
     from collections import Counter
     tally = Counter(v.verdict.value for v in verdicts)
@@ -5800,10 +5813,14 @@ def cmd_memory(args: argparse.Namespace) -> int:
         if v.verdict.value == "RECALL_FRESH":
             continue  # the list leads with what needs attention; FRESH is the floor
         cul = v.culprit
-        head = f"  {v.verdict.value.replace('RECALL_', ''):<12}  {v.evidence.mem_name}"
+        marker = "  [fossil]" if v.fossil_ts else ""
+        head = f"  {v.verdict.value.replace('RECALL_', ''):<12}  {v.evidence.mem_name}{marker}"
         print(head)
         if cul is not None:
             print(f"      {cul.claim.raw[:60]!r} → {cul.ground_truth[:80]}")
+    for name, hist in sorted(flaps.items()):
+        print(f"  ⚠ flapped      {name}  ({'→'.join(t.replace('RECALL_', '') for t in hist)}"
+              f" — verdict history resurrected; treat its claims with suspicion)")
     if routed:
         print(f"\n  → routed {routed} non-FRESH verdict(s) to `dos decisions` (OP_REFUSE)")
     return 0
@@ -9593,6 +9610,10 @@ def build_parser() -> argparse.ArgumentParser:
     mver.add_argument("--store", default="", help="the store ARG (see `recall`)")
     mver.add_argument("--store-kind", default="file",
                       help="which memory store to sweep (see `recall`)")
+    mver.add_argument("--reprobe", action="store_true",
+                      help="ignore verification-memory fossils (docs/314 P4): re-probe "
+                           "every memory even if a byte-unchanged STALE verdict is "
+                           "already journaled")
     mver.add_argument("--route", action="store_true",
                       help="cross-post non-FRESH verdicts to `dos decisions` via "
                            "OP_REFUSE (needs RECALL_* declared in dos.toml [reasons])")

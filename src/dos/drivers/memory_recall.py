@@ -267,13 +267,17 @@ class RecallVerdict:
     `culprit` is the deciding CONTRADICTS claim on a STALE verdict (so a surface
     can lead with WHY), or None. `to_dict` is the JSON shape the CLI `--json` /
     MCP tool emit — legible distrust: the operator sees not just STALE but the
-    ground-truth proof behind it.
+    ground-truth proof behind it. `fossil_ts` is "" for a live adjudication and
+    the journal timestamp when the verdict was REPLAYED from a verification-
+    memory fossil (docs/314 P4) instead of re-probed — honest provenance, so a
+    consumer always knows whether ground truth was consulted just now.
     """
 
     verdict: Recall
     reason: str
     culprit: Optional[ClaimEvidence]
     evidence: RecallEvidence
+    fossil_ts: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -283,6 +287,7 @@ class RecallVerdict:
             "type": self.evidence.mem_type,
             "culprit": self.culprit.to_dict() if self.culprit is not None else None,
             "claims": [e.to_dict() for e in self.evidence.evidences],
+            "fossil_ts": self.fossil_ts,
         }
 
 
@@ -1128,6 +1133,164 @@ def _resolve_memory_store(
     return memory_stores.resolve_store(store_kind, store or "")
 
 
+# ---------------------------------------------------------------------------
+# Verification-memory fossils (docs/314 P4) — the kernel remembering its own
+# memory adjudications. Each computed recall/admit verdict is journaled to the
+# verdict WAL (docs/262) with the content hash it adjudicated; a sweep consults
+# the journal FIRST, so a memory already adjudicated STALE and byte-unchanged
+# since is reported from the fossil, not re-probed (the cooldown analogue —
+# staleness is sticky until the MEMORY changes, so a known-stale memory cannot
+# quietly re-enter circulation). FRESH is never replayed: a fresh claim can age
+# into a lie while the memory sits still, so freshness must always re-probe.
+# All journal writes are fail-soft (the verdict_journal contract) and
+# change-only — a row is appended when the verdict or the bytes changed, so the
+# journal holds the TRANSITION history flap detection reads, not a copy of
+# every sweep.
+# ---------------------------------------------------------------------------
+
+# The journal dimensions this driver emits. Driver vocabulary — deliberately NOT
+# added to `verdict_journal.KNOWN_SYSCALLS` (the recorder's tolerant floor
+# records unknown dimensions as-is; the kernel list stays the kernel's own).
+FOSSIL_SYSCALL_RECALL = "memory_recall"
+FOSSIL_SYSCALL_ADMIT = "memory_admit"
+
+
+def _content_sha(text: str) -> str:
+    """The fossil's change-detector: sha256 over the memory's bytes."""
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _journal_verdict(
+    *,
+    syscall: str,
+    verdict_token: str,
+    mem_name: str,
+    mem_type: str,
+    reason: str,
+    culprit: Optional[ClaimEvidence],
+    sha: str,
+    size: int,
+    store_kind: str,
+    cfg: "_config.SubstrateConfig",
+) -> bool:
+    """Append one adjudication row to the verdict journal. FAIL-SOFT."""
+    from dos import verdict_journal
+
+    detail: dict = {
+        "content_sha256": sha,
+        "size": size,
+        "mem_type": mem_type,
+        "store_kind": store_kind,
+        "reason": reason,
+        "culprit": culprit.to_dict() if culprit is not None else None,
+    }
+    return verdict_journal.record(
+        verdict_journal.VerdictEvent(
+            syscall=syscall,
+            verdict=verdict_token,
+            subject=mem_name,
+            detail=detail,
+        ),
+        path=getattr(cfg.paths, "verdict_journal", None),
+    )
+
+
+def _read_fossil_rows(cfg: "_config.SubstrateConfig") -> list:
+    """Every journal row, typed, fail-soft (an unreadable journal → no fossils)."""
+    from dos import verdict_journal
+
+    try:
+        return verdict_journal.read_events(getattr(cfg.paths, "verdict_journal", None))
+    except Exception:
+        return []
+
+
+def latest_fossils(rows) -> dict:
+    """The newest `memory_recall` row per memory name. PURE fold (append order)."""
+    out: dict = {}
+    for r in rows:
+        if getattr(r, "syscall", "") == FOSSIL_SYSCALL_RECALL and getattr(r, "subject", ""):
+            out[r.subject] = r
+    return out
+
+
+def _verdict_from_fossil(row) -> Optional[RecallVerdict]:
+    """Replay a STALE verdict from its journal fossil. Malformed → None (re-probe).
+
+    Fail-toward-re-probing: any missing/bad field in the fossil falls back to a
+    live adjudication — a fossil can SKIP work, never manufacture a verdict
+    shape the live path couldn't have produced.
+    """
+    try:
+        det = dict(row.detail)
+        culprit: Optional[ClaimEvidence] = None
+        cd = det.get("culprit")
+        if isinstance(cd, dict) and isinstance(cd.get("claim"), dict):
+            c = cd["claim"]
+            claim = MemoryClaim(
+                raw=str(c["raw"]),
+                kind=ClaimKind(c["kind"]),
+                polarity=Polarity(c["polarity"]),
+                target_file=str(c.get("target_file") or ""),
+                line_hint=int(c.get("line_hint") or 0),
+            )
+            culprit = ClaimEvidence(
+                claim,
+                ProbeStatus(cd["status"]),
+                str(cd.get("ground_truth") or ""),
+                str(cd.get("source") or ""),
+            )
+        ev = RecallEvidence(
+            mem_name=row.subject,
+            mem_type=str(det.get("mem_type") or ""),
+            evidences=(culprit,) if culprit is not None else (),
+        )
+        reason = (
+            f"{det.get('reason') or 'adjudicated STALE'} "
+            f"[fossil: adjudicated {row.ts or '?'}, bytes unchanged since — "
+            f"reported from the journal, not re-probed]"
+        )
+        return RecallVerdict(Recall.RECALL_STALE, reason, culprit, ev, fossil_ts=row.ts or "?")
+    except Exception:
+        return None
+
+
+def flap_suspects(rows) -> dict[str, tuple[str, ...]]:
+    """Memories whose journaled verdict history RESURRECTED (STALE → later FRESH)
+    with the memory's bytes UNCHANGED between the two rows.
+
+    PURE fold over verdict-journal rows. The hash guard is load-bearing: a
+    memory that was EDITED after going stale (the documented repair path —
+    fix the claim, re-verify) legitimately returns to FRESH and is NOT a flap.
+    A memory that returned to FRESH while its bytes sat still means ground
+    truth itself oscillated under the claim — the tree is moving in a way a
+    one-shot verdict can't see; claim history IS evidence. Returns
+    {memory name: its full verdict-token history} for each suspect.
+    """
+    hist: dict[str, list[tuple[str, str]]] = {}
+    for r in rows:
+        if getattr(r, "syscall", "") == FOSSIL_SYSCALL_RECALL and getattr(r, "subject", ""):
+            sha = str(dict(getattr(r, "detail", {}) or {}).get("content_sha256") or "")
+            hist.setdefault(r.subject, []).append((getattr(r, "verdict", ""), sha))
+    out: dict[str, tuple[str, ...]] = {}
+    for name, seq in hist.items():
+        stale_shas: set[str] = set()
+        for tok, sha in seq:
+            if tok == Recall.RECALL_STALE.value and sha:
+                stale_shas.add(sha)
+            elif tok == Recall.RECALL_FRESH.value and sha in stale_shas:
+                out[name] = tuple(t for t, _ in seq)
+                break
+    return out
+
+
+def flap_suspects_for(cfg: "Optional[_config.SubstrateConfig]" = None) -> dict[str, tuple[str, ...]]:
+    """`flap_suspects` over the active workspace's verdict journal. Boundary read."""
+    return flap_suspects(_read_fossil_rows(_config.ensure(cfg)))
+
+
 def recall_one(
     name_or_path: str,
     *,
@@ -1135,6 +1298,7 @@ def recall_one(
     store: Optional[str] = None,
     now_ms: Optional[int] = None,
     store_kind: str = "file",
+    journal: bool = True,
 ) -> RecallVerdict:
     """Re-verify ONE memory at recall time → its closed RecallVerdict.
 
@@ -1142,6 +1306,9 @@ def recall_one(
     direct path. `store` is the store ARG (the dir for `file`; a provider selector
     for a driver kind); `store_kind` picks the store by name (docs/314 P2).
     `now_ms` is injected here at the boundary (clock never read inside the verdict).
+    An explicit one-memory recall always RE-PROBES (it is a deliberate re-check;
+    fossils short-circuit only the sweep); the computed verdict is journaled
+    change-only unless `journal=False`.
     """
     cfg = _config.ensure(cfg)
     nm = now_ms if now_ms is not None else int(time.time() * 1000)
@@ -1154,7 +1321,18 @@ def recall_one(
             mem_name=Path(name_or_path).stem, mem_type="", now_ms=nm))
     fallback = str(meta.get("stem") or meta.get("name") or Path(name_or_path).stem)
     ev = gather_text(text, fallback_name=fallback, cfg=cfg, now_ms=nm)
-    return classify_recall(ev)
+    v = classify_recall(ev)
+    if journal:
+        sha = _content_sha(text)
+        prior = latest_fossils(_read_fossil_rows(cfg)).get(ev.mem_name)
+        if (prior is None or prior.verdict != v.verdict.value
+                or prior.detail.get("content_sha256") != sha):
+            _journal_verdict(
+                syscall=FOSSIL_SYSCALL_RECALL, verdict_token=v.verdict.value,
+                mem_name=ev.mem_name, mem_type=ev.mem_type, reason=v.reason,
+                culprit=v.culprit, sha=sha, size=len(text),
+                store_kind=getattr(st, "name", store_kind), cfg=cfg)
+    return v
 
 
 def sweep(
@@ -1163,16 +1341,30 @@ def sweep(
     store: Optional[str] = None,
     now_ms: Optional[int] = None,
     store_kind: str = "file",
+    consult_fossils: bool = True,
+    journal: bool = True,
 ) -> list[RecallVerdict]:
     """Re-verify EVERY memory in the store → a list of verdicts (STALE first).
 
     The whole-store projection: `verify` fanned out over a memory store instead of
     a plan registry (docs/103 §5). Read-only on the store. Ranked STALE →
     UNVERIFIABLE → FRESH so the rows that need attention lead.
+
+    Fossils (docs/314 P4): with `consult_fossils` (the default), a memory whose
+    latest journaled verdict is STALE and whose bytes are unchanged since
+    (sha256) is reported FROM the fossil (`fossil_ts` set) instead of re-probed.
+    Only STALE replays — FRESH must always re-probe (a fresh claim can age into
+    a lie while the memory sits still). `--reprobe` / `consult_fossils=False`
+    forces the full re-probe. Computed verdicts are journaled change-only
+    unless `journal=False`; a fossil replay journals nothing (no new
+    adjudication happened).
     """
     cfg = _config.ensure(cfg)
     nm = now_ms if now_ms is not None else int(time.time() * 1000)
     st = _resolve_memory_store(store_kind, store, cfg)
+    fossils: dict = {}
+    if consult_fossils or journal:
+        fossils = latest_fossils(_read_fossil_rows(cfg))
     out: list[RecallVerdict] = []
     for mid in st.list():
         try:
@@ -1182,8 +1374,26 @@ def sweep(
                 mem_name=Path(mid).stem, mem_type="", now_ms=nm)))
             continue
         fallback = str(meta.get("stem") or meta.get("name") or Path(mid).stem)
+        sha = _content_sha(text)
+        mem_name = parse_frontmatter(text).name or fallback
+        prior = fossils.get(mem_name)
+        if (consult_fossils and prior is not None
+                and prior.verdict == Recall.RECALL_STALE.value
+                and prior.detail.get("content_sha256") == sha):
+            replayed = _verdict_from_fossil(prior)
+            if replayed is not None:
+                out.append(replayed)
+                continue
         ev = gather_text(text, fallback_name=fallback, cfg=cfg, now_ms=nm)
-        out.append(classify_recall(ev))
+        v = classify_recall(ev)
+        if journal and (prior is None or prior.verdict != v.verdict.value
+                        or prior.detail.get("content_sha256") != sha):
+            _journal_verdict(
+                syscall=FOSSIL_SYSCALL_RECALL, verdict_token=v.verdict.value,
+                mem_name=ev.mem_name, mem_type=ev.mem_type, reason=v.reason,
+                culprit=v.culprit, sha=sha, size=len(text),
+                store_kind=getattr(st, "name", store_kind), cfg=cfg)
+        out.append(v)
     rank = {Recall.RECALL_STALE: 0, Recall.RECALL_UNVERIFIABLE: 1, Recall.RECALL_FRESH: 2}
     out.sort(key=lambda v: (rank.get(v.verdict, 9), v.evidence.mem_name))
     return out
@@ -1353,6 +1563,7 @@ def admit_text(
     name: str = "candidate",
     cfg: "Optional[_config.SubstrateConfig]" = None,
     now_ms: Optional[int] = None,
+    journal: bool = True,
 ) -> AdmissionVerdict:
     """Adjudicate a CANDIDATE memory's bytes before they enter any store.
 
@@ -1360,11 +1571,23 @@ def admit_text(
     (frontmatter parse, claim extraction, the same ground-truth probes recall
     uses), then the pure `classify_admission`. The candidate touches no store;
     the caller decides what to do with the verdict — DOS stays advisory.
+
+    Every admission is journaled (docs/314 P4) unless `journal=False` — each
+    `admit` is a real one-shot adjudication of a distinct candidate, so there
+    is no change-only fold here (that fold is for the recall history of a
+    STORED memory). Fail-soft, like every fossil write.
     """
     cfg = _config.ensure(cfg)
     nm = now_ms if now_ms is not None else int(time.time() * 1000)
     ev = gather_text(text, fallback_name=name, cfg=cfg, now_ms=nm)
-    return classify_admission(ev)
+    v = classify_admission(ev)
+    if journal:
+        _journal_verdict(
+            syscall=FOSSIL_SYSCALL_ADMIT, verdict_token=v.admission.value,
+            mem_name=ev.mem_name, mem_type=ev.mem_type, reason=v.reason,
+            culprit=v.culprit, sha=_content_sha(text), size=len(text),
+            store_kind="", cfg=cfg)
+    return v
 
 
 def interpret_admission(verdict: dict) -> str:

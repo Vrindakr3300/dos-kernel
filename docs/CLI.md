@@ -1769,6 +1769,17 @@ is resolved by name too (docs/314 P2, the `dos.memory_stores` seam):
 register through the entry-point group, with `--store` carrying the provider
 selector, e.g. `user_id=alice`).
 
+Both verbs leave verification-memory FOSSILS (docs/314 P4): each computed
+verdict is journaled to the verdict WAL (docs/262), change-only, keyed by
+memory name + content sha. A sweep consults the journal FIRST — a memory
+already adjudicated STALE and byte-unchanged since is reported from the
+fossil (`fossil_ts` set, `[fossil]` in the text row) instead of re-probed;
+FRESH always re-probes (a fresh claim can age into a lie while the memory
+sits still); `--reprobe` forces the full pass. A verdict history that
+RESURRECTED on unchanged bytes (STALE → later FRESH, same sha) is surfaced
+as a flap (`flap_history` in `--json`, a `⚠ flapped` row in text) — claim
+history is itself evidence.
+
 `dos memory admit` (docs/314 P1) is the WRITE gate: it adjudicates a
 CANDIDATE memory (`--text-file F`, or the bytes on stdin) BEFORE it enters
 any store, running the same extract→probe pipeline at the moment evidence is
@@ -1780,7 +1791,9 @@ ADMIT_OPINION (nothing checkable), and the one refusal REJECT_POISON (a
 claim CONTRADICTED by ground truth at write time — storing it would hand
 every future session a lie wearing memory authority). Exit: POISON 3,
 everything else 0. Touches no store — the host's memory writer pipes the
-candidate through and decides; provider-agnostic by construction.
+candidate through and decides; provider-agnostic by construction. Each
+admission is journaled to the verdict WAL too (every admit is a one-shot
+adjudication of a distinct candidate, so there is no change-only fold here).
 
 ### § `_runtime_hook_status`
 
