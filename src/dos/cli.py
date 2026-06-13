@@ -5494,6 +5494,28 @@ def cmd_observe(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# census  (the verdict-USAGE census — per-verb invocation counts + the
+#          never-fired/orphan list, folded over BOTH telemetry logs; issue #20)
+# ---------------------------------------------------------------------------
+def cmd_census(args: argparse.Namespace) -> int:
+    """Project per-verb invocation counts + the never-fired orphan list (issue #20).
+
+    Folds the verdict journal (docs/262) AND the hook observation log (docs/297)
+    into one per-verb count over the derived CLI verb universe, surfacing which
+    verdict-bearing surfaces never fired. Read-only, the `dos observe` discipline.
+    """
+    _apply_workspace(args)
+    from dos import verdict_census as _census
+
+    c = _census.build_census()
+    if args.json:
+        print(_census.render_json(c))
+        return 1 if c.corrupt else 0
+    print(_census.render_text(c))
+    return 1 if c.corrupt else 0
+
+
+# ---------------------------------------------------------------------------
 # helped  (the operator-facing "what did DOS catch for me?" rollup — the last
 #          observability rung, from the WAL out to the human; help_summary.py)
 # ---------------------------------------------------------------------------
@@ -9510,6 +9532,19 @@ def build_parser() -> argparse.ArgumentParser:
     pobs.add_argument("--json", action="store_true",
                       help="machine-readable {rollup, events} (the trajectory-audit's source)")
     pobs.set_defaults(func=cmd_observe)
+
+    # census — the verdict-USAGE census (issue #20): fold the verdict journal AND
+    # the hook observation log into per-verb invocation counts over the derived
+    # CLI verb universe, surfacing the never-fired orphan list (verdict-bearing
+    # surfaces consumed by nothing). A read-only projection (the observe posture);
+    # it folds two logs, mints no verdict.
+    pcen = sub.add_parser(
+        "census",
+        help="per-verb invocation counts + the never-fired orphan list, folded over both telemetry logs")
+    _add_workspace_flags(pcen)
+    pcen.add_argument("--json", action="store_true",
+                      help="machine-readable {rows, never_fired, orphans}")
+    pcen.set_defaults(func=cmd_census)
 
     # helped — the operator-facing "what did DOS catch for me?" rollup (help_summary):
     # fold the BLOCK/WARN/DEFER enforcement records the lane WAL already carries into a
