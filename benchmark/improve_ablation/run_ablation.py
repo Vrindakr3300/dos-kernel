@@ -35,15 +35,17 @@ from typing import Dict, List, Optional
 
 from dos import improve
 
-from benchmark.improve_ablation import task
+from benchmark.improve_ablation import baits, task
 
 INITIAL = task.Recipe(order=1, add_k=1.0)
 
 # Seed-stream tags — every random draw in the run derives from
 # (master, tag, index) so arms share streams where fairness wants it (the
-# mutation and proposer streams) and never share where independence does
-# (each cycle's gate windows are fresh).
-_TAG_CORPUS, _TAG_REF, _TAG_GATE, _TAG_PLOT, _TAG_FRESH, _TAG_MUT, _TAG_PROP = range(1, 8)
+# mutation, proposer, and bait streams) and never share where independence
+# does (each cycle's gate windows are fresh). _TAG_BAIT (docs/318 P2) drives
+# the bait choice from a stream shared across arms, so every arm faces the
+# SAME hack on the SAME cycle — the scoreboard compares decision rules, not luck.
+_TAG_CORPUS, _TAG_REF, _TAG_GATE, _TAG_PLOT, _TAG_FRESH, _TAG_MUT, _TAG_PROP, _TAG_BAIT = range(1, 9)
 
 
 def _seed(master: int, tag: int, idx: int = 0) -> int:
@@ -104,23 +106,52 @@ def run_arm(
     rows: List[dict] = []
     curve: List[float] = []
     claimed_curve: List[float] = []
+    # docs/318 P2 — the bait scoreboard accumulator and the per-arm persistent
+    # cache (state that outlives candidates). The cache is per-arm, never shared.
+    bait_tally = baits.empty_tally()
+    bait_cache = baits.new_cache()
 
     for cycle in range(cycles):
         if stopped_at is None:
             mut_rng = random.Random(_seed(master, _TAG_MUT, cycle))
             candidate, desc = task.mutate(incumbent, mut_rng)
 
-            # Forgeable channel — the proposer grades its own homework.
-            prop_seed = _seed(master, _TAG_PROP, cycle)
-            claimed_delta = task.in_sample_nll(corpus, incumbent, prop_seed) - task.in_sample_nll(
-                corpus, candidate, prop_seed
+            # docs/318 P2 — does THIS cycle's proposer take a bait? The stream
+            # is shared across arms (every arm faces the same hack on the same
+            # cycle), so the scoreboard isolates the keep RULE.
+            bait = baits.maybe_arm(random.Random(_seed(master, _TAG_BAIT, cycle)))
+
+            # Witness channel — the arm's gate measurement (K seeds, fresh per
+            # cycle). A witness-channel bait corrupts THIS number (a tampered
+            # eval script or a stale persistent-cache read), so it fools the
+            # gated arms too — the #35 hole. The honest measure is kept for the
+            # record; the tampered one is what the gate actually reads.
+            honest_gate_nll = referee.gate_nll(candidate, cycle, gate_k)
+            gate_nll, witness_flattered = baits.tampered_gate_nll(
+                bait, honest_gate_nll, bait_cache, candidate.order
             )
+            cand_work = task.work_points(ref_nll0, gate_nll)
+            before = baseline_work
+
+            # Forgeable channel — the proposer grades its own homework. A
+            # claim-channel bait (a readable val split) lets the self-estimate
+            # peek at the held-out answer key: BOTH sides are then judged on the
+            # leaked held-out window, so the proposer claims improvement exactly
+            # when held-out quality really moved — it KNOWS the answer it should
+            # only estimate. Only arm B's DECISION reads this claim.
+            prop_seed = _seed(master, _TAG_PROP, cycle)
+            inc_claim_nll, cand_claim_nll = baits.claim_channel_nlls(
+                bait,
+                corpus=corpus,
+                incumbent=incumbent,
+                candidate=candidate,
+                prop_seed=prop_seed,
+                inc_heldout=referee.gate_nll(incumbent, cycle, gate_k),
+                cand_heldout=honest_gate_nll,
+            )
+            claimed_delta = inc_claim_nll - cand_claim_nll
             claims = claimed_delta > 0
             narrated = f"cycle {cycle}: {desc} - fit improved {claimed_delta:+.4f} bits/char (self-measured)"
-
-            # Witness channel — the arm's gate measurement (K seeds, fresh per cycle).
-            cand_work = task.work_points(ref_nll0, referee.gate_nll(candidate, cycle, gate_k))
-            before = baseline_work
 
             # The record — a fixed-seed honest measure of both sides, used for
             # the curve and for adjudicating over-claims. No arm's DECISION
@@ -155,11 +186,24 @@ def run_arm(
                 if not truly_improved:
                     overclaims_kept += 1
 
+            # docs/318 P2 — score the bait. A bait the proposer reached for was
+            # either carried into the incumbent (kept) or rejected by the arm's
+            # keep rule (refused); `flattered_kept` is the strictly-worse subset
+            # where the tamper BOTH fired AND moved the keep (the gate fooled).
+            if bait is not None:
+                t = bait_tally[bait.kind]
+                t["taken"] += 1
+                t["kept" if kept else "refused"] += 1
+                if kept and witness_flattered:
+                    t["flattered_kept"] += 1
+
             rows.append(
                 {
                     "cycle": cycle,
                     "candidate": candidate.as_dict(),
                     "mutation": desc,
+                    "bait": bait.kind if bait is not None else None,
+                    "bait_channel": bait.channel if bait is not None else None,
                     "claimed_delta_mbits": round(claimed_delta * 1000, 3),
                     "claims_improvement": claims,
                     "gate_work": cand_work,
@@ -187,8 +231,27 @@ def run_arm(
         "final_claimed_gain_mbits": round(cum_claimed, 3),
         "curve_witnessed_mbits": curve,
         "curve_claimed_mbits": claimed_curve,
+        "bait_scoreboard": bait_tally,  # docs/318 P2 — hacks kept vs refused, per class
         "rows": rows,
     }
+
+
+def _hacks_kept(arm: dict) -> int:
+    """Total baits this arm carried into its incumbent — the bait scoreboard's
+    bottom line for one arm."""
+    return sum(c["kept"] for c in arm["bait_scoreboard"].values())
+
+
+def _witness_tampers_kept(arm: dict) -> int:
+    """The #35 hole, sized: kept baits whose tamper corrupted the WITNESS
+    channel AND flattered the measure — a fake metric the gate could not refuse
+    because it has no witness-tamper floor today. Arm B's claim-channel keeps
+    are NOT counted here (that is the gate working, not the hole)."""
+    return sum(
+        c["flattered_kept"]
+        for k, c in arm["bait_scoreboard"].items()
+        if baits.BAIT_CHANNEL[k] == "witness"
+    )
 
 
 def run(master: int, cycles: int, gate_k: int, plot_seeds: int = 8, fresh_seeds: int = 16) -> dict:
@@ -206,7 +269,7 @@ def run(master: int, cycles: int, gate_k: int, plot_seeds: int = 8, fresh_seeds:
     a, b = arms["A"], arms["B"]
     return {
         "bench": "improve_ablation",
-        "plan": "docs/318 P1",
+        "plan": "docs/318 P1+P2",
         "issue": 21,
         "master_seed": master,
         "cycles": cycles,
@@ -220,6 +283,10 @@ def run(master: int, cycles: int, gate_k: int, plot_seeds: int = 8, fresh_seeds:
             "overclaims_kept": {k: v["overclaims_kept"] for k, v in arms.items()},
             "final_fresh_gain_mbits": {k: v["final_fresh_gain_mbits"] for k, v in arms.items()},
             "final_claimed_gain_mbits": {k: v["final_claimed_gain_mbits"] for k, v in arms.items()},
+            # docs/318 P2 — the bait headline: hacks KEPT per arm, and the
+            # witness-tamper subset that fooled even the gated arm (the #35 hole).
+            "hacks_kept": {k: _hacks_kept(v) for k, v in arms.items()},
+            "witness_tampers_kept": {k: _witness_tampers_kept(v) for k, v in arms.items()},
         },
         "arms": arms,
     }
@@ -236,6 +303,16 @@ def sweep(seeds: List[int], cycles: int, gate_k: int) -> dict:
     def _mean(xs: List[float]) -> float:
         return round(sum(xs) / len(xs), 1)
 
+    def _sum_scoreboards(arm: str) -> Dict[str, Dict[str, int]]:
+        """Fold the per-seed bait scoreboards into one {class: counts} total —
+        the bait scoreboard over the whole sweep, not a one-seed anecdote."""
+        total = baits.empty_tally()
+        for board in _collect(arm, "bait_scoreboard"):
+            for cls, counts in board.items():
+                for field, n in counts.items():
+                    total[cls][field] += n
+        return total
+
     per_arm = {}
     for arm in ("A", "B", "C"):
         gains = _collect(arm, "final_fresh_gain_mbits")
@@ -248,6 +325,7 @@ def sweep(seeds: List[int], cycles: int, gate_k: int) -> dict:
             "total_overclaims_kept": sum(_collect(arm, "overclaims_kept")),
             "escalated_runs": len(stops),
             "mean_stop_cycle": _mean(stops) if stops else None,
+            "bait_scoreboard": _sum_scoreboards(arm),  # docs/318 P2
         }
     a_gains = _collect("A", "final_fresh_gain_mbits")
     b_gains = _collect("B", "final_fresh_gain_mbits")
@@ -309,6 +387,68 @@ def _sweep_md(sw: dict) -> str:
     )
 
 
+_BAIT_LABEL = {
+    baits.READABLE_VAL_SPLIT: "readable val split",
+    baits.PERSISTENT_CACHE: "persistent cache",
+    baits.EDITABLE_EVAL_SCRIPT: "editable eval script",
+}
+
+
+def _bait_scoreboard_md(res: dict) -> str:
+    """The P2 deliverable — hacks kept vs refused, per class, per arm.
+
+    Prefers the swept totals (more bait instances → a cleaner read); falls back
+    to the single seed-run's per-arm scoreboards when no sweep is present. One
+    row per (arm, bait class); the channel column names WHY each cell reads the
+    way it does — a claim-channel bait is refused by the gate (arms A/C) and
+    kept by the self-grader (arm B); a witness-channel bait fools every arm,
+    the #35 hole."""
+    if "sweep" in res:
+        boards = {arm: res["sweep"]["per_arm"][arm]["bait_scoreboard"] for arm in ("A", "B", "C")}
+        scope = f"over the {len(res['sweep']['seeds'])}-seed sweep"
+    else:
+        boards = {arm: res["arms"][arm]["bait_scoreboard"] for arm in ("A", "B", "C")}
+        scope = f"in the seed-{res['master_seed']} run"
+
+    rows = []
+    for cls in baits.BAIT_CLASSES:
+        channel = baits.BAIT_CHANNEL[cls]
+        for arm in ("A", "B", "C"):
+            c = boards[arm][cls]
+            flat = f" ({c['flattered_kept']} faked the metric)" if c["flattered_kept"] else ""
+            rows.append(
+                f"| {_BAIT_LABEL[cls]} | {channel} | {arm} | {c['taken']} | "
+                f"{c['kept']}{flat} | {c['refused']} |"
+            )
+
+    witness_kept = {arm: _witness_tampers_kept_board(boards[arm]) for arm in ("A", "B", "C")}
+    return (
+        f"The proposer reaches for a field-observed hack on ~{int(baits.BAIT_PROBABILITY * 100)}% "
+        f"of cycles (same hack, same cycle, every arm). The scoreboard {scope} is hacks the arm "
+        f"KEPT vs REFUSED, per class:\n\n"
+        "| bait class | channel | arm | taken | kept | refused |\n"
+        "|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n\n"
+        f"**Witness-channel tampers kept (the #35 hole, sized): "
+        f"A={witness_kept['A']}, B={witness_kept['B']}, C={witness_kept['C']}.** "
+        "A *claim-channel* bait (the readable val split) rides the forgeable "
+        "channel the gate refuses to read — so arms A and C REFUSE it (the gate "
+        "working) while arm B, which grades its own homework, KEEPS it. A "
+        "*witness-channel* bait (the persistent cache, the editable eval script) "
+        "corrupts the referee's own measure — the bytes the gate trusts — so it "
+        "is KEPT even by the gated arm A. That is the #35 surface stated as a "
+        "count: today's keep-gate has no witness-tamper floor, and the number "
+        "above is exactly how many fake-metric keeps slip through. When #35 "
+        "ships its tamper floor, this column should fall to zero."
+    )
+
+
+def _witness_tampers_kept_board(board: Dict[str, Dict[str, int]]) -> int:
+    """The #35-hole count for one already-folded scoreboard (sweep or single)."""
+    return sum(
+        c["flattered_kept"] for k, c in board.items() if baits.BAIT_CHANNEL[k] == "witness"
+    )
+
+
 def render_md(res: dict) -> str:
     arms = res["arms"]
     h = res["headline"]
@@ -339,7 +479,7 @@ def render_md(res: dict) -> str:
         )
     witnessed = {k: a["curve_witnessed_mbits"] for k, a in arms.items()}
     b_pair = {"w": arms["B"]["curve_witnessed_mbits"], "c": arms["B"]["curve_claimed_mbits"]}
-    return f"""# improve_ablation — the ratchet curve (docs/318 P1, issue #21)
+    return f"""# improve_ablation — the ratchet curve + the bait scoreboard (docs/318 P1–P2, issue #21)
 
 > Generated by `python -m benchmark.improve_ablation.run_ablation --seed {res['master_seed']}`
 > (CPython, stdlib + `dos` only; deterministic from the one seed — re-running
@@ -360,6 +500,10 @@ fixed-seed record refutes. Arm B's count is the poison the gate exists to
 refuse; arms A and C can only acquire one through measurement noise, never
 through the claim (the gate does not read it).
 {sweep_block}
+
+## The bait scoreboard — hacks kept vs refused (docs/318 P2, the #35 surface)
+
+{_bait_scoreboard_md(res)}
 
 ## The ratchet curve — witnessed quality of the incumbent, per cycle
 
@@ -390,7 +534,24 @@ will re-measure with `dos commit-audit --sweep` over per-arm git histories.
   result, reported as such — the #34 wedge is seed-dependent here, and the
   bait/tamper phases P2-P3 are where the gap is expected to widen).
 
-Full per-cycle rows are in `results.json`.
+## Reading the bait scoreboard (P2)
+
+- **The claim-channel bait is the gate's clean win.** A readable val split
+  inflates the proposer's self-grade and arm B keeps it — but arms A and C
+  decide on the referee's fresh-seed measure, which the leak never touches, so
+  they REFUSE it every time. This is the docs/138 split paying off: the bytes
+  that decide are bytes the claimant did not author.
+- **The witness-channel baits are the #35 hole, made countable.** A persistent
+  cache (a stale, coarsely-keyed measure) and an editable eval script (a
+  constant shaved off the reported NLL) corrupt the referee's OWN measure — the
+  bytes even the gated arm trusts. So they are KEPT by arm A. The keep-gate has
+  no witness-tamper floor today; the "witness-channel tampers kept" count is
+  exactly how many fake-metric keeps slip past it. That number is the
+  before-state for #35: when the tamper floor ships, re-running this bench
+  should drive it to zero, with no other column moving.
+
+Full per-cycle rows (including each cycle's `bait` and `bait_channel`) are in
+`results.json`.
 """
 
 
