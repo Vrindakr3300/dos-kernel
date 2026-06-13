@@ -43,6 +43,7 @@ job or an agent loop can gate on it directly.
 - [Claude Code plugin](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/claude-plugin/README.md): hooks + MCP + the skill pack, bundled for one-command install
 - [MCP server](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/src/dos_mcp/README.md): the syscalls as MCP tools — JSON over stdio for Claude Desktop, Cursor, Cline, any MCP host
 - [Fleet-framework cookbook](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/examples/playbooks/cookbook-fleet-frameworks.md): one verified recipe per framework — LangGraph, CrewAI, AutoGen, the Agents SDKs
+- [Exit-code tier cookbook](https://raw.githubusercontent.com/anthony-chaudhary/dos-kernel/master/examples/playbooks/cookbook-exit-code-tier.md): integrate ANY command-running environment with no adapter — aider (a verdict in its auto-fix loop), git pre-push, a generic CI step; the honest tier for hook-less hosts (Windsurf, Warp, Zed)
 - [PyPI package](https://pypi.org/project/dos-kernel/): `dos-kernel` — releases, wheels, the `[mcp]`/`[tui]` extras
 
 ## Optional

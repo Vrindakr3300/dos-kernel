@@ -96,7 +96,7 @@ repo. The full matrix — uv, pipx, WSL, tracking master — is in
 
 ## Does DOS work with Claude Code, Cursor, Codex, Gemini CLI, or other agent runtimes?
 
-Yes, on two surfaces. **Enforcement** is hooks: `dos init --hooks auto`
+Yes, on three surfaces. **Enforcement** is hooks: `dos init --hooks auto`
 detects the runtime(s) your repo already uses and wires the kernel's verdicts
 into each one's own hook config (`--hooks <host>` names one explicitly), with
 dialects shipped for Claude Code, Cursor, Codex, Gemini CLI, Antigravity, and
@@ -105,6 +105,15 @@ tools to any MCP host (Claude Desktop, Cursor, Cline, …). Hooks can refuse an
 action; MCP can only inform — the repo recommends both. There is also a
 bundled [Claude Code plugin](https://github.com/anthony-chaudhary/dos-kernel/blob/master/claude-plugin/README.md)
 carrying hooks, the MCP server, and a skill pack in one install.
+
+The third surface needs **no adapter at all**: any environment that runs a
+command reads a `dos` verb's exit code (`0` = ok, non-zero = a verdict). That is
+how DOS reaches a host with no hook seam and no MCP client — **aider** (point
+its `--test-cmd` at `dos commit-audit` and a verdict drops into its auto-fix
+loop), a git `pre-push`, a generic CI step, or a hook-less CLI like Windsurf,
+Warp, or Zed. The
+[exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md)
+has a runnable recipe for each.
 
 ## Does DOS work with LangGraph, CrewAI, AutoGen, or the OpenAI/Claude Agents SDKs?
 

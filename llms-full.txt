@@ -138,10 +138,13 @@ A coding agent does some work, then tells you how it went. Usually the story is
 true. Sometimes it isn't — the cheerful *"all work completed!"* from a worker
 that actually shipped nothing is the single most common failure in agent
 fleets. With one agent you catch that yourself, because you read its work
-before trusting it.
+before trusting it — which is a real cost you're already paying, you just
+haven't called it one: re-reading the output is the tax for taking the report
+on faith.
 
-Run twenty agents at once and nobody reads everything. Each worker grades its
-own homework, you believe the reports because what else is there to go on, and
+Run twenty agents at once and that tax stops being payable — nobody reads
+everything. Each worker grades its own homework, you believe the reports
+because what else is there to go on, and
 the unchecked problems pile up quietly — a false "done" here, two agents
 overwriting the same file there, one worker spinning in circles burning money.
 None of it is loud. The codebase ends up *sorta* working, and nobody can safely
@@ -337,7 +340,7 @@ reachable through every row here, lowest-friction first:
 |---|---|---|
 | **MCP server** | you drive an agent through an MCP host (Claude Desktop, Cursor, Cline, an Agent-SDK app) | add one line to the host config (`{ "command": "dos-mcp" }`) and ask the agent to `dos_verify` its own last claim — **zero code**. The *advisory* path (the agent asks). See [Give your agent a lie detector](#give-your-agent-a-lie-detector-mcp). |
 | **Runtime hooks** | you run an agent loop (Claude Code, Cursor, Codex CLI, Gemini CLI) and want the verdict to *act*, not just be available | `dos init --hooks <runtime>` wires the verdict into that host's own hook config — a refused call is **denied before it runs**, a false "done" is **refused**. The *enforcement* path (the host denies). One command, no hand-edited YAML. See [QUICKSTART](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/QUICKSTART.md) + [docs/221](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/221_the-cross-vendor-hook-installer.md). |
-| **CLI exit-code** | you have a shell pipeline or CI step that trusts an agent's "done" | replace that step with `dos verify PLAN PHASE` and branch on the exit code (`0` shipped / `1` not) — **the verdict *is* the exit code**. The day-one win above. |
+| **CLI exit-code** | you have *any* command-running environment — a CI step, a `pre-push` hook, or an agentic CLI like **aider** whose lint/test-cmd trusts a "done" | branch on a `dos` verb's exit code (`dos verify`: `0` shipped / `1` not; `dos commit-audit`: `0` clean / `1` over-claim) — **the verdict *is* the exit code**, no hook adapter and no MCP client. The honest tier for hook-less hosts (Windsurf, Warp, Zed). The [exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md). |
 | **Python API** | your dispatcher/orchestrator is already Python | `import dos` and call the pure syscalls (`dos.oracle.is_shipped`, `dos.arbiter.arbitrate`, …) — state-in / verdict-out, no subprocess. The [Python cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md). |
 | **Fleet framework** | your fleet already runs on LangGraph, CrewAI, AutoGen, or the OpenAI/Claude Agents SDK | bolt the referee onto the framework's own seam — a referee node, a termination condition only git can satisfy, an output guardrail with a git tripwire. One function, no rewrite; every seam executed against the real framework. The [fleet-framework cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-fleet-frameworks.md). |
 | **Swarm runtime** | your agents run on **Hermes, OpenClaw**, or a SwarmClaw-style autonomous swarm — privileged tools, shared memory docs / task boards, and **no lock manager** for either | drop a two-function adapter into the tool-execution loop: `guard_action` refuses an arbitrary-exec command **before it runs**, and `acquire_lease` / `release_lease` bracket each shared-state write so the lost update never lands. No `import dos` — it shells the CLI; Hermes' `pre_tool_call` hook also speaks DOS natively (`dos hook pretool --dialect hermes`). The runnable, A/B-measured [Hermes / OpenClaw worked example](https://github.com/anthony-chaudhary/dos-kernel/tree/master/examples/hermes_integration) + [docs/278](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/278_integrating-dos-with-hermes-and-openclaw-the-missing-lock-manager-for-agent-swarms.md). |
@@ -668,6 +671,33 @@ yourself: the per-platform wheels bundle the binary, so a wheel install gets
 the native fast path with no Go toolchain — and any platform without a bundled
 binary (including a plain source install) just runs the pure-Python path
 ([docs/286](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/286_shipping-the-go-binary-through-pypi-per-platform-wheels.md)).
+
+### …and when your host has neither (the exit-code tier)
+
+MCP is the **advisory** tier (the agent *asks*); hooks are the **enforcement**
+tier (the host *blocks*). Both ask DOS to speak the host's language — an MCP
+client, or a per-host hook dialect. The third tier asks nothing: **any
+environment that runs a command** reads a `dos` verb's exit code, because every
+verb already follows the universal Unix convention (`0` = ok, non-zero = a
+verdict). The verdict *is* the exit code.
+
+That tier is what reaches the long tail no dialect will ever cover, and it is
+the **honest** surface for a hook-less host (Windsurf, Warp, Zed today): rather
+than invent a fake enforcement envelope a host would never read, DOS rides the
+one contract every runner already has.
+
+```bash
+# aider runs --test-cmd after every edit and feeds a non-zero exit back to the
+# model's auto-fix loop — so a kernel verdict drops into a top-tier CLI agent
+# with NO hook machinery and NO MCP client, in one flag:
+aider --test-cmd 'dos commit-audit --workspace . HEAD' --auto-test
+```
+
+The same one line is a `pre-push` gate, a Jenkins/Buildkite stage, a `Makefile`
+target, or a `package.json` script. The full set of runnable recipes — aider, a
+git `pre-push` hook, and a generic command step, plus `dos hook-exit` for
+wrapping a *non-DOS* script onto the intervention ladder — is
+**[the exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md)**.
 
 *Next level up — what to watch once a fleet runs through these hooks: [Operating a fleet](#operating-a-fleet).*
 
@@ -1076,8 +1106,11 @@ back verbatim:
   (liveness), an [infra monorepo](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/05_infra-monorepo.md) (refusals).
 - [**Debug a stuck fleet** + FAQ](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/06_debug-a-stuck-fleet.md) —
   symptom → the one command that diagnoses it.
-- Three cookbooks: [from Python](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md),
-  [CI / MCP integration](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-ci-integration.md), and
+- Four cookbooks: [from Python](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-python-api.md),
+  [CI / MCP integration](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-ci-integration.md),
+  [the exit-code tier](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md) — *any* command-running
+  environment (aider, a git `pre-push`, a generic runner) reads a `dos` verb's
+  exit code, no hook adapter or MCP client needed — and
   [fleet frameworks](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-fleet-frameworks.md) — LangGraph,
   CrewAI, AutoGen, the OpenAI/Claude Agents SDK — with every framework recipe also
   shipped as a runnable, suite-pinned file under
@@ -1491,7 +1524,7 @@ repo. The full matrix — uv, pipx, WSL, tracking master — is in
 
 ## Does DOS work with Claude Code, Cursor, Codex, Gemini CLI, or other agent runtimes?
 
-Yes, on two surfaces. **Enforcement** is hooks: `dos init --hooks auto`
+Yes, on three surfaces. **Enforcement** is hooks: `dos init --hooks auto`
 detects the runtime(s) your repo already uses and wires the kernel's verdicts
 into each one's own hook config (`--hooks <host>` names one explicitly), with
 dialects shipped for Claude Code, Cursor, Codex, Gemini CLI, Antigravity, and
@@ -1500,6 +1533,15 @@ tools to any MCP host (Claude Desktop, Cursor, Cline, …). Hooks can refuse an
 action; MCP can only inform — the repo recommends both. There is also a
 bundled [Claude Code plugin](https://github.com/anthony-chaudhary/dos-kernel/blob/master/claude-plugin/README.md)
 carrying hooks, the MCP server, and a skill pack in one install.
+
+The third surface needs **no adapter at all**: any environment that runs a
+command reads a `dos` verb's exit code (`0` = ok, non-zero = a verdict). That is
+how DOS reaches a host with no hook seam and no MCP client — **aider** (point
+its `--test-cmd` at `dos commit-audit` and a verdict drops into its auto-fix
+loop), a git `pre-push`, a generic CI step, or a hook-less CLI like Windsurf,
+Warp, or Zed. The
+[exit-code tier cookbook](https://github.com/anthony-chaudhary/dos-kernel/blob/master/examples/playbooks/cookbook-exit-code-tier.md)
+has a runnable recipe for each.
 
 ## Does DOS work with LangGraph, CrewAI, AutoGen, or the OpenAI/Claude Agents SDKs?
 
@@ -5544,3 +5586,227 @@ Three disciplines carry over from the kernel no matter the framework:
 What no recipe ran here: a live LLM driving the worker. The workers are scripted
 *because the seam is the demo* — swap in your real agents; the referee doesn't
 care who's lying to it.
+
+<!-- ====== source: examples/playbooks/cookbook-exit-code-tier.md ====== -->
+
+# Cookbook — the exit-code tier: integrate any environment that runs a command
+
+> **You do not need a hook adapter. An exit code is enough.** DOS has three
+> integration tiers, in order of how much the host has to know about DOS:
+>
+> | Tier | What the host does | Surface | Posture |
+> |---|---|---|---|
+> | **MCP** | the agent *calls* the referee | `dos-mcp` (tools over JSON-on-stdio) | advisory |
+> | **Hooks** | the host *blocks* on a verdict | `dos init --hooks <host>` (a per-host dialect) | enforcement |
+> | **Exit code** | *anything* that runs a command reads `$?` | a `dos` verb's own exit code | advisory **or** enforcement, the host decides |
+>
+> The first two need DOS to speak the host's language (an MCP client; a hook
+> dialect). The **exit-code tier needs nothing** — every `dos` verb already
+> follows the universal Unix convention every shell author knows (`0` = ok,
+> non-zero = a verdict), so DOS drops into the long tail no dialect will ever
+> cover: every CLI agent with a lint/test hook, every bespoke runner, every CI
+> that the GitHub Action and the GitLab template don't reach, and every
+> hook-less host (Windsurf, Warp, Zed today). The verdict *is* the exit code.
+
+This page is the third tier. For the MCP and hook tiers see
+[the agent-hosts section of the README](https://github.com/anthony-chaudhary/dos-kernel/blob/master/README.md#give-your-agent-a-lie-detector-mcp);
+for CI/pre-commit specifically see
+[`cookbook-ci-integration.md`](cookbook-ci-integration.md). The recipes here
+are the ones those pages don't cover: an *agentic CLI* (aider), a *local
+network boundary* (git pre-push), and a *generic command step* for any runner.
+
+## Why the exit code is sound evidence (not a degraded fallback)
+
+The exit code is authored by the **`dos` process**, not by the agent it is
+judging — it is a third party's verdict on the agent's work, which is the whole
+actor-witness split the kernel is built on (the byte-author is not the judged
+party). A `dos commit-audit` that exits `1` is the same non-forgeable signal
+whether it is read by a Go program, a Makefile, a CI YAML, or an LLM's auto-fix
+loop. So "I only have a shell that runs a command" is not a lesser integration —
+it carries the same verdict the MCP tool and the hook carry, minus the JSON.
+
+The exit-code contracts these recipes rely on (all verified against the shipped
+CLI — run `dos <verb> --help` to confirm on your version):
+
+| Command | Exit codes |
+|---|---|
+| `dos commit-audit REF` | `0` clean · `1` an unwitnessed claim found · `2` unreadable ref |
+| `dos verify P PH` | `0` shipped · `1` not shipped |
+| `dos doctor --check` | `0` clean · `1` a finding fired |
+| `dos hook-exit --code N` | maps a *wrapped* script's code onto the intervention ladder: PASS `0` · contract-error `2` · BLOCK `3` · WARN `4` · DEFER `5` · OBSERVE `6` (the verb's *own* exit is the rung, so a wrapper branches with no JSON parser) |
+
+`--warn-only` on `commit-audit` flips it to observe-only (prints findings,
+always exits `0`) — the one knob that turns enforcement into advisory at this
+tier.
+
+---
+
+## Recipe 1 — aider: a DOS verdict inside a top-tier CLI agent, zero hooks
+
+[aider](https://aider.chat) runs a lint command and a test command **after
+every edit** and, when one returns a non-zero exit code, feeds that command's
+output back to the model for an automatic fix loop
+([lint/test docs](https://aider.chat/docs/usage/lint-test.html)). That is
+exactly the seam the exit-code tier was built for: point aider's test command at
+a `dos` verb and a kernel verdict drops into a top-tier agentic CLI with **no
+hook machinery, no MCP client, no DOS-specific config** — just a command that
+exits non-zero.
+
+The highest-value verb here is `dos commit-audit`: after aider commits its own
+edit (aider auto-commits by default), audit whether that commit's *subject*
+matches its *diff*. When aider writes `fix: handle the empty case` but the diff
+only touched a comment, `commit-audit` exits `1`, aider reads the failure, and
+the model gets told its own claim isn't witnessed — *inside its own fix loop*.
+
+```bash
+# one flag — audit the HEAD commit aider just made against its diff
+aider --test-cmd 'dos commit-audit --workspace . HEAD' --auto-test
+```
+
+Or pin it in the project's `.aider.conf.yml` so every session in the repo
+inherits it (note: aider's YAML keys use dashes):
+
+```yaml
+# .aider.conf.yml
+test-cmd: dos commit-audit --workspace . HEAD
+auto-test: true
+```
+
+What aider sees on a clean commit is `exit 0` — silence, the loop proceeds. On
+an over-claim it sees `commit-audit`'s finding line and `exit 1`, and starts a
+fix turn with the verdict as context. You have turned aider's generic
+"tests failed, fix it" loop into a "your claim isn't witnessed, make it true"
+loop — with one line and zero coupling.
+
+> **Scope.** `commit-audit` grades *did the diff do the KIND of thing the
+> subject claimed*, never *was it correct* — keep your real test suite as the
+> `--lint-cmd` or a second command for correctness; this rides *beside* it as the
+> claim-honesty gate. It ABSTAINs (exits `0`) on `wip`/`merge`/`bump` and any
+> commit with no concrete claim, so it only fires where a real claim and a
+> contradicting diff coexist — it won't spuriously derail the loop.
+
+For a repo that stamps phases, `dos verify` works the same way — point
+`--test-cmd` at `dos verify <SERIES> <PHASE>` to make aider's loop unable to
+settle until the phase it claims is actually attributed in history.
+
+---
+
+## Recipe 2 — git pre-push: the last gate before work leaves the machine
+
+The cheapest enforcement boundary that needs no host at all: a `pre-push` hook
+audits every commit about to leave the machine, so an over-claiming commit never
+reaches the remote (or the reviewer, or the next agent that trusts the log). The
+exit code is the verdict — a non-zero `pre-push` aborts the push.
+
+```bash
+#!/usr/bin/env bash
+# .git/hooks/pre-push   (chmod +x)
+#
+# Audit every commit being pushed (claim vs diff) before it leaves the machine.
+# git feeds "<local-ref> <local-sha> <remote-ref> <remote-sha>" lines on stdin.
+rc=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue  # branch delete
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha"                 # new branch: audit just the tip (or pick a base)
+  else
+    range="$remote_sha..$local_sha"     # the commits this push actually adds
+  fi
+  if ! dos commit-audit --workspace . "$range"; then
+    echo "dos: refusing push — a commit's claim isn't witnessed by its diff (range $range)" >&2
+    echo "     fix the subject or the change, then push again (or --no-verify to override)" >&2
+    rc=1
+  fi
+done
+exit $rc
+```
+
+Want it advisory first (print, never block) while a team gets used to it? Add
+`--warn-only` to the `commit-audit` call — it always exits `0`, so the push
+proceeds and the finding is just printed. Flip to enforcement by dropping the
+flag. That single knob is the whole advisory↔enforcement choice at this tier.
+
+A new agent or teammate installs it once with no DOS knowledge:
+
+```bash
+pip install dos-kernel                       # the dist name; the bare `dos` on PyPI is unrelated
+# (paste the script above into .git/hooks/pre-push, then:)
+chmod +x .git/hooks/pre-push
+```
+
+---
+
+## Recipe 3 — a generic command step: any runner, any host
+
+For everything the GitHub Action ([`verify-action/`](https://github.com/anthony-chaudhary/dos-kernel/blob/master/verify-action/README.md))
+and the GitLab template ([`gitlab-ci/`](https://github.com/anthony-chaudhary/dos-kernel/blob/master/gitlab-ci/README.md))
+don't reach — a Jenkins stage, a Buildkite step, a Makefile target, a `package.json`
+script, a Taskfile, a bare `bash` in someone's bespoke runner — the integration
+is the same one line. The runner already branches on exit codes; `dos` already
+emits them.
+
+```bash
+# audit a PR's own commits against a base — fail if any over-claims
+dos commit-audit --workspace . "origin/main..HEAD"
+# exit 0 clean · 1 an unwitnessed claim found · 2 unreadable ref
+```
+
+The only portable pitfall is **shallow clones**: `commit-audit` and `verify`
+read git *ancestry*, so a runner that fetches a shallow tip (many CI defaults do)
+audits against a hole. Fetch full history before the step — `git fetch
+--unshallow` (or the runner's "full clone" knob; on GitHub Actions it is
+`fetch-depth: 0`, on GitLab `GIT_DEPTH: "0"`).
+
+As targets in the tools your repo already has:
+
+```makefile
+# Makefile
+.PHONY: audit
+audit:
+	dos commit-audit --workspace . "origin/main..HEAD"   # claim-vs-diff gate; exit code is the verdict
+```
+
+```jsonc
+// package.json
+{ "scripts": { "audit:claims": "dos commit-audit --workspace . origin/main..HEAD" } }
+```
+
+### Wrapping a non-DOS script onto the intervention ladder
+
+If what you have is *not* a `dos` verb but an arbitrary script (a linter, a
+policy probe, a smoke test) and you want its exit code routed onto DOS's
+intervention vocabulary — so a `0` is PASS, a `2` is BLOCK, an unanticipated
+non-zero degrades to WARN rather than a silent pass — `dos hook-exit` is the
+bridge ([docs/226](https://github.com/anthony-chaudhary/dos-kernel/blob/master/docs/226_the-hook-exit-classifier-a-shell-scripts-exit-code-as-a-verdict.md)):
+
+```bash
+your-policy-script.sh
+dos hook-exit --code $?        # PASS 0 · BLOCK 3 · WARN 4 · DEFER 5 · OBSERVE 6 · contract-error 2
+case $? in
+  0) ;;                                       # PASS — proceed
+  3) echo "BLOCK"; exit 1 ;;                   # blocking error → stop
+  4) echo "WARN (proceeding)" ;;               # non-blocking → surface, continue
+  *) echo "other intervention" ;;
+esac
+```
+
+The default map is the universal convention (`0` ok, `2` blocking, any other
+non-zero a non-blocking warning); a fleet declares its own in `dos.toml`
+`[hook_exit]` so `exit 3 = DEFER` org-wide is data, not a code change.
+
+---
+
+## Notes
+
+- **No `--force` in automation.** A refuse/non-zero is information; forcing past
+  it defeats the gate. `--force` is an operator action.
+- **`--warn-only` is the one advisory knob** at this tier — it flips
+  `commit-audit` from blocking to print-only without changing anything else.
+- **Full history, always.** Every ancestry-reading verb (`verify`,
+  `commit-audit`) needs a non-shallow clone; the only recurring footgun here is a
+  shallow CI checkout.
+- For the **MCP** (advisory, agent-calls-it) and **hook** (enforcement,
+  host-blocks-on-it) tiers, see
+  [the agent-hosts README section](https://github.com/anthony-chaudhary/dos-kernel/blob/master/README.md#give-your-agent-a-lie-detector-mcp);
+  for the **Python-API** equivalent of these gates (embedding instead of
+  shelling), see [`cookbook-python-api.md`](cookbook-python-api.md).
