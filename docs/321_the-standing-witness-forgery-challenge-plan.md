@@ -107,8 +107,8 @@ import-level pin). — MET by this phase.
 ## 2. The attempts page (P2) — open (handle: #114)
 
 An append-only, published log of attempts, rendered on the existing Pages site
-(gh-pages, served at `anthony-chaudhary.github.io/dos-kernel/`; built from the
-`C:\work\dos-pages` worktree, the docs/scoreboard idiom). Each row: the attack
+(gh-pages, served at `anthony-chaudhary.github.io/dos-kernel/`; built from a
+local `gh-pages` worktree, the docs/scoreboard idiom). Each row: the attack
 name, the model tier (or `scripted` for the P1 corpus), a transcript hash, and
 the verdict (floor + text-believing gate). A `scripts/forge_page.py` renderer
 folds the harness `--json` into a static `forge-challenge.html`, the same
