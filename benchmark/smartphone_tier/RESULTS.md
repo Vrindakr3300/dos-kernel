@@ -1,4 +1,4 @@
-﻿# smartphone_tier — does DOS help more as the model shrinks toward a phone? (docs/341)
+# smartphone_tier — does DOS help more as the model shrinks toward a phone? (docs/341)
 
 <!-- dos-bench-stamp: kernel=0.26.0 sha=5422122 date=2026-06-14 -->
 
@@ -8,95 +8,112 @@
 > step then stops, invents an id it cannot resolve, loops on the same read), while
 > a frontier model that reads-before-it-writes mostly fails SILENTLY, where the
 > byte-clean detectors are blind. This benchmark measures that prediction as a
-> **capability curve**: the DOS-recoverable failure fraction across param tiers
-> from `<=1B` (smartphone) to `frontier`.
+> **capability curve**: the DOS-recoverable failure fraction across the capability
+> axis from weak (phone-tier) to frontier.
 
 Run (free — no model, no network, no Docker; the real kernel detectors only):
 
 ```bash
-PYTHONPATH=. python -m benchmark.smartphone_tier.harness          # the curve table
-PYTHONPATH=. python -m benchmark.smartphone_tier.harness --json   # machine-readable
+PYTHONPATH=. python -m benchmark.smartphone_tier.harness --corpus   # THE MEASUREMENT (real data)
+PYTHONPATH=. python -m benchmark.smartphone_tier.harness            # the synthetic pre-registration
+PYTHONPATH=. python -m benchmark.smartphone_tier.harness --json     # machine-readable
 ```
 
-## The headline (synthetic pre-registration corpus)
+## THE MEASUREMENT (`--corpus`) — real data, the honest headline
 
-The deduped DOS-recoverable failure fraction — the share of FAILED runs that at
-least one **enriched** byte-clean detector advisory-flags — falls monotonically as
-the model grows:
+Folded over the committed Toolathlon replay corpus —
+[`benchmark/toolathlon/_results/replay_all_rows.csv`](../toolathlon/_results/replay_all_rows.csv),
+**7,116 recorded runs across 22 real models** (the same rows behind the paper's
+detector table), each carrying the third-party oracle verdict and the detectors'
+fires. Capability axis = each model's task pass-rate; models binned into tiers:
 
-| tier | exemplars | failed runs | recoverable | unreachable | **recoverable fraction** |
-|---|---|---|---|---|---|
-| **`<=1B`** | Llama-3.2-1B, Qwen2.5-0.5B/1.5B | 40 | 32 | 8 | **80.0%** |
-| `1-3B` | Phi-3-mini, Qwen2.5-3B, Gemma-2-2B | 35 | 23 | 12 | **65.7%** |
-| `3-7B` | Llama-3.1-8B, Qwen2.5-7B, Mistral-7B | 30 | 12 | 18 | **40.0%** |
-| `frontier` | gemini-2.5-flash, frontier cloud | 34 | 4 | 30 | **11.8%** |
+| capability tier | models | failed runs | recoverable | **recoverable fraction** |
+|---|---|---|---|---|
+| **very-weak** (<12% pass) | 3 | 893 | 128 | **14.3%** |
+| weak (12–20%) | 8 | 2,164 | 151 | **7.0%** |
+| mid (20–32%) | 6 | 1,411 | 48 | **3.4%** |
+| strong (≥32%) | 5 | 1,014 | 15 | **1.5%** |
 
-The smartphone-tier model's failures are **majority DOS-recoverable** (80%); the
-frontier model's are **almost all unreachable** (88%). The `frontier` 11.8% lands
-right on the measured gemini null (docs/149: ~9% dangling-detectable, ~92%
-premature-but-unreachable) — the instrument's self-test.
+**Overall recall (recovered / all failures): 6.2%.** Per-model, the recoverable
+fraction correlates with capability at **Pearson r = −0.58** — it genuinely falls as
+the model gets stronger.
 
-### Per-detector fire-rate on FAILED runs (the enrichment guard)
+### Is 80% recovered huge, or are we fooling ourselves?
 
-A detector counts toward the recoverable fraction **only if it is enriched** on
-failures (fires more on failures than on passes); otherwise it is excluded as
-noise. This is the `weak_model_gate.py` signal-vs-noise honesty.
+We were fooling ourselves on the **magnitude**, and we are not on the **direction**.
 
-| tier | DANGLE (`dangling_intent`) | MINT (`arg_provenance`) | LOOP (`tool_stream`) |
-|---|---|---|---|
-| `<=1B` | 35% | 25% | 20% |
-| `1-3B` | 29% | 20% | 17% |
-| `3-7B` | 20% | 10% | 10% |
-| `frontier` | 9% | 0% *(excluded — noise)* | 3% |
+- **The direction is real and clean.** The recoverable fraction falls monotonically
+  across tiers (14.3% → 1.5%), r = −0.58 across 22 models. A weak/phone-tier model's
+  failures are ~**10× more** DOS-recoverable than a strong model's. That is the
+  thesis, and the real data supports it.
+- **The level is ~14% at the weak end, not 80%.** The synthetic pre-registration
+  (below) declared 80%; the measurement says ~14%. The detectors are **high-precision,
+  low-recall**: when they fire they are almost always right (the paper: 88–98%
+  precision, <1.6% false-alarm), but they fire on only a small, *shrinking* slice of
+  failures. Most failures — even on weak models — are **silent**: a confidently-wrong
+  run that narrates no open work, loops on nothing, and emits no error envelope leaves
+  no byte to read. That silent majority is the recall ceiling, and it is the paper's
+  central honest result.
 
-On `frontier` the MINT detector never fires (a strong model mints no ids) and is
-correctly dropped from the recoverable count — the fraction is not inflated by a
-detector that adds nothing.
+So the headline is not "DOS recovers 80% of a phone model's failures." It is: **DOS
+recovers a small but capability-dependent slice (~6% overall, ~14% at the weak end),
+and that slice is trustworthy and concentrates exactly where a phone-tier model needs
+it most.** The value is the *direction plus the precision*, not a big recall number.
 
-## What is real here, and what is a placeholder
+## The synthetic pre-registration (default mode) — and why it was optimistic
 
-**Real:** every number above is folded by the **live kernel detectors** —
-`dos.dangling_intent.classify_stop`, `dos.arg_provenance.classify_call`,
-`dos.tool_stream.classify_stream` — over each trajectory. The harness never
-re-encodes a detector rule (pinned by
-`tests/test_smartphone_tier_bench.py::test_kernel_verdict_not_reimplemented`), and
-every declared failure trajectory genuinely fires its detector while every
-silent/passed one fires none (pinned by `test_each_declared_kind_actually_fires_its_detector`).
-The directional shape — the monotone fall and the frontier null — is a soundness
-check the harness asserts and the exit code enforces.
+The default (no `--corpus`) folds the real detectors over a SYNTHETIC corpus whose
+per-tier failure counts are a **declared shape**, not a measurement:
 
-**A placeholder (honest, docs/145):** the *magnitudes* — how many failures of each
-kind a tier has — are a **declared pre-registration of the failure-mode shape**,
-not a measurement. No model was run; the corpus is synthetic
-(`tiers.py::default_tiers`). Publishing a simulated guess as a measured number is
-exactly what this repo refuses to do. The shape is grounded (smaller tier ⇒ more
-DOS-shaped failures + more silent ones; frontier ≈ the gemini datum), but the
-real curve is the next experiment.
+| tier | recoverable fraction (synthetic) |
+|---|---|
+| `<=1B` | 80.0% |
+| `1-3B` | 65.7% |
+| `3-7B` | 40.0% |
+| `frontier` | 11.8% |
 
-## The measurement — drop in real on-device recordings
+This got the *direction* right (monotone fall, frontier ≈ the gemini null) but
+**over-stated the level by ~5–6×** at the weak end. It assumed a weak model's
+failures are mostly the three DOS-shaped kinds; the real corpus shows the silent kind
+dominates at every tier. Keeping both side by side is the lesson: a declared shape is
+a hypothesis; the corpus is the verdict (docs/145). The synthetic mode still earns
+its place as the instrument self-test (it proves the detectors fold correctly and the
+directional falsifier fires), but **the measured curve is the one to cite.**
 
-The harness reads the SAME detectors over real data with no code change:
+## What is real, and what is a placeholder
+
+- **Real (both modes):** every fire is the live kernel detector
+  (`dos.dangling_intent` / `dos.tool_stream` / `dos.arg_provenance`, plus
+  Toolathlon's `terminal_error` in the corpus mode); the harness never re-encodes a
+  rule (pinned by `test_kernel_verdict_not_reimplemented`).
+- **Real (corpus mode):** the failure counts and oracle verdicts are the recorded
+  Toolathlon corpus — a third-party grader the agents could not influence.
+- **Placeholder (synthetic mode only):** the per-tier failure *counts* are a declared
+  pre-registration. Captioned as such; the measurement supersedes it.
+
+## The next measurement — a true on-device model
+
+The corpus is 22 cloud/open models replayed; none is a sub-1B GGUF actually running on
+a phone-class device. The cleanest remaining datapoint is one genuine on-device run
+(e.g. Qwen2.5-0.5B-Instruct on CPU via llama.cpp), folded through `--recordings`:
 
 ```bash
-# point it at a directory of recorded on-device model runs (one JSON per run):
 PYTHONPATH=. python -m benchmark.smartphone_tier.harness \
-    --recordings path/to/llama-3.2-1b/runs --tier-name "Llama-3.2-1B"
+    --recordings path/to/qwen2.5-0.5b/runs --tier-name "Qwen2.5-0.5B"
 ```
 
-Each record maps to the reduced `Trajectory` datum (the loader is tolerant: a
-record missing a stream just yields no LOOP signal; a leading BOM is handled). Run
-it once per tier — e.g. a `none`-arm dump from Llama-3.2-1B, Qwen2.5-1.5B, and
-Phi-3-mini next to a frontier reference — and the synthetic table above becomes a
-measured one. This is the docs/153 §5 / `enterpriseops/HANDOFF_next_agent.md`
-"genuinely weaker model" experiment, now on-device-tier and reproducible at $0 for
-the detector fold.
+The prediction from the curve: a sub-1B model should land at or above the very-weak
+tier's ~14% recoverable — more DOS-shaped failures than any model in the current
+corpus. (See `_drive_cpu_model.py` / its README for the CPU harness, when present.)
 
 ## Reading order
 
 - **docs/341** — the design note: smartphone-tier as a measurable capability
-  coordinate on the DOS lift thesis.
+  coordinate, and the synthetic-vs-measured honesty.
+- **paper §5 (`paper/sections/05_detectors.html`)** — the recall ceiling and the
+  capability figure (`fig1_purchase_vs_capability.png`) this benchmark extends.
 - **docs/123** — where a model runs is a trust coordinate, not a deployment detail.
-- **docs/153 §5 / docs/149** — "can DOS lift a weak model?" and the measured
-  gemini failure distribution the frontier null is calibrated to.
+- **docs/153 §5 / docs/149** — "can DOS lift a weak model?" and the measured failure
+  distribution (the silent-majority ceiling).
 - **`benchmark/enterpriseops/weak_model_gate.py`** — the recoverable-fraction unit
-  and the enrichment guard this benchmark reuses (the discipline, not the code).
+  and the enrichment guard this benchmark reuses.

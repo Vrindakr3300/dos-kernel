@@ -66,26 +66,59 @@ fall toward the measured frontier null ([`149`](149_the-real-failure-distributio
 ~9% of a strong model's failures are dangling-detectable, ~92% are
 premature-but-unreachable).
 
-`benchmark/smartphone_tier/` folds the three real kernel detectors over a corpus
-parameterized by param tier (`<=1B` / `1-3B` / `3-7B` / `frontier`) and reports the
-curve. On the pre-registered corpus it is a clean monotone fall:
+`benchmark/smartphone_tier/` folds the three real kernel detectors over a corpus and
+reports the curve. It has TWO modes, and the difference between them is the lesson.
 
-| tier | recoverable fraction |
+### 3a. The measurement (`--corpus`) — the honest headline
+
+Folded over the committed Toolathlon replay corpus (7,116 recorded runs across 22
+real models — the rows behind the paper's detector table), binned by each model's task
+pass-rate (the capability axis):
+
+| capability tier | recoverable fraction |
+|---|---|
+| very-weak (<12% pass) | **14.3%** |
+| weak (12–20%) | 7.0% |
+| mid (20–32%) | 3.4% |
+| strong (≥32%) | 1.5% |
+
+Overall recall: **6.2%**. Per-model, recoverable fraction vs capability is **Pearson
+r = −0.58** — it really falls as the model gets stronger.
+
+**Is 80% recovered huge, or are we fooling ourselves?** We were fooling ourselves on
+the *magnitude*, not the *direction*. The direction is real and clean (a weak/phone
+model's failures are ~10× more recoverable than a strong model's). But the weak-end
+*level* is ~14%, not 80%: the detectors are high-precision/low-recall (88–98% precise,
+<1.6% false-alarm — the paper §5), and most failures, even on weak models, are
+**silent** — a confidently-wrong run with no open-work cue, no loop, no error envelope
+leaves no byte to read. So the claim is not "DOS recovers most of a phone model's
+failures." It is: **DOS recovers a small, trustworthy, capability-dependent slice that
+concentrates exactly where a phone-tier model needs it.** Direction + precision, not a
+big recall number.
+
+### 3b. The pre-registration (default mode) — and why it was optimistic
+
+The default mode folds the same detectors over a SYNTHETIC corpus whose per-tier
+failure counts are a declared shape:
+
+| tier | recoverable fraction (synthetic) |
 |---|---|
 | `<=1B` (phone) | 80.0% |
 | `1-3B` | 65.7% |
 | `3-7B` | 40.0% |
 | `frontier` | 11.8% |
 
-The monotone fall and the frontier null are **soundness checks the harness asserts**
-and the exit code enforces — if the direction ever breaks, the benchmark goes red.
-The `frontier` 11.8% sits on the gemini datum: the instrument's self-test.
+This got the direction right (monotone fall, frontier ≈ the gemini null) but
+over-stated the level ~5–6× — it assumed a weak model's failures are mostly the three
+DOS-shaped kinds; the corpus shows the silent kind dominates everywhere. Keeping both
+is the discipline: a declared shape is a hypothesis, the corpus is the verdict
+([`145`](145_the-loop-economics-axis-and-the-stall-reader.md)). The monotone fall and
+the frontier null are soundness checks the synthetic mode asserts (the instrument
+self-test); the measured curve is the one to cite.
 
-What is real: every number is folded by the live kernel verdicts (the harness never
-re-encodes a detector — pinned by a test), and every declared failure trajectory
-genuinely fires its detector. What is a placeholder: the per-tier failure **counts**
-are a declared model of the shape, not a measurement. Publishing a simulated guess
-as a measured number is what this repo refuses to do ([`145`](145_the-loop-economics-axis-and-the-stall-reader.md)).
+What is real in both modes: every number is folded by the live kernel verdicts (the
+harness never re-encodes a detector — pinned by a test). What was a placeholder: the
+synthetic per-tier failure **counts** — now superseded by the measurement.
 
 ## 4. The measurement: drop in on-device recordings
 

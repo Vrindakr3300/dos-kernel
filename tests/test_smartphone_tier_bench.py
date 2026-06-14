@@ -31,6 +31,7 @@ from smartphone_tier.tiers import default_tiers, trajectories_for  # noqa: E402
 from smartphone_tier.harness import (  # noqa: E402
     fires_dangle, fires_loop, fires_mint, fold_tier, run_sweep,
 )
+from smartphone_tier.real_corpus import DEFAULT_CSV, run_real_corpus  # noqa: E402
 
 
 def test_recoverable_fraction_is_monotone_falling():
@@ -127,3 +128,54 @@ def test_kernel_verdict_not_reimplemented():
     direct = classify_stop(StopEvidence(final_turn_text=t.final_turn,
                                         results_after_turn=t.results_after)).is_dangling
     assert fires_dangle(t) == direct is True
+
+
+# ---------------------------------------------------------------------------
+# The MEASUREMENT (docs/341 §4) — the real Toolathlon replay corpus, not the
+# synthetic pre-registration. The honest counterweight to the synthetic curve.
+# ---------------------------------------------------------------------------
+import os  # noqa: E402
+
+import pytest  # noqa: E402
+
+_HAS_CSV = os.path.isfile(DEFAULT_CSV)
+_needs_csv = pytest.mark.skipif(not _HAS_CSV, reason="committed replay CSV not present")
+
+
+@_needs_csv
+def test_real_corpus_direction_holds():
+    """On REAL data the thesis direction holds: recoverable fraction is non-increasing
+    from the weakest capability tier to the strongest."""
+    res = run_real_corpus()
+    fr = [t.recoverable_fraction for t in res.tiers]
+    assert len(fr) >= 3
+    for i in range(len(fr) - 1):
+        assert fr[i] >= fr[i + 1] - 1e-9
+    assert res.source.startswith("real:")
+
+
+@_needs_csv
+def test_real_corpus_level_is_modest_not_eighty_percent():
+    """The honesty pin: the REAL weak-end recoverable fraction is FAR below the
+    synthetic 80% — single digits to low double digits. If this ever reads ~80%, the
+    real reader has silently drifted toward the synthetic shape (the failure we are
+    guarding against)."""
+    real = run_real_corpus()
+    syn = run_sweep()
+    real_weak = real.tiers[0].recoverable_fraction
+    syn_weak = syn.tiers[0].recoverable_fraction
+    assert real_weak < 0.30, f"real weak-end {real_weak:.0%} is implausibly high"
+    assert real_weak < syn_weak - 0.30, (
+        f"the real measurement ({real_weak:.0%}) is supposed to be much lower than the "
+        f"synthetic pre-registration ({syn_weak:.0%}) — the whole point of measuring")
+
+
+@_needs_csv
+def test_real_corpus_recall_matches_paper_ceiling():
+    """The overall real recall (recovered / all failures) is the paper's low-single-digit
+    ceiling, not a large number — a cross-check against the published detector table."""
+    res = run_real_corpus()
+    tot_fail = sum(t.n_failed for t in res.tiers)
+    tot_rec = sum(t.recoverable for t in res.tiers)
+    overall = tot_rec / tot_fail
+    assert 0.02 < overall < 0.12, f"overall real recall {overall:.1%} off the paper ceiling"
