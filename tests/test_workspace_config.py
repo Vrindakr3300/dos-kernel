@@ -55,10 +55,27 @@ def _write_toml(repo: Path, body: str) -> None:
     (repo / "dos.toml").write_text(body, encoding="utf-8")
 
 
+def _isolated_env(repo: Path) -> dict:
+    """The parent env with workspace-resolution overrides STRIPPED + pinned to `repo`.
+
+    #125: a spawned `dos.cli` resolves its workspace from `--workspace` OR a
+    `DISPATCH_WORKSPACE` env var. Under a concurrent suite, a sibling fleet's
+    process can leak `DISPATCH_WORKSPACE` into the inherited env, so a subprocess
+    here could read/write a DIFFERENT workspace's WAL (the cross-wire that poisons a
+    fresh tmp dir). Strip the env override and pin it to `repo` so `--workspace` is
+    the sole, unambiguous source — a subprocess can no longer cross into another
+    run's `.dos/`."""
+    import os
+    env = dict(os.environ)
+    env.pop("DISPATCH_WORKSPACE", None)
+    env["DISPATCH_WORKSPACE"] = str(repo)
+    return env
+
+
 def _cli(repo: Path, *argv: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "dos.cli", *argv, "--workspace", str(repo)],
-        capture_output=True, text=True,
+        capture_output=True, text=True, cwd=str(repo), env=_isolated_env(repo),
     )
 
 
@@ -203,7 +220,7 @@ def _cli_sub(repo: Path, verb: str, *argv: str) -> subprocess.CompletedProcess:
     not at the tail (argparse rejects a top-level flag after a subparser's args)."""
     return subprocess.run(
         [sys.executable, "-m", "dos.cli", verb, "--workspace", str(repo), *argv],
-        capture_output=True, text=True,
+        capture_output=True, text=True, cwd=str(repo), env=_isolated_env(repo),
     )
 
 
@@ -227,9 +244,26 @@ def test_arbitrate_default_loads_live_wal_no_double_book(tmp_path: Path):
     _write_toml(tmp_path, _TWO_LANES)
     _git_init(tmp_path)
 
+    # #125 legibility guard: this test asserts a FRESH workspace has an empty WAL,
+    # so the first arbitrate acquires. Under a concurrent suite on Windows, a sibling
+    # run's subprocess can cross-wire into this tmp dir (shared %TEMP%/pytest-of-USER
+    # + a truncated-basename collision), poisoning `.dos/lane-journal.jsonl` BEFORE
+    # this body runs — which then surfaces as a misleading "lane 'alpha' already
+    # held" refusal. Fail LEGIBLY on a poisoned dir instead: name the pre-existing
+    # WAL content so the real cause (cross-run contamination, not a kernel bug) is
+    # obvious, rather than a confusing arbitrate refusal on an "empty" world.
+    _wal = tmp_path / ".dos" / "lane-journal.jsonl"
+    assert not _wal.exists(), (
+        f"#125: tmp workspace was POISONED before the test ran — a pre-existing WAL "
+        f"at {_wal} (a concurrent suite cross-wired into this tmp dir). Content:\n"
+        f"{_wal.read_text(encoding='utf-8', errors='replace')[:500]}")
+
     # No lease yet → a fresh workspace genuinely has an empty WAL → acquire alpha.
     pre = _cli(tmp_path, "arbitrate", "--lane", "alpha")
-    assert pre.returncode == 0, pre.stderr
+    assert pre.returncode == 0, (
+        f"#125: first arbitrate on a fresh workspace did not acquire — "
+        f"stderr={pre.stderr!r} stdout={pre.stdout!r}; WAL now: "
+        f"{_wal.read_text(encoding='utf-8', errors='replace')[:300] if _wal.exists() else '(absent)'}")
     assert json.loads(pre.stdout)["outcome"] == "acquire", pre.stdout
 
     # Durably take alpha — writes ACQUIRE to the WAL the next arbitrate must read.
