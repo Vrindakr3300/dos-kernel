@@ -3820,12 +3820,22 @@ def cmd_override(args: argparse.Namespace) -> int:
             return 0
         # Plain: the pasteable TOML on stdout, the how-to on stderr.
         sys.stdout.write(toml_text)
+        _scope_args = (" ".join(scope) + " ") if scope else ""
+        _suggest = (f"dos override suggest {_scope_args}"
+                    f'--reason "{args.reason}" --minutes {minutes}')
+        # Two redirect forms (issue #148): PowerShell's `>` writes UTF-16LE+BOM,
+        # which `read_override` cannot parse (it would crash before the #147 fail-
+        # closed fix, and reads as "no valid arm" after) — so the bare `>` is a trap
+        # on the documented primary platform. Give the BOM-safe PowerShell form
+        # first (Set-Content -Encoding ascii: the TOML is pure ASCII), then the POSIX
+        # `>` for bash/zsh. Arming stays the operator's hand on the file either way.
         print(
             f"\n# ^ paste the lines above into {p} to arm a {minutes}-min window.\n"
             f"#   Arming is your hand on the file — this command wrote nothing.\n"
-            f"#   One-liner:  dos override suggest "
-            + (" ".join(scope) + " " if scope else "")
-            + f'--reason "{args.reason}" --minutes {minutes} > "{p}"\n'
+            f"#   PowerShell (Windows):  {_suggest} | Set-Content -Encoding ascii \"{p}\"\n"
+            f"#   bash / zsh (POSIX):    {_suggest} > \"{p}\"\n"
+            f"#   (do NOT use `>` in PowerShell — it writes UTF-16+BOM the arm-file "
+            f"reader rejects, #148.)\n"
             f"#   Then `dos override status` to confirm, `dos override disarm` to close.",
             file=sys.stderr,
         )

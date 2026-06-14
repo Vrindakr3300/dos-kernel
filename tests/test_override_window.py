@@ -360,6 +360,12 @@ def test_cli_suggest_prints_pasteable_toml_and_writes_nothing(tmp_path):
     assert "until" in stdout and 'reason = "issue #145 demo"' in stdout
     assert "pkg/widget.py" in stdout
     assert "paste" in stderr.lower()
+    # #148: the how-to must offer the BOM-safe PowerShell form, not only the POSIX
+    # `>` (which on PowerShell 5.1 writes UTF-16+BOM the arm reader rejects). Both
+    # shells are shown, and the `>`-in-PowerShell trap is called out.
+    assert "Set-Content" in stderr and "-Encoding ascii" in stderr, (
+        "suggest must print the BOM-safe PowerShell redirect form (#148)")
+    assert "PowerShell" in stderr and "POSIX" in stderr
     # IT WROTE NOTHING — the arm file does not exist.
     assert not ovr.arm_path(tmp_path).exists()
     # And the stdout is a real, reader-acceptable arm file.
