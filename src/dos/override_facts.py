@@ -145,6 +145,14 @@ def read_override(root: Path) -> Optional[OverrideFacts]:
         raw = p.read_text(encoding="utf-8-sig")
     except OSError:
         return None
+    except UnicodeDecodeError:
+        # A non-UTF-8 arm file (e.g. PowerShell 5.1's `>` redirect writes UTF-16LE
+        # with a BOM — the 0xff start byte `utf-8-sig` cannot decode) is a MALFORMED
+        # override, not a crash. The docstring promises "unreadable file → None";
+        # without this branch the UnicodeDecodeError escaped and took down both
+        # `dos override status` and the PreToolUse hook's disposition read (#147).
+        # Fail closed: the SELF_MODIFY deny stands, byte-identical to no arm file.
+        return None
     try:
         import tomllib  # py3.11+
     except ModuleNotFoundError:  # pragma: no cover — py<3.11 with no backport

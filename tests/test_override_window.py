@@ -81,6 +81,19 @@ def test_reader_garbled_toml_is_none(tmp_path):
     assert ovr.read_override(tmp_path) is None
 
 
+def test_reader_non_utf8_arm_file_is_none_not_a_crash(tmp_path):
+    """#147: a non-UTF-8 arm file (e.g. PowerShell 5.1's `>` redirect writes UTF-16
+    + BOM) must fail CLOSED to None — not raise UnicodeDecodeError and crash
+    `dos override status` / the hook's disposition read. The TOML content is VALID;
+    only the encoding is wrong, which is still a malformed override → deny stands."""
+    p = ovr.arm_path(tmp_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    # A perfectly valid arm file, written as UTF-16LE — the 0xff/0xfe BOM that
+    # `utf-8-sig` cannot decode (the exact bytes the bug crashed on).
+    p.write_text(f'until = {LATER}\nreason = "wrong encoding"\n', encoding="utf-16")
+    assert ovr.read_override(tmp_path) is None  # fail-closed, no exception
+
+
 def test_reader_missing_until_or_reason_is_none(tmp_path):
     _arm(tmp_path, raw='reason = "no deadline"\n')
     assert ovr.read_override(tmp_path) is None
