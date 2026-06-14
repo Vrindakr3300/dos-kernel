@@ -15,16 +15,28 @@ r/ClaudeCode post *"I analyzed 26 sessions / 9k messages of Fable 5 and …"* an
 open-source repo, and decide what DOS borrows vs. powers.
 
 > **Provenance caveat, stated up front (this doc's own discipline).** The Reddit
-> post body is **not recovered** — reddit.com and every proxy/archive route
-> (jina, archive.org, archive.ph, search caches) returned 403/empty from this
-> harness. So this note does **not** quote the post's findings or numbers; doing
-> so would be a tier-1 fabrication of the kind docs/332 exists to refuse. What
+> post body is **not recovered** — and the exhaustion is itself a finding. Every
+> reachable route was tried: direct fetch, the jina reader proxy, archive.org
+> (zero snapshots) and archive.ph, Google/Bing/DuckDuckGo caches, four CORS
+> proxies (allorigins raw+get with retries, corsproxy, codetabs, thingproxy —
+> reddit's `.json` returns 522/403 through all of them; only an obfuscated,
+> content-free HTML shell came back), seven redlib/teddit privacy frontends (all
+> 403 or Anubis bot-walled), and the **pullpush.io** Reddit archive API. pullpush
+> resolves the diagnosis: it *does* index r/ClaudeCode, but its newest ingested
+> post (`1kq…`) is strictly older than the target ID (`1u5dq2y`), and `q=Fable`
+> returns **0** matches — i.e. the post is **real and recent but post-dates every
+> public archive's ingestion horizon**, while live reddit blocks this harness on
+> every path. So this note does **not** quote the post's findings or numbers;
+> doing so would be a tier-1 fabrication of the kind docs/332 exists to refuse —
+> the discipline this whole doc is about, applied to the doc's own sourcing. What
 > *is* recovered first-hand and load-bearing here is the **substrate** the post
 > reads: the `teich` repo (read at source-file granularity) and the public
 > `armand0e/claude-fable-5-claude-code` HF dataset (read from its card). The
-> argument below rests only on those. If the post's text is later supplied,
-> append its specific findings as §8 — they will land *on top of* this frame, not
-> change it, because the frame is about the data tier, not any one finding.
+> argument below rests only on those — and it is *frame-level*, so it does not
+> depend on the post's specific numbers. If the post's text is later supplied
+> (paste it, or fetch from a logged-in session), append its findings as §8 — they
+> land *on top of* this frame, not against it, because the frame is about the data
+> *tier*, which is fixed by how teich extracts, not by any one finding.
 
 ---
 
