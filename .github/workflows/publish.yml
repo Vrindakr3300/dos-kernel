@@ -443,15 +443,32 @@ jobs:
       - name: Login (GitHub OIDC)
         run: ./mcp-publisher login github-oidc
 
-      - name: Publish
-        run: ./mcp-publisher publish
+      - name: Publish (idempotent — a duplicate version is already-published, not a failure)
+        run: |
+          set -uo pipefail
+          # The registry rejects a re-publish of an existing version with a 400
+          # "cannot publish duplicate version". On a chained release that is the
+          # SAME version this job is meant to ensure is live — so it is success,
+          # not failure. The read-back below is the real verdict either way (the
+          # kernel discipline: trust the witness, not the publish exit code).
+          out="$(./mcp-publisher publish 2>&1)"; rc=$?
+          echo "$out"
+          if [ $rc -ne 0 ]; then
+            if echo "$out" | grep -qiE "duplicate version|already exists"; then
+              echo "::notice::version already on the registry — treating as already-published; the read-back confirms."
+            else
+              echo "::error::registry publish failed for a non-duplicate reason."
+              exit $rc
+            fi
+          fi
 
-      - name: Read back the published server from the registry
+      - name: Read back the published server from the registry (the verdict)
         run: |
           set -euo pipefail
           v="$(jq -r '.version' server.json)"
-          # The kernel's own discipline: don't believe the publish step's exit
-          # code — read the record back out of the registry it claims to be in.
+          # Don't believe the publish step — read the record back out of the
+          # registry. THIS is what makes the job green: the registry serving the
+          # released version, whether this run published it or a prior one did.
           curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.anthony-chaudhary%2Fdos-kernel/versions/$v" -o readback.json
           jq -e --arg v "$v" '.server.version == $v' readback.json >/dev/null
           echo "registry read-back: io.github.anthony-chaudhary/dos-kernel@$v is live — github.com/mcp + VS Code + PulseMCP + Mastra refresh on their next crawl." >> "$GITHUB_STEP_SUMMARY"

@@ -82,15 +82,30 @@ jobs:
       - name: Login (GitHub OIDC)
         run: ./mcp-publisher login github-oidc
 
-      - name: Publish
-        run: ./mcp-publisher publish
+      - name: Publish (idempotent — a duplicate version is already-published, not a failure)
+        run: |
+          set -uo pipefail
+          # The registry rejects a re-publish of an existing version with a 400
+          # "cannot publish duplicate version". When re-dispatched for a version
+          # already live, that is success — the read-back is the real verdict.
+          out="$(./mcp-publisher publish 2>&1)"; rc=$?
+          echo "$out"
+          if [ $rc -ne 0 ]; then
+            if echo "$out" | grep -qiE "duplicate version|already exists"; then
+              echo "::notice::version already on the registry — already-published; the read-back confirms."
+            else
+              echo "::error::registry publish failed for a non-duplicate reason."
+              exit $rc
+            fi
+          fi
 
-      - name: Read back the published server from the registry
+      - name: Read back the published server from the registry (the verdict)
         run: |
           set -euo pipefail
           v="$(jq -r '.version' server.json)"
-          # The kernel's own discipline: don't believe the publish step's exit
-          # code — read the record back out of the registry it claims to be in.
+          # Don't believe the publish step — read the record back out of the
+          # registry it claims to be in. The registry serving this version is
+          # what makes the run green, whether this dispatch published it or not.
           curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.anthony-chaudhary%2Fdos-kernel/versions/$v" -o readback.json
           jq -e --arg v "$v" '.server.version == $v' readback.json >/dev/null
           echo "registry read-back: io.github.anthony-chaudhary/dos-kernel@$v is live." >> "$GITHUB_STEP_SUMMARY"
