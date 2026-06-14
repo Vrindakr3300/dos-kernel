@@ -403,13 +403,16 @@ class StampConvention:
         subject — the Conventional-Commits shape (``feat(pypi): …
         (docs/286 Phase 3)``), which the start-anchored `direct_ship_core` can
         never see. Three spellings: ``(<PLAN> <PHASE>)``, ``(<PLAN>: <PHASE>)``,
-        ``(refs <PLAN> <PHASE>)``. Unlike the other fragments this one carries
-        its OWN anchor (``\\)\\s*$``) — the caller searches rather than appending
-        a boundary; the close paren immediately after the phase token IS the
-        right boundary (a ``Phase 3`` query cannot match ``(… Phase 30)`` or
+        ``(refs <PLAN> <PHASE>)``, each optionally followed by a trailing issue
+        ref inside the same paren (``(docs/318 P2, #21)`` — docs/289/#128).
+        Unlike the other fragments this one carries its OWN anchor (``\\)\\s*$``)
+        — the caller searches rather than appending a boundary; the close paren
+        (after the phase token and an OPTIONAL ``, #NN`` issue ref) IS the right
+        boundary (a ``Phase 3`` query cannot match ``(… Phase 30)`` or
         ``(… Phase 3 audit)`` — a progress-marked trailer is not a ship,
-        fail-closed), and the end anchor is what keeps a subject that merely
-        NAMES an id in prose (or in a mid-subject paren) from matching.
+        fail-closed; the issue-ref group requires a literal ``#`` so it never
+        loosens that boundary), and the end anchor is what keeps a subject that
+        merely NAMES an id in prose (or in a mid-subject paren) from matching.
 
         ``series_alt`` is an already-escaped alternation of plan-id spellings
         (the caller bridges ``docs/286_<slug>`` ↔ ``docs/286`` — see
@@ -428,8 +431,22 @@ class StampConvention:
         if not self.trailer_stamp:
             return None
         prefix = self.direct_prefix_re()
+        # docs/289 (#128) — an optional issue ref may follow the phase token
+        # INSIDE the stamp paren: `(docs/318 P2, #21)`, `(docs/286 Phase 3,
+        # fixes #5)`. A trailing `, #NN` / `#NN` / `fixes #NN` / `closes #NN`
+        # is a common Conventional-Commits habit; without this group it pushes
+        # the phase token off the `\)` boundary and the real ship reads
+        # NOT_SHIPPED (silently — the worst trust gap). The group REQUIRES a
+        # literal `#`, so it never loosens the phase boundary: `Phase 30`,
+        # `Phase 3.1`, and the progress-marked `Phase 3 audit` still fail (the
+        # char after the phase token is a digit / dot / space-then-word, none of
+        # which the `[,;]?\s*(?:fixes|closes|refs)?\s*#` opener can begin), and
+        # the `\)\s*$` end anchor is preserved so a mid-subject paren still
+        # can't match. Multiple refs (`, #21, #22`) are admitted by the repeat.
+        issue_ref = r"(?:\s*[,;]?\s*(?:fixes|closes|refs)?\s*#\d+)*"
         return (
-            rf"\(\s*(?:refs\s+)?(?:{prefix})?(?:{series_alt}):?\s+(?:{phase_alt})\s*\)\s*$"
+            rf"\(\s*(?:refs\s+)?(?:{prefix})?(?:{series_alt}):?\s+"
+            rf"(?:{phase_alt}){issue_ref}\s*\)\s*$"
         )
 
     def summary_subject_re(self) -> str:

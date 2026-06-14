@@ -203,6 +203,53 @@ def test_trailer_phase_boundary_is_the_paren():
     )["shipped"] is False
 
 
+def test_trailer_admits_trailing_issue_ref():
+    """docs/289 (#128) — a trailing issue ref inside the stamp paren
+    (`(docs/318 P2, #21)`, `(docs/286 Phase 3, fixes #5)`) is a common
+    Conventional-Commits habit and must NOT demote the ship to invisible."""
+    # The exact witness from the issue (docs/318 P2, the adjacent commit whose
+    # only difference from a recognized ship was the `, #21` tail).
+    p2 = "d0b4ab3 feat(benchmark): improve_ablation P2 ratchet (docs/318 P2, #21)"
+    r = _check("docs/318", "P2", [p2], TRAILER_ON)
+    assert r["shipped"] is True and r["via"] == "trailer" and r["sha"] == "d0b4ab3"
+
+    # The `fixes #NN` spelling, with the verbose `Phase N` phase form.
+    fixes = "abc1234 feat(x): wire the matrix (docs/286 Phase 3, fixes #5)"
+    assert _check(FULL_PLAN, "Phase 3", [fixes], TRAILER_ON)["shipped"] is True
+
+    # Bare `#NN` with no comma, and `closes`/`refs` keywords, all admitted.
+    for tail in ("#5", "closes #5", "refs #5", ", #5", ", #5, #6"):
+        line = f"abc1234 feat(x): wire it (docs/286 Phase 3 {tail})"
+        assert _check(FULL_PLAN, "Phase 3", [line], TRAILER_ON)["shipped"] is True, tail
+
+
+def test_trailing_issue_ref_does_not_loosen_the_phase_boundary():
+    """The `#`-required issue group never lets a wrong phase / progress marker /
+    mid-subject paren slip through — the guards that motivated the tightness
+    (test_trailer_phase_boundary_is_the_paren) still hold WITH the issue tail."""
+    # `Phase 3` must still NOT match `Phase 30` even with an issue ref present.
+    assert _check(
+        FULL_PLAN, "Phase 3",
+        ["abc1234 feat(x): widen (docs/286 Phase 30, #21)"], TRAILER_ON
+    )["shipped"] is False
+    # A progress-marked trailer with an issue ref is still not a ship.
+    assert _check(
+        FULL_PLAN, "Phase 3",
+        ["abc1234 feat(x): soak (docs/286 Phase 3 audit, #21)"], TRAILER_ON
+    )["shipped"] is False
+    # The end anchor still bites: a mid-subject paren + issue ref then more text
+    # is a reference, not a ship.
+    assert _check(
+        FULL_PLAN, "Phase 3",
+        ["abc1234 fix (docs/286 Phase 3, #21) leak in CI"], TRAILER_ON
+    )["shipped"] is False
+    # An issue ref WITHOUT a phase token is a plain plan+issue reference.
+    assert _check(
+        FULL_PLAN, "Phase 3",
+        ["abc1234 feat(x): ship it (docs/286, #21)"], TRAILER_ON
+    )["shipped"] is False
+
+
 def test_trailer_without_phase_token_is_not_a_ship():
     """A plain plan reference — `(docs/286)` / `(docs/286 follow-up)` — names the
     plan without stamping a phase; it must not satisfy any phase query."""
