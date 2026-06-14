@@ -1,10 +1,19 @@
 # Smartphone-tier benchmark — impact on the paper (2026-06-14)
 
 How `benchmark/smartphone_tier/` (docs/341) bears on `paper/`. Short version: it
-**strengthens the paper's existing capability story and does not threaten any claim**,
-*because* its honest number (~14% weak / 6% overall recoverable) matches — not
-contradicts — the paper's recall ceiling. The synthetic 80% would have threatened the
-paper; the measurement repairs that.
+**adds the rising edge to the paper's capability story** — the paper §5 measured the
+*falling* edge (recall shrinks on the frontier); the on-device ladder measures the
+*rising* edge (recall climbs 0→50→100% across Qwen2.5 0.5B→3B), giving the paper a full
+**inverted-U** instead of a one-sided slope. Its honest numbers match the paper (6.2%
+corpus recall vs §5's 6.18%), so it strengthens, never contradicts.
+
+> **UPDATE (after the on-device run).** An earlier version of this note reported the
+> finding as "recoverability falls with capability, r=−0.58." That was the *frontier*
+> corpus only (no on-device model in it). Running real small tool-callers (Qwen2.5
+> 0.5/1.5/3B on CPU, native tool-calling) showed the curve is an **inverted-U**:
+> recoverability RISES across the on-device band (the read-before-write competence
+> threshold) and only falls again at frontier. The paper's §5 is the falling edge; the
+> benchmark now supplies the rising edge. This is a *stronger* result for the paper.
 
 ## 1. The paper already has a capability axis — this extends its weak end
 
