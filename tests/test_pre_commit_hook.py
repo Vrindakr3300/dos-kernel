@@ -31,7 +31,20 @@ MANIFEST = REPO_ROOT / ".pre-commit-hooks.yaml"
 # The only stages at which the commit being judged EXISTS when the hook runs.
 # (pre-commit/commit/commit-msg/prepare-commit-msg all fire before the commit
 # object is created — at those stages HEAD is the parent: the off-by-one.)
+# This invariant is specific to hooks that judge a COMMIT OBJECT (commit-audit).
 _STAGES_WHERE_THE_COMMIT_EXISTS = {"pre-push", "post-commit", "manual"}
+
+# A staged-diff hook (the docs/126 apply turnstile, `dos apply --staged`) judges
+# the INDEX, not a commit object — the staged diff exists at exactly the
+# pre-commit stage and the off-by-one above does not apply to it. So pre-commit
+# is the CORRECT stage for it, where it refuses an escaping/colliding write
+# before the commit is even formed.
+_STAGES_WHERE_THE_STAGED_DIFF_EXISTS = {"pre-commit", "manual"}
+
+
+def _judges_staged_diff(hook: dict) -> bool:
+    """True for a hook that grades the staged index (not a commit object)."""
+    return "apply" in hook.get("entry", "").split()
 
 
 def _hooks() -> list[dict]:
@@ -47,23 +60,30 @@ def _hook(hook_id: str) -> dict:
 # --- layer 1: the manifest ---------------------------------------------------
 
 
-def test_manifest_parses_to_the_two_hook_ids():
+def test_manifest_parses_to_the_declared_hook_ids():
     ids = [h["id"] for h in _hooks()]
-    assert ids == ["dos-commit-audit", "dos-commit-audit-warn"]
+    assert ids == ["dos-commit-audit", "dos-commit-audit-warn", "dos-apply"]
 
 
-def test_no_hook_runs_at_a_stage_where_head_is_the_parent():
-    """The docs/304 regression pin: every declared stage must be one where the
-    commit under judgment already exists."""
+def test_no_hook_runs_at_a_stage_where_what_it_judges_does_not_exist():
+    """The docs/304 regression pin, generalized: every declared stage must be one
+    where the thing the hook judges already exists. A commit-audit hook judges a
+    COMMIT OBJECT (so pre-commit is off-by-one and banned); the docs/126 apply
+    turnstile judges the STAGED DIFF (so pre-commit is exactly right)."""
     for h in _hooks():
         stages = h.get("stages")
         assert stages, f"{h['id']}: declare stages explicitly (default is pre-commit)"
-        bad = set(stages) - _STAGES_WHERE_THE_COMMIT_EXISTS
+        if _judges_staged_diff(h):
+            allowed = _STAGES_WHERE_THE_STAGED_DIFF_EXISTS
+            what = "the staged diff"
+        else:
+            allowed = _STAGES_WHERE_THE_COMMIT_EXISTS
+            what = "the commit object"
+        bad = set(stages) - allowed
         assert not bad, (
-            f"{h['id']} declares stage(s) {sorted(bad)} — there the commit "
-            f"object does not exist yet and commit-audit would judge the parent "
-            f"(the off-by-one docs/304 fixed). Allowed: "
-            f"{sorted(_STAGES_WHERE_THE_COMMIT_EXISTS)}"
+            f"{h['id']} declares stage(s) {sorted(bad)} — there {what} "
+            f"does not exist yet when the hook runs (the off-by-one docs/304 "
+            f"fixed for commit-audit). Allowed: {sorted(allowed)}"
         )
 
 

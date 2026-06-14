@@ -41,7 +41,7 @@ resolved). The two design facts unique to this leaf:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from dos import lock_modes, scope
 
