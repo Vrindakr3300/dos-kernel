@@ -187,16 +187,29 @@ up, not bolting verification onto an existing one.* The two are not the same
 machine with the verifier in a different place. They are different machines,
 because **the question "what is true here?" has to be answerable at the layer
 where steering happens, and that layer is decided at the foundation or not at
-all.**
+all.** This section is the proof of that claim, in five moves: what a bolt-on
+structurally *is* (§4.1), why no amount of added verification crosses the gap
+(§4.2, the impossibility argument), the three architecture-time decisions named
+one at a time with the exact seam each one needs and why it cannot be added later
+(§4.3), the same task walked through both machines (§4.4), the honest
+counterargument and its answer (§4.5), and the one-line statement (§4.6).
 
 ### 4.1 What a bolt-on actually is
 
 A bolt-on harness is one where the agent loop was designed first — act, observe,
 act, observe, terminate on budget — and a verifier is added at the seams that
-loop happens to expose. Those seams are almost always two: the *tool-call return*
-(did this one call succeed?) and the *end of the run* (does the final output look
-right?). A bolt-on verifier lives at one or both. And it inherits, structurally,
-three limits it cannot engineer its way out of:
+loop happens to expose. The crucial word is *happens*: the seams were not placed
+for verification, they are the natural joints of an act-observe loop, and there
+are almost exactly two of them. The **tool-call return** (did this one call
+succeed?) and the **end of the run** (does the final output look right?). A
+bolt-on verifier lives at one or both, and both share a property that decides
+everything downstream: **they are the points where the agent has just spoken, and
+what they carry forward is what the agent said.** The seam is a microphone in
+front of the plant, not a sensor wired to the world.
+
+From that one property, three limits follow — and it matters that they *follow*,
+that they are not an incomplete list of bugs but the complete consequence of where
+the seams are:
 
 - **It reads what the loop chose to expose, which is the agent's own narration.**
   The loop was built to pass the agent's outputs forward; the verifier sees those
@@ -237,59 +250,199 @@ loop designed without it has no seam to thread it through later. **A bolt-on
 verifier is structurally a grader, because the only signals its host loop exposes
 are gradeable, not steerable.**
 
-### 4.2 What "verification-first" inverts
+### 4.2 Why more verification never crosses the gap (the impossibility argument)
 
-Build the harness the other way and the inversion is total: **the loop is not the
-thing the verifier observes; the verifier is the thing the loop is built around.**
-The control loop is primary, and the agent is the plant *inside* it. Concretely,
-four things move from "added later, where it fits" to "decided first, at the
-foundation":
+The natural objection is that this is a quantity problem: a bolt-on with *enough*
+verifiers — one per tool, a critic model, a second pass, a panel — must eventually
+become a controller. It does not, and the reason is worth stating as sharply as
+possible, because it is the whole load of the word "fork."
 
-- **Ground truth is a first-class input channel, not a thing scraped from
-  narration.** The harness is built to read the un-authored effect directly — git
-  ancestry, the diff footprint, the OS exit code, the lease WAL, a third-party
-  attestation ([`138`](138_what-is-truth-the-throughline.md)'s evidence ladder;
-  [`109`](109_non-git-evidence-in-the-verify-verdict.md)'s non-git rungs). The
-  agent's narration is *also* read, but demoted at the door to a hint that must
-  clear a non-forgeable checkpoint. This is the difference between a sensor wired
-  to the plant's output and a sensor wired to the plant's *self-estimate*. You
-  decide which one you have at design time; you cannot rewire it later without
-  rebuilding the loop.
+A bolt-on can only verify what its seams carry, and its seams carry the agent's
+narration (§4.1). Adding verifiers adds *readers of the same stream*. Ten critics
+reading the agent's account of what it did are still ten readers of an account —
+generation #3, #4, … #12, each narrating generation #2's narration of generation
+#1. **You cannot reach an un-authored effect by adding more readers of an authored
+one.** The number of verifiers is orthogonal to the axis that matters
+([`138`](138_what-is-truth-the-throughline.md)'s axis: *who authored the bytes the
+verdict stands on*). A panel of models is wider, not grounded; it can catch an
+*internally inconsistent* lie (the agent's story contradicts itself), which is a
+real and useful thing, but it is categorically unable to catch a *consistent* one
+(the agent's story is coherent and false), because nothing in the panel ever
+touches the world the story is about. The flake floor of
+[`102 §6.2`](102_when-to-trust-an-agent.md) is exactly the consistent lie: work
+shape-identical to success from the outside, where only the artifact separates a
+flake from a ship. A report-reader is structurally the wrong instrument there, and
+*N* report-readers are *N* wrong instruments.
 
-- **The unit of work carries its own completion predicate.** Every dispatch
-  declares its extent up front, into a distrusted ledger, so *residual* is
-  computable at every step and the loop's termination condition is "residual empty
-  against ground truth," not "budget spent"
-  ([`117`](117_completion-as-a-verdict-the-end-of-working-in-passes.md)). The plan
-  is not documentation; it is the *committed predicate the work is steered
-  toward* ([`102 §3.2`](102_when-to-trust-an-agent.md)'s
-  conformance-not-correctness move). A verification-first harness is, in one
-  sentence, *a conformance engine over commitments the agent made before it could
-  game the check* — and that engine has to be the skeleton, because the commitment
-  has to be recorded before the first step or it is just another post-hoc report.
+This is the difference between **consistency and grounding**, and it is the hinge
+of the whole fork. A bolt-on, however many verifiers it stacks, can at most make
+the agent's account *self-consistent*. Only a channel to an un-authored effect can
+make a verdict *grounded*. Consistency is a property of the narration; grounding is
+a property of the wiring. **No quantity of the first ever becomes the second** —
+which is why this is a fork and not a spectrum. You do not walk from bolt-on to
+foundation by adding verifiers; you cross by adding a *channel*, and the channel is
+an architecture-time decision (§4.3), not a verifier you can append.
 
-- **Admission is a pre-effect gate, because steering concurrent plants means
-  serializing their effects.** The region-lock (`arbitrate` over the lease
-  journal, the scope gate at the edit boundary —
-  [`102 §5`](102_when-to-trust-an-agent.md)'s shipped pre-effect enforcement) sits
-  *before* the write, where prevention is possible, not after, where only
-  detection is. A foundation-built harness puts the write chokepoint through the
-  verdict; a bolt-on cannot, because its only chokepoints are the seams of a loop
-  that already wrote.
+The same argument, run on the other two limits, gives the same shape:
 
-- **The verdict is structured for steering, not grading — from the first type
-  defined.** Verdicts carry the residual, the escaped file, the refusal cause, the
-  convergence trend, and the forgeability grade of their own evidence (§3). These
-  are the controller's error-vector-and-confidence. A grader designed first would
-  have typed its output as a bit and thrown the structure away; you cannot
-  retrofit a vector onto a bit.
+- *Extent.* No number of end-checks recovers the declared extent if it was never
+  recorded. "Does it look done?" asked ten ways is still ten askings of an
+  unanswerable question, because the answer requires a number (declared) that the
+  architecture never wrote down. You cannot subtract from a quantity you do not
+  have.
+- *Admission.* No number of post-write detectors becomes prevention. Detecting the
+  clobber ten times over does not un-clobber it once
+  ([`102 §5`](102_when-to-trust-an-agent.md)); prevention requires a chokepoint
+  *before* the write, and a loop whose only seams are post-write has no earlier
+  place to stand.
 
-### 4.3 The one-line statement of the fork
+In each case the bolt-on's ceiling is set by *where its seams are*, and more
+verification raises the verifier's resolution under that ceiling without moving the
+ceiling. **The ceiling is the architecture; verifiers are decoration beneath it.**
+
+### 4.3 The three architecture-time decisions, one at a time
+
+The phrase "threaded through from the first type" is the operative one, and it is
+worth making fully concrete: for each of the three, what the foundation harness
+writes into its skeleton, what the corresponding bolt-on seam is, and the precise
+reason the seam cannot be retrofitted.
+
+| The decision | Foundation harness wires | The bolt-on's only seam | Why it can't be threaded later |
+|---|---|---|---|
+| **Un-authored ground truth** | a channel that reads the *effect* the agent did not author — git ancestry + diff footprint, the OS exit code, the lease WAL, a third-party attestation ([`138`](138_what-is-truth-the-throughline.md), [`109`](109_non-git-evidence-in-the-verify-verdict.md)) | the tool-call return / end-of-run text — the agent's narration | The seam carries what the agent *said*. A grounding channel reads what the world *recorded*. These are different wires to different sources; you cannot promote the first to the second by reading it more carefully. Re-wiring means rebuilding the loop around the world-channel — which is being foundation-first. |
+| **Declared extent (the residual)** | a *third durable surface* — the intent ledger, keyed by run-id, recording declared intent + adjudicated progress against it, distinct from the WAL (effects) and git (commits) and written *before step one* ([`107 §1`](107_resumable-work-and-the-intent-ledger.md), [`117 §2(b)`](117_completion-as-a-verdict-the-end-of-working-in-passes.md)) | nothing — the loop has the agent's transcript and (maybe) the commit log, never a prior declaration of total extent | The residual is `declared − verified`. `declared` is a commitment that is only trustworthy if it was *prior* ([`102 §3.3`](102_when-to-trust-an-agent.md)) — fixed before the work could game it. A "declared" you reconstruct after the fact from the transcript is a post-hoc report wearing a plan's clothes; it has lost the priorness that made it worth trusting. The surface had to exist *and be written first*. |
+| **Pre-effect admission** | the write chokepoint routed through `arbitrate` / the scope gate *before* the edit lands — collision *prevention* ([`89`](89_the-lane-is-a-region-lock.md), [`102 §5`](102_when-to-trust-an-agent.md)'s shipped pre-effect gate) | the tool-call return — observed *after* the write happened | A bolt-on's earliest seam is the return of the call that did the write. Prevention needs a seam *before* the call, and the loop has no such seam — its joints are act-then-observe, and admission has to live before "act." Adding it means owning the actuation point, i.e. the loop is built around the gate — foundation-first again. |
+
+Read the right-hand column top to bottom and the pattern is one sentence: **each
+retrofit, taken seriously, turns out to *be* the foundation rebuild.** "Add a
+grounding channel" = build the loop around the world-channel. "Add declared
+extent" = write the prior commitment before step one, i.e. make the ledger the
+skeleton. "Add pre-effect admission" = own the write chokepoint, i.e. make the gate
+the actuation point. There is no version of threading any one of them that leaves
+the bolt-on's act-observe loop intact. That is what "architecture-time decision"
+means in the strict sense: a decision whose *only* faithful implementation changes
+the shape of the loop, so deferring it does not leave a slot — it forecloses the
+choice until you rebuild.
+
+A fourth thing is downstream of these three but worth naming because it is where
+the cost of getting them wrong becomes visible: **the verdict's type.** A
+foundation harness types its verdict as a steering object — residual, escaped file,
+refusal cause, convergence trend, evidence-forgeability grade (§3) — because the
+three channels above *give it that material to carry*. A bolt-on, with only the
+narration seam, has nothing richer than pass/fail to emit, so it types its verdict
+as a bit. And a bit thrown away cannot be recovered: once the verifier's contract
+is `work → {pass, fail}`, every caller is written against a bit, and widening it to
+a vector later breaks every caller. **You cannot retrofit a vector onto a bit** any
+more than you can retrofit a sensor onto a microphone — the type is the
+architecture made checkable.
+
+### 4.4 The same task, through both machines
+
+Make it concrete. The task: *"close the three open auth bugs (#11, #12, #13)."*
+Two agents available; the work touches overlapping files.
+
+**Through a bolt-on.** The loop dispatches the agent with the prompt. The agent
+works, emitting tool calls; the tool-return verifier checks each call's stdout for
+errors (a self-authored stream — a call that *says* it patched the file is
+believed). The agent narrates progress, eventually says "all three fixed," and the
+loop, at the end-of-run seam, asks a critic model "does this look done?" The critic
+reads the agent's summary and the final diff, finds them coherent, says yes. The
+run terminates — on budget, dressed as completion. Three failure modes are live
+and *invisible to this machine*: (a) the agent fixed #11 and #12, *said* it fixed
+#13, and the critic — reading a coherent account — could not tell the consistent
+lie from the truth (a reader of narration cannot catch a coherent false story,
+§4.2; and there is no un-authored extent to check it against, §4.1 second limit);
+(b) the second
+agent, dispatched in parallel, overwrote agent-one's #12 fix in a shared file, and
+nothing prevented it because the only seam is the already-completed tool call
+(§4.1, third limit); (c) had the loop run longer it would have kept finding "more
+to clean up" forever, because it has no residual to tell it the declared three were
+the whole job (§4.1, second limit). Every one of these is silent. The machine
+reports success.
+
+**Through a foundation harness.** Before step one, the dispatch writes the declared
+extent — *three units, {#11, #12, #13}* — into the intent ledger
+([`107`](107_resumable-work-and-the-intent-ledger.md)). Each agent takes a lane
+lease over the files it will touch; the second agent's request for the shared file
+is *refused at admission* ([`89`](89_the-lane-is-a-region-lock.md)) — no clobber,
+because prevention lives before the write (§4.3, row 3). As work lands, the harness
+verifies each unit against an un-authored effect — git ancestry that #11's fix is a
+reachable commit of the right shape ([`138`](138_what-is-truth-the-throughline.md))
+— and marks it `verified` in the ledger, *never* on the agent's say-so. After the
+agent narrates "all three fixed," the harness computes
+`residual = {#11,#12,#13} − verified`. If #13's fix is not a reachable artifact,
+the residual is `{#13}`, the verdict is `INCOMPLETE` carrying that residual
+([`117`](117_completion-as-a-verdict-the-end-of-working-in-passes.md)), and the
+loop *re-dispatches #13* — it does not stop, because the stop condition is
+residual-empty-against-ground-truth, not "the agent said done." The consistent lie
+that beat the bolt-on's critic is caught not by a smarter reader but by a *number
+the agent could not author* (declared extent, fixed before the work) checked
+against *an effect the agent could not forge* (git ancestry). Same task, same
+agents, same model — the difference in outcome is entirely in *where the
+information lives*, which is decided at the foundation.
+
+### 4.5 The honest counterargument — "just expose more hooks"
+
+The sharpest objection, and the one a competent engineer will actually raise:
+*modern agent frameworks already expose rich lifecycle hooks — pre-tool-use,
+post-tool-use, stop, session-start. Can't a "bolt-on" with a pre-tool-use hook do
+pre-effect admission, and a session-start hook record declared extent? Where is the
+fork then?*
+
+The answer concedes the mechanism and holds the line on the architecture. **Yes —
+and a harness that does those things is no longer a bolt-on in the sense this note
+means.** The fork is not about whether the *hooks exist*; it is about whether the
+*loop is organized around them*. Three distinctions keep the line precise:
+
+1. **A pre-tool-use hook that *can refuse the write* is pre-effect admission — and
+   the moment you route the write chokepoint through a verdict that can say no, you
+   have made the gate the actuation point, which is the foundation move (§4.3, row
+   3).** A pre-tool-use hook that only *observes* and cannot refuse is back to
+   post-effect detection wearing an earlier timestamp. The test is not "is there a
+   hook before the tool" but "can the verdict *prevent the effect*." Prevention is
+   the architecture; a hook that cannot prevent is decoration.
+
+2. **A session-start hook that records the agent's *self-declared* plan has
+   recorded a self-report, not a commitment.** The ledger's value is *priorness +
+   distrust* ([`102 §3.3`](102_when-to-trust-an-agent.md),
+   [`107`](107_resumable-work-and-the-intent-ledger.md)): the extent must be fixed
+   before the work *and* cross-checkable against something the agent did not author
+   (the issue tracker's #11/#12/#13, a plan registry — [`117 §5.3`](117_completion-as-a-verdict-the-end-of-working-in-passes.md)'s
+   `ScopeSource` rung). A hook that just stores "the agent said it would do three
+   things" has reproduced the self-report inward; the residual computed against it
+   checks the agent's homework against the agent's own answer key. The hook is
+   necessary and not sufficient — what makes it foundation is *what it records and
+   whether that record is distrusted*.
+
+3. **A grounding channel is not a hook at all.** The deepest of the three is
+   un-authored ground truth, and no lifecycle hook *provides* it — a hook fires
+   *in the agent's process*, reading the agent's context. Git ancestry, the OS exit
+   code, the lease WAL are read *out of band*, by something that is not the agent
+   and not running in its loop. You can call that reader from a hook, but the
+   reader itself is a separate channel to the world; building the harness so that
+   channel is primary (and the hook merely *triggers* a read of it) is, once more,
+   foundation-first.
+
+So the counterargument is right that the *primitives* are available in modern
+frameworks — and that is genuinely good news, because it means the foundation
+harness is *buildable on top of them* rather than requiring a bespoke runtime.
+What it gets wrong is the inference that *availability of the primitive* equals
+*bolt-on suffices*. It does not: using a refusing pre-effect hook, a distrusted
+prior-extent ledger, and an out-of-band grounding channel **is** building
+verification-first — you have simply done it on a framework that gave you the
+seams. The pejorative "bolt-on" was never about the framework; it was about a loop
+that *exposes* seams but is not *organized around* them, so its verifiers read
+narration, its stop condition is budget, and its only chokepoint is post-write. The
+fork is real; the frameworks just put the foundation side within reach.
+
+### 4.6 The one-line statement of the fork
 
 > **Bolt-on:** an agent loop, with a verifier reading the narration it happens to
 > expose. The verifier is a grader because the loop's seams are post-effect and
 > self-authored. Its native stop condition is *budget*; its native verdict is a
-> *bit*; its native failure is *silent compounding*.
+> *bit*; its native failure is *silent compounding*. Adding verifiers raises the
+> grader's resolution; it never moves the ceiling, because the ceiling is *where
+> the seams are*.
 >
 > **Foundation:** a control loop, with the agent as the plant inside it. Ground
 > truth, declared extent, and pre-effect admission are threaded through from the
@@ -300,10 +453,14 @@ foundation":
 
 The reason this is a fork and not a spectrum: the three things the controller
 needs (§4.1) are all *architecture-time* decisions — what channels exist, what
-gets recorded before step one, where the write chokepoint is. You either built
-the loop to carry them or you did not. **A harness does not gradually become
-verification-first by adding more verifiers. It is verification-first or it is a
-loop with verifiers stapled to its exhaust.**
+gets recorded before step one, where the write chokepoint is — and each one's only
+faithful implementation *is* the foundation rebuild (§4.3). More verifiers move the
+resolution, never the ceiling (§4.2). You either built the loop to carry the three
+channels or you did not. **A harness does not gradually become verification-first
+by adding more verifiers. It is verification-first or it is a loop with verifiers
+stapled to its exhaust** — and the good news (§4.5) is that modern frameworks now
+hand you the seams to build the foundation side, so the fork is a design choice you
+get to make, not a runtime you have to write.
 
 ---
 
@@ -323,8 +480,8 @@ re-aimed:
   the declared course*; whether the course was *worth steering* is a judge's or a
   human's call. The horizon you can hold is the horizon of *conformance*, and the
   semantic correctness of the destination rides on the quality of the
-  commitment — which is why the plan being a real pre-commitment (§4.2) is
-  load-bearing, not bureaucratic.
+  commitment — which is why the plan being a real pre-commitment (§4.3's
+  declared-extent row) is load-bearing, not bureaucratic.
 
 - **The cheap lie is priced up, not abolished.** A `--allow-empty` commit on the
   right SHA still satisfies the forgeable grep-subject rung
