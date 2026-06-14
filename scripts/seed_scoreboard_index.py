@@ -163,7 +163,11 @@ def classify_candidate(full: str, meta: dict | None, *, min_stars: int,
         return EXCL_ARCHIVED
     if int(meta.get("stargazerCount", 0)) < min_stars:
         return EXCL_BELOW_STARS
-    pushed = str(meta.get("pushedAt", ""))[:10]  # YYYY-MM-DD
+    # `pushedAt` is a nullable GitTimestamp — gh returns `null` (→ Python None)
+    # for a repo with no push events, so `.get(key, "")` is NOT enough (it only
+    # fills the default on a MISSING key). `None or ""` folds both to "", which
+    # the truthy guard then skips: can't-prove-stale ⇒ treat as fresh.
+    pushed = (meta.get("pushedAt") or "")[:10]  # YYYY-MM-DD
     if pushed and _days_between(pushed, now_iso) > active_days:
         return EXCL_STALE
     # diskUsage is in KB (gh's field unit); convert to MB for the budget.
@@ -345,9 +349,21 @@ def render_index(published: list[str], *, audited: int, withheld: int,
 
 
 def _slug(entry: str) -> str:
-    tail = entry.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-    tail = tail[:-4] if tail.endswith(".git") else tail
+    """Keep a remote repo's org so same-named repos from different orgs don't
+    collide onto one per-repo JSON / clone dir. MUST match drift_scoreboard._slug
+    byte-for-byte: this orchestrator keys lookups by the slug the sweep wrote
+    (the bare `owner/repo` form here vs the clone URL there must agree)."""
     import re
+    e = entry.replace("\\", "/").rstrip("/")
+    parts = [p for p in e.split("/") if p]
+    if "://" in entry or e.lower().startswith("github.com/"):
+        keep = parts[-2:]
+    elif "/" in entry and not entry.startswith((".", "/", "~")) and len(parts) == 2:
+        keep = parts
+    else:
+        keep = parts[-1:]
+    tail = "/".join(keep) if keep else ""
+    tail = tail[:-4] if tail.endswith(".git") else tail
     return re.sub(r"[^A-Za-z0-9._-]", "_", tail) or "repo"
 
 

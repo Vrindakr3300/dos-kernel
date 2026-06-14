@@ -318,7 +318,24 @@ def _git(root: Path | str, *args: str,
 
 
 def _slug(entry: str) -> str:
-    tail = entry.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    """A filesystem-safe slug that keeps a REMOTE repo's org so two same-named
+    repos from different orgs (openai/foo, microsoft/foo) never collide onto one
+    cache dir / per-repo JSON — one repo aliasing the other's verdict is the
+    exact honesty bug the seeded index stakes itself on. A LOCAL path keeps its
+    basename only (the parent dir is not an org), so local-corpus behavior is
+    unchanged."""
+    e = entry.replace("\\", "/").rstrip("/")
+    parts = [p for p in e.split("/") if p]
+    if "://" in entry or e.lower().startswith("github.com/"):
+        # remote ref — keep <org>/<name> (the last two segments after the host).
+        keep = parts[-2:]
+    elif "/" in entry and not entry.startswith((".", "/", "~")) and len(parts) == 2:
+        # a bare `owner/repo` shorthand (no scheme, exactly two segments).
+        keep = parts
+    else:
+        # a local path — the basename is the identity; the parent is not an org.
+        keep = parts[-1:]
+    tail = "/".join(keep) if keep else ""
     tail = tail[:-4] if tail.endswith(".git") else tail
     return re.sub(r"[^A-Za-z0-9._-]", "_", tail) or "repo"
 

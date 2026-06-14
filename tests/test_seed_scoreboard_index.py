@@ -116,6 +116,32 @@ def test_every_exclusion_reason_is_from_the_closed_set():
                      ssi.EXCL_TOO_LARGE}
 
 
+def test_floor_keeps_a_repo_with_no_push_events():
+    # gh returns pushedAt:null (→ None) for a repo with no push events; the
+    # floor must treat can't-prove-stale as fresh, never crash on int('None').
+    meta = {**_GOOD_META, "pushedAt": None}
+    assert ssi.classify_candidate(
+        "a/b", meta, min_stars=500, active_days=90,
+        excluded=set(), now_iso="2026-06-13") is None
+
+
+# ---------------------------------------------------------------------------
+# slug identity — org+name, so same-named repos from different orgs never
+# collide onto one per-repo JSON / clone dir (one repo aliasing another's
+# verdict is the §2 honesty rule the orchestrator stakes itself on).
+# ---------------------------------------------------------------------------
+
+
+def test_slug_keeps_org_so_same_name_different_org_dont_collide():
+    a = ssi._slug("openai/foo")
+    b = ssi._slug("microsoft/foo")
+    assert a != b, "org-stripped slug aliases two distinct repos"
+    # the URL form and the bare owner/repo form must agree — the sweep keys by
+    # the clone URL, the orchestrator looks up by owner/repo.
+    assert ssi._slug("https://github.com/openai/foo") == a
+    assert ssi._slug("https://github.com/openai/foo.git") == a
+
+
 # ---------------------------------------------------------------------------
 # §2 — a CLEAN verdict renders a named page; a non-CLEAN one is withheld.
 # ---------------------------------------------------------------------------
@@ -201,10 +227,12 @@ def test_run_publishes_clean_withholds_drift_and_leaks_no_withheld_name(tmp_path
         out = Path(args_list[args_list.index("--out") + 1])
         per = out / "per-repo"
         per.mkdir(parents=True, exist_ok=True)
-        (per / "alpha.json").write_text(json.dumps(
+        # key the per-repo JSON by the SAME slug the orchestrator looks up by
+        # (org+name) — never a bare name, or the lookup would miss.
+        (per / f"{ssi._slug('good/alpha')}.json").write_text(json.dumps(
             {"repo": "https://github.com/good/alpha",
              "summary": _summary(unwitnessed=0)}), encoding="utf-8")
-        (per / "beta.json").write_text(json.dumps(
+        (per / f"{ssi._slug('bad/beta')}.json").write_text(json.dumps(
             {"repo": "https://github.com/bad/beta",
              "summary": _summary(unwitnessed=1)}), encoding="utf-8")
         # the clone cache dirs the range step looks for (slug of the clone URL).
