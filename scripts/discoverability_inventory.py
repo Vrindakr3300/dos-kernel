@@ -125,6 +125,24 @@ def _cookbook_recipes() -> int:
     return n
 
 
+def _scoreboard() -> dict:
+    """The per-repo scoreboard fan-out (docs/311, #98) — the multiplicative
+    discovery surface: one indexed, named trust page per audited repo, each a
+    landing context where an agent auditing that repo meets DOS. Counts the
+    TRACKED pages (the published surface), plus whether the seeded-index
+    orchestrator (the corpus-scale engine) and its index root are in the tree."""
+    sb = REPO / "docs" / "scoreboard"
+    pages = sorted(
+        str(p.relative_to(REPO)).replace("\\", "/")
+        for p in sb.glob("*/*.md")  # docs/scoreboard/<org>/<name>.md
+    ) if sb.exists() else []
+    return {
+        "pages_published": pages,
+        "index_root": _present("docs/scoreboard/README.md"),
+        "orchestrator": _present("scripts/seed_scoreboard_index.py"),
+    }
+
+
 def gather() -> dict:
     arrival = [(p, d, _present(p)) for p, d in ARRIVAL_FILES]
     answers = _count_glob("docs/answers/*.md", exclude="README")
@@ -145,6 +163,7 @@ def gather() -> dict:
         "tiers": tiers,
         "framework_recipes": recipes,
         "registries": registries,
+        "scoreboard": _scoreboard(),
     }
 
 
@@ -152,6 +171,7 @@ def headline(inv: dict) -> dict:
     arrival_present = sum(1 for _, _, ok in inv["arrival_files"] if ok)
     registries_live = sum(1 for r in inv["registries"] if r["status"] == "LIVE")
     registries_gated = sum(1 for r in inv["registries"] if r["status"] == "GATED")
+    sb = inv["scoreboard"]
     return {
         "arrival_files_present": arrival_present,
         "arrival_files_expected": len(inv["arrival_files"]),
@@ -161,6 +181,8 @@ def headline(inv: dict) -> dict:
         "framework_recipes": inv["framework_recipes"],
         "registries_live": registries_live,
         "registries_gated_submitted": registries_gated,
+        "scoreboard_pages_published": len(sb["pages_published"]),
+        "scoreboard_fanout_engine": bool(sb["orchestrator"] and sb["index_root"]),
     }
 
 
@@ -181,6 +203,8 @@ def render(inv: dict, h: dict) -> str:
     L.append(f"- integration tiers: **{h['integration_tiers']}**")
     L.append(f"- framework seams (cookbook recipes): **{h['framework_recipes']}**")
     L.append(f"- external registries LIVE: **{h['registries_live']}**  ·  GATED/submitted: **{h['registries_gated_submitted']}**")
+    fanout = "yes" if h["scoreboard_fanout_engine"] else "no"
+    L.append(f"- scoreboard per-repo pages published: **{h['scoreboard_pages_published']}**  ·  corpus fan-out engine: **{fanout}**")
     L.append("")
     L.append("## 1. Arrival files (the well-known fetch targets)")
     L.append("")
@@ -210,6 +234,16 @@ def render(inv: dict, h: dict) -> str:
         if r["evidence"]:
             ev = f" [evidence: `{r['evidence']}`{'' if r['evidence_present'] else ' — MISSING'}]"
         L.append(f"- **{r['status']}** — {r['name']}: {r['why']}{ev}")
+    L.append("")
+    L.append("## 5. Scoreboard per-repo fan-out (the multiplicative surface)")
+    L.append("")
+    sb = inv["scoreboard"]
+    L.append(f"- corpus fan-out engine present: "
+             f"{'yes' if sb['orchestrator'] and sb['index_root'] else 'no'} "
+             "(`scripts/seed_scoreboard_index.py` + `docs/scoreboard/README.md`)")
+    L.append(f"- per-repo pages published (tracked): {len(sb['pages_published'])}")
+    for p in sb["pages_published"]:
+        L.append(f"  - `{p}`")
     L.append("")
     L.append("## Answer pages (the corpus an answer-engine lifts)")
     L.append("")
@@ -245,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
             "tiers": inv["tiers"],
             "framework_recipes": inv["framework_recipes"],
             "registries": inv["registries"],
+            "scoreboard": inv["scoreboard"],
         }}, indent=2))
     else:
         print(render(inv, h))

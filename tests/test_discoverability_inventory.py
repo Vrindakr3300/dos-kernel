@@ -40,6 +40,7 @@ _HEADLINE_KEYS = {
     "arrival_files_present", "arrival_files_expected", "answer_pages",
     "hosts_wireable", "integration_tiers", "framework_recipes",
     "registries_live", "registries_gated_submitted",
+    "scoreboard_pages_published", "scoreboard_fanout_engine",
 }
 
 
@@ -74,6 +75,19 @@ def test_gated_registries_are_excluded_from_the_live_count():
 def test_every_registry_status_is_from_the_closed_set():
     for r in di.gather()["registries"]:
         assert r["status"] in {"LIVE", "GATED"}
+
+
+def test_scoreboard_fanout_engine_is_present():
+    # the multiplicative discovery surface (#98): the orchestrator + index root
+    # are in the tree, and page #1 (the self-page) is published. Pin it so a
+    # regression that drops the fan-out engine is caught.
+    inv = di.gather()
+    sb = inv["scoreboard"]
+    assert sb["orchestrator"] is True
+    assert sb["index_root"] is True
+    assert len(sb["pages_published"]) >= 1   # at least page #1
+    h = di.headline(inv)
+    assert h["scoreboard_fanout_engine"] is True
 
 
 def test_three_integration_tiers_including_exit_code():

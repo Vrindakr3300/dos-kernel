@@ -323,3 +323,11 @@ benchmark/enterpriseops/_verify_witness_claim.py
 /_dos_hook*
 /_*VERDICT*.txt
 /.gemini/
+
+# Scoreboard sweep/seed staging — the corpus run's clones, the per-repo
+# (identity-carrying, operator-only) verdict JSONs, and the FOREIGN named pages
+# a seed run stages for review. Publishing to gh-pages is an owner action (#98);
+# a run's output never gets tracked. The TRACKED scoreboard artifacts are only
+# under docs/scoreboard/ (the index root, methodology, report, page #1).
+/scoreboard-out/
+/scoreboard-seed-out/
