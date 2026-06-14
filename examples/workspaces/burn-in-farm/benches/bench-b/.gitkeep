@@ -1,0 +1,4 @@
+# chamber B — a second physical bench, disjoint footprint from chamber A.
+# Empty in the fixture: its job is to prove a SECOND bench admits concurrently
+# while chamber A is held (the disjoint-equipment-lane case). Its own campaign
+# fixtures would mirror bench-a/ on a live farm.
