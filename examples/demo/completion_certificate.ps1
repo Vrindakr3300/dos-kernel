@@ -8,9 +8,11 @@
 #
 #   pwsh examples/demo/completion_certificate.ps1
 #
-# It builds on the SAME canonical AUTH story as verify_demo.ps1: an agent claims
-# it shipped two phases — the login endpoint (AUTH1, real) and the password reset
-# (AUTH2, never landed) — and the certificate tells them apart from the artifacts.
+# It builds on the SAME canonical AUTH story as verify_demo.ps1. An agent claims it
+# shipped two phases:
+#   - the login endpoint (AUTH1) -- a real commit landed it
+#   - the password reset (AUTH2) -- nothing ever landed
+# The certificate tells them apart from the artifacts, not the claim.
 #
 # Requires: `dos` on PATH (pip install -e .) and git. No agents, no fleet.
 $ErrorActionPreference = 'Stop'
