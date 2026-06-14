@@ -391,6 +391,25 @@ BENCHMARKS: Dict[str, BenchSpec] = {
                        prereqs=()),
         ),
     ),
+    # -------------------------------------------------------------------- iot_tier
+    "iot_tier": BenchSpec(
+        name="iot_tier",
+        question="Across a model-size ladder (frontier->mid->small->IoT-class), where does DOS's "
+                 "recoverable-failure fraction PEAK and where does it COLLAPSE — is the proof "
+                 "point the weakest model or the middle one (docs/153 §1-§2)?",
+        results_summary="benchmark/iot_tier/RESULTS.md",
+        entrypoints=(
+            Entrypoint("sweep", ["benchmark.iot_tier.harness", "--json"],
+                       cost="free",
+                       does="$0 fold the REAL weak-model gate (the shipped byte-clean detectors + "
+                            "enrichment filter) over a synthetic, declared-and-cited per-tier "
+                            "failure-mix corpus; emits the rise-then-collapse recoverable-fraction "
+                            "curve. Self-tests against the gemini null; in-band falsifier exits "
+                            "non-zero if the curve is flat/monotone. Calibrated SIM (synthetic "
+                            "corpora, real detectors) — the falsifier is the docs/153 $50 real run",
+                       prereqs=()),
+        ),
+    ),
 }
 
 
