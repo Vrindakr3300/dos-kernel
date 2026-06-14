@@ -60,7 +60,7 @@ Each is a distinct refuse cause the joint floor must name.
    never run on `trunk + A`. B merges textually clean; the combined suite is red.
    *The witness B carried certifies a tree that no longer exists.* This is the
    STORM/DeLM "defers conflict resolution to a post-hoc merge step" the
-   [FAQ](../FAQ.md) already cites — but at the **witness** level, one layer below
+   [FAQ](FAQ.md) already cites — but at the **witness** level, one layer below
    the textual level everyone means by it.
 
 2. **DISJOINT_BUT_DEPENDENT** — A renames `helper()`; B (different files, so the
