@@ -43,6 +43,20 @@ an owner action** (#98 gate 4). Everything lands in a staging dir; only
 self/page-1 tier is committed — foreign named pages stage for the operator's
 review (and right-of-reply where it applies) before any push.
 
+CORPUS ACQUISITION — the real corpus-scale route is `--candidates FILE`, NOT
+live `--enumerate`. Measured 2026-06-13: GitHub's public commit-search API
+(`gh api search/commits`) (a) does not rank commits by repo stars, so its
+default window is dominated by tiny new repos, and (b) secondary-rate-limits
+aggressive pagination within a few requests — so it cannot enumerate a
+star-ranked agent-active corpus at scale from one session. The methodology's
+own §4 says selection stays a human step for exactly this reason. The
+corpus-scale path the operator runs: build a curated `candidates.txt` of known
+high-star agent-active repos (from the GH Archive / BigQuery the methodology
+references, or a hand-curated seed), then `--candidates that-file` — the §4
+floor re-verifies stars/recency/fork live, so a stale seed self-corrects. The
+live `--enumerate` (default) is a convenience for a quick small sweep, not the
+scale route.
+
 Advisory framing (the Wall-3 line, verbatim): drift is a claim-vs-diff
 mismatch, never a correctness, honesty, or intent grade.
 """
@@ -78,9 +92,14 @@ EXCL_FORK = "FORK"
 EXCL_ARCHIVED = "ARCHIVED"
 EXCL_OUTREACH = "OUTREACH_CONFLICT"
 EXCL_META_FAIL = "META_FAIL"  # gh metadata unreadable — excluded conservatively
+EXCL_TOO_LARGE = "TOO_LARGE"  # disk size over the budget — the full clone the
+                              # ancestry audit needs would blow the time/disk
+                              # budget (measured: a 1GB+ repo can't clone in a
+                              # session). A shallow clone is NOT a fix — the
+                              # audit reads ancestry (the GIT_DEPTH lesson).
 EXCL_REASONS = (
     EXCL_BELOW_STARS, EXCL_STALE, EXCL_FORK, EXCL_ARCHIVED,
-    EXCL_OUTREACH, EXCL_META_FAIL,
+    EXCL_OUTREACH, EXCL_META_FAIL, EXCL_TOO_LARGE,
 )
 
 
@@ -124,13 +143,15 @@ def enumerate_live(timeout: int = 180) -> list[tuple[str, str]]:
 
 def classify_candidate(full: str, meta: dict | None, *, min_stars: int,
                        active_days: int, excluded: set[str],
-                       now_iso: str) -> str | None:
+                       now_iso: str, max_mb: int = 0) -> str | None:
     """Return None to KEEP, or an EXCL_* reason to drop. Pure over its inputs.
 
     `meta` is the `gh repo view --json …` dict (or None if unreadable);
     `excluded` is the lower-cased outreach-conflict set; `now_iso` is the
     YYYY-MM-DD wall date the staleness window is measured against (injected so
-    the decision is testable).
+    the decision is testable); `max_mb` (0 = off) drops a repo whose on-disk
+    size would blow the clone budget — the full ancestry clone, not a shallow
+    one (the audit reads ancestry).
     """
     if full.lower() in excluded:
         return EXCL_OUTREACH
@@ -145,6 +166,9 @@ def classify_candidate(full: str, meta: dict | None, *, min_stars: int,
     pushed = str(meta.get("pushedAt", ""))[:10]  # YYYY-MM-DD
     if pushed and _days_between(pushed, now_iso) > active_days:
         return EXCL_STALE
+    # diskUsage is in KB (gh's field unit); convert to MB for the budget.
+    if max_mb and int(meta.get("diskUsage", 0)) / 1024 > max_mb:
+        return EXCL_TOO_LARGE
     return None
 
 
@@ -165,7 +189,7 @@ def fetch_meta(full: str, timeout: int = 30) -> dict | None:
     try:
         r = subprocess.run(
             ["gh", "repo", "view", full, "--json",
-             "stargazerCount,pushedAt,isFork,isArchived"],
+             "stargazerCount,pushedAt,isFork,isArchived,diskUsage"],
             capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
         if r.returncode != 0:
@@ -330,7 +354,7 @@ def _slug(entry: str) -> str:
 def run(*, candidates: list[tuple[str, str]], excluded: set[str],
         out: Path, min_stars: int, active_days: int, audit_limit: int,
         scan_limit: int, rendered: str, auditor: str, now_iso: str,
-        limit: int | None) -> dict:
+        limit: int | None, max_mb: int = 0) -> dict:
     """Execute the pipeline. Returns a manifest of COUNTS + the published
     (CLEAN, named) set only — never an un-published foreign name."""
     out.mkdir(parents=True, exist_ok=True)
@@ -344,7 +368,7 @@ def run(*, candidates: list[tuple[str, str]], excluded: set[str],
         meta = fetch_meta(full)
         reason = classify_candidate(full, meta, min_stars=min_stars,
                                     active_days=active_days, excluded=excluded,
-                                    now_iso=now_iso)
+                                    now_iso=now_iso, max_mb=max_mb)
         if reason is None:
             kept.append((full, label))
         else:
@@ -435,7 +459,10 @@ def _auditor_string() -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--candidates", help="file of `owner/repo[\\tlabel]` lines "
-                    "(default: run drift_scoreboard.py --enumerate live)")
+                    "— THE corpus-scale route (a curated high-star agent-active "
+                    "seed; the §4 floor re-verifies it live). Default: a small "
+                    "live `drift_scoreboard.py --enumerate` (rate-limited, "
+                    "not star-ranked — a quick sweep, not the scale route).")
     ap.add_argument("--exclude", help="outreach-conflict file: one owner/repo "
                     "per line (the §4 'no grading whom we court' rule)")
     ap.add_argument("--out", default="scoreboard-seed-out",
@@ -446,6 +473,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--scan-limit", type=int, default=10000)
     ap.add_argument("--limit", type=int,
                     help="bound the candidate count (the bounded-proof knob)")
+    ap.add_argument("--max-clone-mb", type=int, default=0,
+                    help="skip a repo whose on-disk size exceeds this many MB "
+                    "(0 = off). The audit needs the FULL ancestry clone, so a "
+                    "huge repo blows the time/disk budget — measured: a 1GB+ "
+                    "repo can't clone in a session. A shallow clone is not a "
+                    "fix (ancestry). Excluded as TOO_LARGE.")
     ap.add_argument("--rendered", help="render date YYYY-MM-DD (default: today UTC)")
     ap.add_argument("--write-index", action="store_true",
                     help="write the tracked docs/scoreboard/README.md index "
@@ -489,7 +522,7 @@ def main(argv: list[str] | None = None) -> int:
         min_stars=args.min_stars, active_days=args.active_days,
         audit_limit=args.audit_limit, scan_limit=args.scan_limit,
         rendered=rendered, auditor=_auditor_string(), now_iso=now_iso,
-        limit=args.limit)
+        limit=args.limit, max_mb=args.max_clone_mb)
 
     if args.write_index:
         index_md = render_index(

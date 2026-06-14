@@ -331,3 +331,7 @@ benchmark/enterpriseops/_verify_witness_claim.py
 # under docs/scoreboard/ (the index root, methodology, report, page #1).
 /scoreboard-out/
 /scoreboard-seed-out/
+# any suffixed staging dir a run uses (scoreboard-seed-out2/, …-pilot/, …):
+/scoreboard-seed-out*/
+/scoreboard-seed-out*.log
+/scoreboard-out*.log

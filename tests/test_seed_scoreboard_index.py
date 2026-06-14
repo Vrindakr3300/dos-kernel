@@ -92,10 +92,28 @@ def test_floor_excludes_unreadable_metadata_conservatively():
                                   excluded=set(), now_iso="2026-06-13") == ssi.EXCL_META_FAIL
 
 
+def test_floor_excludes_too_large_when_budget_set():
+    # diskUsage is in KB; 2 GB repo with a 1000 MB budget → TOO_LARGE. This is
+    # the guard for the measured failure: a 1GB+ repo can't clone in a session.
+    meta = {**_GOOD_META, "diskUsage": 2_000_000}  # ~1.9 GB
+    assert ssi.classify_candidate("a/b", meta, min_stars=500, active_days=90,
+                                  excluded=set(), now_iso="2026-06-13",
+                                  max_mb=1000) == ssi.EXCL_TOO_LARGE
+
+
+def test_size_guard_off_by_default_keeps_large_repo():
+    # max_mb=0 (the default) means the guard is off — a large repo is kept.
+    meta = {**_GOOD_META, "diskUsage": 2_000_000}
+    assert ssi.classify_candidate("a/b", meta, min_stars=500, active_days=90,
+                                  excluded=set(), now_iso="2026-06-13",
+                                  max_mb=0) is None
+
+
 def test_every_exclusion_reason_is_from_the_closed_set():
     for r in ssi.EXCL_REASONS:
         assert r in {ssi.EXCL_BELOW_STARS, ssi.EXCL_STALE, ssi.EXCL_FORK,
-                     ssi.EXCL_ARCHIVED, ssi.EXCL_OUTREACH, ssi.EXCL_META_FAIL}
+                     ssi.EXCL_ARCHIVED, ssi.EXCL_OUTREACH, ssi.EXCL_META_FAIL,
+                     ssi.EXCL_TOO_LARGE}
 
 
 # ---------------------------------------------------------------------------
