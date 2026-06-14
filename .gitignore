@@ -335,3 +335,4 @@ benchmark/enterpriseops/_verify_witness_claim.py
 /scoreboard-seed-out*/
 /scoreboard-seed-out*.log
 /scoreboard-out*.log
+/scoreboard-seed-out*.manifest.json

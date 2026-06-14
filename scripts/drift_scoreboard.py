@@ -376,7 +376,17 @@ def sweep_repo(entry: str, repo: Path, *, scan_limit: int,
     verdicts = []
     markers: dict[str, int] = {}
     for sha, marker in attributed[:audit_limit]:
-        v = audit_commit(sha, root=repo)
+        # One malformed commit (e.g. a null/empty subject some history carries)
+        # must not abort a whole-repo sweep — at corpus scale that would lose
+        # every later repo too. Skip the offending commit; the sample shrinks by
+        # one, which is the conservative direction (a missed commit can't poison
+        # the rate). The kernel-side root cause is tracked separately.
+        try:
+            v = audit_commit(sha, root=repo)
+        except Exception as exc:  # noqa: BLE001 — degrade per-commit, never crash
+            print(f"  [skip] {sha[:9]}: audit error ({type(exc).__name__})",
+                  file=sys.stderr)
+            continue
         if v is not None:
             verdicts.append(v)
             markers[marker] = markers.get(marker, 0) + 1

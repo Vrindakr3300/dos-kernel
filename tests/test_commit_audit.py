@@ -573,6 +573,24 @@ def test_reader_doc_only_fix_is_unwitnessed(tmp_path: Path):
 
 
 @gitmark
+def test_reader_null_subject_commit_does_not_crash(tmp_path: Path):
+    """A commit with an EMPTY/absent subject must read back as a no-claim ABSTAIN,
+    never an AttributeError. Regression for the corpus-sweep crash: some imported
+    history carries a null `%s`, and `subject.strip()` blew up the whole sweep
+    (one bad commit lost every later repo). The guard treats it as no claim."""
+    _init_repo(tmp_path)
+    (tmp_path / "src" / "app.py").write_text("x = 9\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "src/app.py"],
+                   capture_output=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-q",
+                    "--allow-empty-message", "-m", ""], capture_output=True)
+    v = ca.audit_commit("HEAD", root=tmp_path)   # must not raise
+    assert v is not None
+    # an empty subject makes no checkable claim → ABSTAIN (no over-claim).
+    assert v.verdict is Verdict.ABSTAIN
+
+
+@gitmark
 def test_reader_ci_scoped_workflows_only_commit_is_witnessed(tmp_path: Path):
     """The real 5b2b940/e5debd1 shape end-to-end: `fix(ci): …` touching only
     .github/workflows/ci.yml reads back as OK / diff-witnessed."""

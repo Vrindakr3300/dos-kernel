@@ -788,7 +788,11 @@ def read_commit(ref: str, *, root: Path | str) -> tuple[CommitClaim, DiffFacts] 
     rc, subject = _git(root, "log", "-1", "--pretty=format:%s", ref)
     if rc != 0:
         return None
-    subject = subject.strip()
+    # A commit can carry a null/absent subject (some imported or malformed
+    # history does); `%s` then yields nothing and `subject` may be None. Guard
+    # it so a single such commit can't crash a corpus-scale sweep (the rest of
+    # this function treats an empty subject as "no checkable claim" → ABSTAIN).
+    subject = (subject or "").strip()
 
     # numstat: "<added>\t<removed>\t<path>" per file; binary → "-\t-\t<path>".
     rc, numstat = _git(root, "show", "--numstat", "--format=", "--no-renames", ref)
