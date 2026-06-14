@@ -1,0 +1,58 @@
+# burn-in-farm — agent fleet sharing physical lab equipment (the generic
+# hardware-in-the-loop case, #97).
+#
+# Shape: a reliability lab with TWO independent burn-in benches (chamber A,
+# chamber B) plus disjoint firmware/test source lanes. A bench is a physical,
+# unshareable resource: one campaign at a time per chamber. On top of the
+# per-bench exclusivity there is a FARM-WIDE cap — power and thermal headroom
+# allow at most N chambers running at once — expressed as a concurrency-class
+# budget (docs/97), not a lane.
+#
+# The point of this fixture (and playbook 09):
+#   1. an EQUIPMENT lane — a bench, exclusive OF ITSELF (one taker), concurrent
+#      with disjoint source lanes — needs zero kernel change (the taxonomy is
+#      pure policy data, so it holds for non-file resources);
+#   2. a CLASS BUDGET — "at most N concurrent burn-in chambers" — refuses the
+#      (N+1)th taker with CLASS_BUDGET_EXHAUSTED (driven via the picker path a
+#      host supplies; see the playbook's honesty note);
+#   3. the WITNESS IS THE RIG — a "the soak passed" claim is adjudicated from
+#      the instrument's own thermal capture, not the campaign log the agent's
+#      tooling wrote (`dos attest`).
+#
+# See ../../playbooks/09_hardware-in-the-loop-equipment.md for the walkthrough,
+# and ../edu-rig/ + playbook 08 for the worked QEMU-`edu` instance of the same
+# three properties on a ring-0 driver bring-up.
+#
+# No real vendor's equipment is named; everything runs against static fixtures.
+workspace = "."
+
+# Each bench is a lane whose tree is its on-disk footprint — the campaign log
+# and the instrument's thermal capture for that chamber. A bench is exclusive
+# OF ITSELF via the arbiter's same-lane refusal (one campaign at a time), NOT in
+# the `exclusive` set: that set means "run ALONE, block the whole portfolio"
+# (a terraform-apply, the global lane), and a held bench must not stop a
+# disjoint firmware/** edit from running concurrently.
+#
+# autopick deliberately omits the benches: there is no "equivalent free bench"
+# in the sense the picker means — an agent that needs chamber A waits for
+# chamber A; it is never silently handed chamber B or a source lane instead.
+[lanes]
+concurrent = ["bench-a", "bench-b", "firmware", "tests"]
+exclusive  = []
+autopick   = ["firmware", "tests"]
+
+[lanes.trees]
+bench-a  = ["benches/bench-a/**"]
+bench-b  = ["benches/bench-b/**"]
+firmware = ["firmware/**"]
+tests    = ["tests/**"]
+
+# The farm-wide concurrency cap as config DATA (docs/97): at most 2 chambers
+# may run a campaign at once, regardless of how many benches exist, because the
+# lab's power/thermal budget covers two. This is the host-armed budget the
+# picker enforces; with no [[concurrency_class]] table it is unbounded (today's
+# default). A bench lease declares `concurrency_class = "burn-in"` so it counts
+# against this cap.
+[[concurrency_class]]
+name = "burn-in"
+max_concurrent = 2

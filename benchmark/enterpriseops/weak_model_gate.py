@@ -32,6 +32,7 @@ from __future__ import annotations
 import glob
 import json
 import sys
+from dataclasses import dataclass
 
 from dos.dangling_intent import StopEvidence, classify_stop
 from dos.tool_stream import ToolStream, classify_stream
@@ -95,48 +96,60 @@ def _fires_dangle(run: dict) -> bool:
 THRESHOLD = 0.15  # docs/153 §3 pre-registered: >= => DOS-shaped, run the A/B; < => falsified.
 
 
-def main():
-    folder = sys.argv[1] if len(sys.argv) > 1 else "benchmark/enterpriseops/live_results"
-    files = glob.glob(f"{folder}/**/*.json", recursive=True)
+@dataclass(frozen=True)
+class GateResult:
+    """The deduped, enrichment-filtered DOS-recoverable fraction over one corpus of runs.
 
+    Every field is a MEASUREMENT, not an input: the three detectors are folded over the runs,
+    a detector counts toward `recoverable` only if it is enriched on failures vs passes (the
+    signal-vs-noise filter the gemini self-test forced), and `frac` is the deduped share of
+    failed runs flagged by at least one enriched detector. This is the exact computation
+    `main()` prints — extracted so a sweep (e.g. benchmark/iot_tier) can fold the SAME
+    validated logic over many corpora without shelling the CLI or re-rolling the fold.
+    """
+    model: str
+    n_fail: int
+    n_pass: int
+    fail_fires: dict      # {detector: count on FAILED runs}
+    pass_fires: dict      # {detector: count on PASSED runs}
+    enriched: dict        # {detector: bool — SIGNAL (fires more on failures) vs NOISE}
+    recoverable: int      # deduped failed runs flagged by >=1 enriched detector
+    frac: float           # recoverable / n_fail  (the headline)
+    unreachable: int      # n_fail - recoverable  (silent-stop / planning / noise-only)
+
+
+def gate_fraction(runs, task_text: str = "", *, model: str = "?") -> GateResult:
+    """Fold the three shipped byte-clean detectors over `runs` and return the enrichment-
+    filtered recoverable fraction. `runs` is a list of run-dicts in the recorded-trajectory
+    shape (`tool_results` / `conversation_flow` / `model_response` / `overall_success`).
+
+    Pure given its inputs (no I/O, no model calls) — the model-agnostic gate, callable.
+    """
     n_fail = n_pass = 0
-    # per-detector fire counts on failed vs passed runs — the enrichment test that separates
-    # SIGNAL (fires more on failures) from NOISE (fires equally/more on passes = false positives).
     ff = {"mint": 0, "loop": 0, "dangle": 0}   # fires on FAILED
     pf = {"mint": 0, "loop": 0, "dangle": 0}   # fires on PASSED
-    fire_any_enriched = 0  # deduped per failed run, counting ONLY detectors enriched on failures
-    model = "?"
     rows = []  # (failed?, {detector: fired})
 
-    for f in files:
-        try:
-            d = json.load(open(f, encoding="utf-8"))
-        except Exception:
+    for r in runs:
+        if not isinstance(r, dict):
             continue
-        top = d if isinstance(d, dict) else {}
-        bc = top.get("benchmark_config", {}) or {}
-        m = bc.get("model") or bc.get("llm") or bc.get("model_name")
-        if m:
-            model = str(m)
-        task_text = str(bc.get("user_prompt", "") or "")
-        for r in _runs(d):
-            s = r.get("overall_success")
-            if s is None:
-                continue
-            fired = {
-                "mint": _fires_mint(r, task_text),
-                "loop": _fires_loop(r),
-                "dangle": _fires_dangle(r),
-            }
-            if s is False:
-                n_fail += 1
-                for k, v in fired.items():
-                    ff[k] += 1 if v else 0
-            else:
-                n_pass += 1
-                for k, v in fired.items():
-                    pf[k] += 1 if v else 0
-            rows.append((s is False, fired))
+        s = r.get("overall_success")
+        if s is None:
+            continue
+        fired = {
+            "mint": _fires_mint(r, task_text),
+            "loop": _fires_loop(r),
+            "dangle": _fires_dangle(r),
+        }
+        if s is False:
+            n_fail += 1
+            for k, v in fired.items():
+                ff[k] += 1 if v else 0
+        else:
+            n_pass += 1
+            for k, v in fired.items():
+                pf[k] += 1 if v else 0
+        rows.append((s is False, fired))
 
     def rate(c, n):
         return (c / n) if n else 0.0
@@ -148,12 +161,49 @@ def main():
     enriched = {k: rate(ff[k], n_fail) > rate(pf[k], n_pass) for k in ff}
 
     # deduped recoverable = failed runs fired on by AT LEAST ONE enriched detector
-    fire_any_enriched = sum(
+    recoverable = sum(
         1 for is_fail, fired in rows
         if is_fail and any(fired[k] and enriched[k] for k in fired)
     )
-    frac = rate(fire_any_enriched, n_fail)
-    unreachable = n_fail - fire_any_enriched
+    return GateResult(
+        model=model, n_fail=n_fail, n_pass=n_pass,
+        fail_fires=ff, pass_fires=pf, enriched=enriched,
+        recoverable=recoverable, frac=rate(recoverable, n_fail),
+        unreachable=n_fail - recoverable,
+    )
+
+
+def main():
+    folder = sys.argv[1] if len(sys.argv) > 1 else "benchmark/enterpriseops/live_results"
+    files = glob.glob(f"{folder}/**/*.json", recursive=True)
+
+    all_runs = []
+    model = "?"
+    task_text = ""
+    for f in files:
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+        except Exception:
+            continue
+        top = d if isinstance(d, dict) else {}
+        bc = top.get("benchmark_config", {}) or {}
+        m = bc.get("model") or bc.get("llm") or bc.get("model_name")
+        if m:
+            model = str(m)
+        # the per-file task text is what the mint fold uses; the corpus is single-task in
+        # practice (one user_prompt per recordings folder), so the last seen wins (unchanged
+        # from the inline fold, which read bc.user_prompt per file into one task_text var).
+        task_text = str(bc.get("user_prompt", "") or task_text)
+        all_runs.extend(_runs(d))
+
+    res = gate_fraction(all_runs, task_text, model=model)
+    model = res.model
+    n_fail, n_pass = res.n_fail, res.n_pass
+    ff, pf, enriched = res.fail_fires, res.pass_fires, res.enriched
+    fire_any_enriched, frac, unreachable = res.recoverable, res.frac, res.unreachable
+
+    def rate(c, n):
+        return (c / n) if n else 0.0
 
     print("=" * 80)
     print(f"  WEAK-MODEL GATE (docs/153 §5) — model: {model}")

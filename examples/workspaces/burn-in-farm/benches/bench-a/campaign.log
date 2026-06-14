@@ -1,0 +1,5 @@
+2026-06-14T08:00:00Z chamber A: campaign start, target 125C / 168h
+2026-06-14T08:05:12Z unit-3: soak reached 125.1C, monitoring
+2026-06-14T08:05:30Z unit-7: soak reached 125.0C, monitoring
+2026-06-14T16:00:00Z PASS unit-3: 168h soak complete, no faults
+2026-06-14T16:00:00Z PASS unit-7: 168h soak complete, no faults

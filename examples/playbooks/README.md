@@ -34,6 +34,7 @@ names, realistic layout. Find the one whose directory tree looks most like yours
 | **Data / ML pipeline** | `ingest/` + `train/` + `serve/`, long jobs, one shared GPU box | **`liveness()`** — is that 40-minute training run *advancing*, or wedged in a retry loop? | [`04_data-ml-pipeline.md`](04_data-ml-pipeline.md) |
 | **Infra / platform monorepo** | Terraform + k8s + pipelines, blast-radius is real | **exclusive lanes, the self-modify guard, operator-gated `BLOCKED`** — the refusals that keep a fleet from detonating shared state | [`05_infra-monorepo.md`](05_infra-monorepo.md) |
 | **Driver / ring-0 bring-up** | a PCI-driver repo + one emulated rig (QEMU's `edu` device — no physical hardware) | **equipment lanes + the effect-witness join + ring-0 exec capability** — "the interrupt fires" adjudicated from `/proc/interrupts`, never from narration | [`08_driver-bringup-qemu-edu.md`](08_driver-bringup-qemu-edu.md) |
+| **Hardware-in-the-loop lab** | a fleet sharing finite physical equipment — burn-in chambers, qual rigs, license seats | **equipment lanes + a farm-wide class budget + the effect-witness join** — one bench per taker, at most N concurrent, "the soak passed" adjudicated from the instrument's thermal capture | [`09_hardware-in-the-loop-equipment.md`](09_hardware-in-the-loop-equipment.md) |
 
 Start with the onboarding quickstart, then jump to your archetype:
 
@@ -54,6 +55,12 @@ Start with the onboarding quickstart, then jump to your archetype:
    fires" claim REFUTED from the `/proc/interrupts` delta, and `insmod` declared
    as an arbitrary-exec entry point. Runs entirely against QEMU's `edu` device
    and static fixtures — no physical hardware.
+6. **[`09_hardware-in-the-loop-equipment.md`](09_hardware-in-the-loop-equipment.md)** —
+   the *generic* equipment case: a fleet sharing physical lab benches. One bench
+   per taker (same-lane refusal), a farm-wide "at most N concurrent" class budget
+   that refuses the (N+1)th chamber (`CLASS_BUDGET_EXHAUSTED`), and a false "the
+   soak passed" claim REFUTED from the instrument's thermal capture, not the
+   campaign log. Static fixtures — no physical hardware.
 
 ## Four cookbooks (recipes, not walkthroughs)
 
@@ -92,6 +99,7 @@ The playbooks reference workspaces under
 | [`riverflow/`](../workspaces/riverflow/) | data / ML pipeline |
 | [`gravel/`](../workspaces/gravel/) | infra / platform monorepo |
 | [`edu-rig/`](../workspaces/edu-rig/) | driver / ring-0 bring-up (QEMU `edu`) |
+| [`burn-in-farm/`](../workspaces/burn-in-farm/) | hardware-in-the-loop lab (shared burn-in benches) |
 
 ```bash
 cd examples/workspaces/acme-store

@@ -3220,6 +3220,13 @@ Detail lives in two cold-tier docs — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 [docs/DOGFOOD.md](docs/DOGFOOD.md) (the worked DOS-on-DOS ritual). Read the
 relevant cold section before editing a kernel leaf.
 
+> **Prefer tool calls over prose (HIGH PRIORITY).** When a tool call can do
+> the work — read a file, run `dos verify`, grep, edit — make the call instead
+> of describing it. Don't narrate what you're about to do, ask permission for
+> a routine read, or write a paragraph where a command settles the question.
+> Act, then report the result. Reserve prose for the genuine judgment calls:
+> what the evidence means and what to do next.
+
 > **Write plainly (operator directive, 2026-06-10).** Plain Feynman English in
 > this file and agent memory: short common words, short sentences, one idea at
 > a time. Simplify the wording, never the facts.

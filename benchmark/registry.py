@@ -1,4 +1,4 @@
-"""The benchmark registry — the single typed inventory of all DOS benchmark
+﻿"""The benchmark registry — the single typed inventory of all DOS benchmark
 programs, their arms, prereqs, and runnable entrypoints.
 
 This is the declarative core the standardized runner (`benchmark/_run.py`) reads.
@@ -251,6 +251,25 @@ BENCHMARKS: Dict[str, BenchSpec] = {
                        prereqs=()),
         ),
     ),
+    # ------------------------------------------------------------- smartphone_tier
+    "smartphone_tier": BenchSpec(
+        name="smartphone_tier",
+        question="Does the DOS-recoverable failure fraction RISE as the model shrinks "
+                 "toward on-device / smartphone size (<=1B / 1-3B / 3-7B vs frontier)?",
+        results_summary="benchmark/smartphone_tier/RESULTS.md",  # docs/341
+        entrypoints=(
+            Entrypoint("sweep", ["benchmark.smartphone_tier.harness", "--json"],
+                       cost="free",
+                       does="$0 fold the THREE real kernel detectors (dangling_intent / "
+                            "tool_stream / arg_provenance) over a param-tier-parameterized "
+                            "failure-shape corpus; emits the recoverable-fraction-vs-capability "
+                            "curve + the enrichment guard. The synthetic magnitudes are a "
+                            "DECLARED pre-registration; point --recordings at on-device model "
+                            "dumps for the measurement. Exits non-zero if the monotone "
+                            "fall (the thesis's directional prediction) breaks",
+                       prereqs=()),
+        ),
+    ),
     # --------------------------------------------------------------- constraintviol
     "constraintviol": BenchSpec(
         name="constraintviol",
@@ -388,6 +407,25 @@ BENCHMARKS: Dict[str, BenchSpec] = {
                             "documented Mata fabrications + synth perturbations) through the "
                             "REAL citation_resolve.classify(); report DETECT recall + FALSE-FIRE "
                             "over a stated denominator; the false-fire floor is the exit gate",
+                       prereqs=()),
+        ),
+    ),
+    # -------------------------------------------------------------------- iot_tier
+    "iot_tier": BenchSpec(
+        name="iot_tier",
+        question="Across a model-size ladder (frontier->mid->small->IoT-class), where does DOS's "
+                 "recoverable-failure fraction PEAK and where does it COLLAPSE — is the proof "
+                 "point the weakest model or the middle one (docs/153 §1-§2)?",
+        results_summary="benchmark/iot_tier/RESULTS.md",
+        entrypoints=(
+            Entrypoint("sweep", ["benchmark.iot_tier.harness", "--json"],
+                       cost="free",
+                       does="$0 fold the REAL weak-model gate (the shipped byte-clean detectors + "
+                            "enrichment filter) over a synthetic, declared-and-cited per-tier "
+                            "failure-mix corpus; emits the rise-then-collapse recoverable-fraction "
+                            "curve. Self-tests against the gemini null; in-band falsifier exits "
+                            "non-zero if the curve is flat/monotone. Calibrated SIM (synthetic "
+                            "corpora, real detectors) — the falsifier is the docs/153 $50 real run",
                        prereqs=()),
         ),
     ),
