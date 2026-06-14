@@ -61,7 +61,6 @@ the conductor's / a driver's act — the roster of live models is host policy).
 
 from __future__ import annotations
 
-import enum
 import re
 from dataclasses import dataclass
 from typing import Optional, Sequence
