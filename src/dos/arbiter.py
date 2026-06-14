@@ -360,6 +360,14 @@ def arbitrate(
     def _free_clusters() -> list[str]:
         return [c for c in autopick_clusters if _lane_key(c) not in live_lanes]
 
+    def _free_concurrent_clusters() -> list[str]:
+        # ALL concurrent cluster lanes that are free — not just the autopick
+        # ladder. A lane can be a real, leaseable cluster (in `lanes.concurrent`)
+        # yet absent from `autopick`; such a lane is still a valid `--lane`
+        # target. The false-"busy" refusal (issue #118) must report it, the same
+        # docs/104 §4 class the `_redirect_why` fix closed for redirects.
+        return [c for c in lanes.concurrent if _lane_key(c) not in live_lanes]
+
     # Concurrency-class budgets (docs/97 Phase 1). Normalize once: drop non-positive
     # / non-int budgets (a budget of 0 or a garbled value would silently wedge a
     # whole class — the safe direction is "no budget for that kind", matching the
@@ -878,6 +886,29 @@ def arbitrate(
                     reason=(f"auto-picked derived plan lane {plan_id!r} "
                             f"(legacy fallback path)."),
                 )
+    # The autopick walk found no free candidate. But "no autopick candidate"
+    # is NOT the same world as "every cluster lane is held" — a concurrent
+    # cluster lane can be free yet off the autopick ladder (issue #118). Only
+    # narrate the all-held world when it is actually true; otherwise name the
+    # real cause (requested lane held + the ladder offers nothing) and point at
+    # the free lanes a `--lane` could take, as the kindless same-lane refuse
+    # above already does.
+    _free = _free_concurrent_clusters()
+    if _free:
+        return LaneDecision(
+            "refuse",
+            reason=(f"the requested lane {requested_lane!r} is held and the "
+                    "autopick ladder offers no free candidate — but other "
+                    f"concurrent cluster lanes are free ({', '.join(_free)}). "
+                    "Pass --lane <free-lane> to take one, or wait for the held "
+                    "lane to release."
+                    if requested_lane else
+                    "the autopick ladder offers no free candidate — but other "
+                    f"concurrent cluster lanes are free ({', '.join(_free)}). "
+                    "Pass --lane <free-lane> to take one."
+                    ) + _unresolved_suffix,
+            free_clusters=_free,
+        )
     return LaneDecision(
         "refuse",
         reason=("all concurrent cluster lanes are held by live loops — no free "

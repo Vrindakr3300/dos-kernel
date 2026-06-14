@@ -604,6 +604,93 @@ class TestKindlessSoftHintTakesTheNamedLane:
         assert "was busy" not in d.reason
 
 
+class TestBusyNamedLaneNoAutopickReportsFreeConcurrentLanes:
+    """A busy named cluster lane with no autopick candidate must not narrate a
+    false "all lanes held" (issue #118).
+
+    When a NAMED `--kind cluster` lane is held and the autopick ladder offers no
+    free candidate, the legacy terminal refuse used to hard-code
+    `free_clusters=[]` and the reason "all concurrent cluster lanes are held by
+    live loops" — both false when a concurrent cluster lane is free but simply
+    OFF the autopick ladder. (The KINDLESS same-lane path already got this right,
+    filling `free_clusters` from the live-disjoint set.) This is the docs/104 §4
+    false-"busy" narration class the `_redirect_why` fix closed for redirects,
+    reaching the no-autopick-candidate branch. Fire-shrinking only: the outcome
+    stays `refuse`; only the reason and `free_clusters` change.
+
+    The fixture mirrors the issue's taxonomy: three CONCURRENT cluster lanes, an
+    EMPTY autopick ladder (so the bare walk finds nothing), and one live lease on
+    the requested lane. The two siblings are free — and must be reported.
+    """
+
+    # concurrent ⊋ autopick: the whole point. `qemu-rig`/`driver`/`tests` are
+    # leaseable cluster lanes; none is on the (empty) autopick ladder, so the
+    # legacy bare-walk fallback has no candidate to try.
+    CFG_NO_LADDER = dataclasses.replace(
+        CFG,
+        lanes=dataclasses.replace(
+            CFG.lanes,
+            concurrent=("qemu-rig", "driver", "tests"),
+            autopick=(),
+            trees={
+                **CFG.lanes.trees,
+                "qemu-rig": ("rig/**",),
+                "driver": ("driver/**",),
+                "tests": ("tests/**",),
+            },
+        ),
+    )
+
+    def _arb_no_ladder(self, **kw):
+        kw.setdefault("config", self.CFG_NO_LADDER)
+        return _arb(**kw)
+
+    def test_free_concurrent_lanes_are_listed_not_empty(self):
+        # The issue's exact reproduction: request the held lane with `--kind
+        # cluster`; the autopick walk has nothing, so it falls to the terminal
+        # refuse. `free_clusters` must list the actually-free siblings, not [].
+        live = [_lease("qemu-rig", "cluster", ["rig/**"])]
+        d = self._arb_no_ladder(requested_lane="qemu-rig", requested_kind="cluster",
+                                live_leases=live)
+        assert d.outcome == "refuse"
+        assert set(d.free_clusters) == {"driver", "tests"}
+
+    def test_reason_does_not_claim_all_lanes_held_when_some_are_free(self):
+        live = [_lease("qemu-rig", "cluster", ["rig/**"])]
+        d = self._arb_no_ladder(requested_lane="qemu-rig", requested_kind="cluster",
+                                live_leases=live)
+        assert d.outcome == "refuse"
+        # The false narration is gone; the true cause + the free siblings are named.
+        assert "all concurrent cluster lanes are held" not in d.reason
+        assert "driver" in d.reason and "tests" in d.reason
+
+    def test_genuinely_all_held_still_says_so(self):
+        # The boundary the fix must NOT cross: when EVERY concurrent cluster lane
+        # really is held, the all-held wording is true and must survive, with an
+        # empty `free_clusters`.
+        live = [_lease("qemu-rig", "cluster", ["rig/**"]),
+                _lease("driver", "cluster", ["driver/**"]),
+                _lease("tests", "cluster", ["tests/**"])]
+        d = self._arb_no_ladder(requested_lane="qemu-rig", requested_kind="cluster",
+                                live_leases=live)
+        assert d.outcome == "refuse"
+        assert d.free_clusters == []
+        assert "all concurrent cluster lanes are held" in d.reason
+
+    def test_outcome_is_unchanged_fire_shrinking_only(self):
+        # The fix touches narration + free_clusters only — never the admit/refuse
+        # verdict. Both the some-free and all-held worlds still REFUSE.
+        some_free = self._arb_no_ladder(
+            requested_lane="qemu-rig", requested_kind="cluster",
+            live_leases=[_lease("qemu-rig", "cluster", ["rig/**"])])
+        all_held = self._arb_no_ladder(
+            requested_lane="qemu-rig", requested_kind="cluster",
+            live_leases=[_lease("qemu-rig", "cluster", ["rig/**"]),
+                         _lease("driver", "cluster", ["driver/**"]),
+                         _lease("tests", "cluster", ["tests/**"])])
+        assert some_free.outcome == "refuse" and all_held.outcome == "refuse"
+
+
 class TestUnknownKeywordRefusesNotDegrades:
     """An EXPLICIT `--kind keyword` naming a lane the taxonomy never heard of must
     REFUSE (UNKNOWN_LANE), not silently auto-pick a different free lane.
