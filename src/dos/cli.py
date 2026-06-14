@@ -3942,12 +3942,95 @@ def cmd_lease_lane(args: argparse.Namespace) -> int:
 # the asymmetry IS the security property: anyone may disarm, only the human
 # arms. `status` exit code is the state: 0 armed / 1 disarmed-or-expired.)
 # ---------------------------------------------------------------------------
+def _require_interactive_operator() -> bool:
+    """True iff a real interactive operator is at the controlling terminal.
+
+    The `arm` gate (docs/328 Phase 2): both stdin AND stdout must be ttys —
+    exactly what an agent's non-interactive shell is NOT. No pipe, no `--yes`,
+    no env var can flip this; it is the floor that keeps `dos override arm`
+    unreachable headless, so the docs/296 asymmetry holds (anyone may disarm,
+    only an interactive human arms). Never raises — a missing/odd stream folds
+    to False (refuse), the fail-closed direction."""
+    stdin_tty = bool(getattr(sys.stdin, "isatty", lambda: False)())
+    stdout_tty = bool(getattr(sys.stdout, "isatty", lambda: False)())
+    return stdin_tty and stdout_tty
+
+
+def _confirm_interactive(prompt: str) -> bool:
+    """One explicit y/N read FROM the controlling terminal, or False.
+
+    Uses ``input()`` (which reads the tty), never ``sys.stdin.read()`` (a pipe
+    satisfies that). EOF / Ctrl-C / empty / anything-but-y → False. The second
+    half of the gate: even with a tty, an armed window costs one deliberate
+    keystroke."""
+    try:
+        return input(f"{prompt} [y/N] ").strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        return False
+
+
+def _arm_write(root, reason: str, *, until, scope) -> "object":
+    """Render + WRITE the operator's arm file as UTF-8 (no BOM). Returns the path.
+
+    The ONE place the arm file is written (the CLI `arm` branch and the `dos
+    top` approve key both route here, so they never diverge). The caller MUST
+    have already passed the interactivity gate — this helper writes; it does
+    NOT gate. Reuses the pure ``override_facts.render_arm_toml`` (which already
+    round-trips through ``read_override``); writing UTF-8 from this process's
+    own bytes means the #148 PowerShell-`>`-writes-UTF-16+BOM trap cannot occur
+    here at all (no shell redirection is involved)."""
+    from dos import override_facts as _ovr
+    p = _ovr.arm_path(root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(_ovr.render_arm_toml(reason, until=until, scope=scope),
+                 encoding="utf-8")
+    return p
+
+
 def cmd_override(args: argparse.Namespace) -> int:
     _apply_workspace(args)
     from dos import override_facts as _ovr
     import datetime as _dt
     cfg = _config.active()
     p = _ovr.arm_path(cfg.paths.root)
+
+    if args.override_cmd == "arm":
+        # docs/328 Phase 2 — the sudo-like TTY arm. The ONE arm verb, and it is
+        # INERT headless: it writes the arm file only behind the interactivity
+        # gate an agent's non-interactive shell cannot satisfy (both streams
+        # ttys + an explicit y/N). There is deliberately NO --yes / --force /
+        # env bypass — any of those would be the agent-reachable arm path
+        # docs/296 forbids. The hook-side perimeter deny on agent TOOL writes to
+        # `.dos/override/` is unchanged and guards a different path; this gate is
+        # what stops an agent that shells `dos override arm`.
+        if not _require_interactive_operator():
+            print(json.dumps({
+                "armed": False, "refused": "not-a-tty", "path": str(p),
+                "note": "dos override arm requires an interactive operator at a "
+                        "controlling terminal — stdin/stdout are not both ttys "
+                        "(exactly an agent shell). Arming stays a human act "
+                        "(docs/296/328).",
+            }, sort_keys=True), file=sys.stderr)
+            return 2
+        now = _dt.datetime.now(_dt.timezone.utc)
+        minutes = max(1, int(getattr(args, "minutes", 30) or 30))
+        until = now + _dt.timedelta(minutes=minutes)
+        scope = tuple(getattr(args, "paths", None) or ())
+        _scope_show = ", ".join(scope) if scope else "the whole T1 kernel set"
+        if not _confirm_interactive(
+                f"Arm a {minutes}-min SELF_MODIFY override over {_scope_show}?"):
+            print(json.dumps({"armed": False, "declined": True, "path": str(p)},
+                             sort_keys=True), file=sys.stderr)
+            return 1
+        _arm_write(cfg.paths.root, args.reason, until=until, scope=scope)
+        print(json.dumps({
+            "armed": True, "until": _ovr._render_until(until),
+            "minutes": minutes, "reason": args.reason,
+            "scope": [_ovr._norm(s) for s in scope], "path": str(p),
+            "note": "supervised kernel-edit window open; close any time with "
+                    "dos override disarm",
+        }, sort_keys=True))
+        return 0
 
     if args.override_cmd == "disarm":
         # Always safe, for anyone — lowering the window can only restore the deny.
@@ -6432,6 +6515,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         report = {
             "dos_version": __import__("dos").__version__,
+            # The PyPI distribution name (NOT the import name `dos`): a bare
+            # `pip install dos` lands an unrelated squatter. Stated so a confused
+            # install surfaces the right name from the machine report too.
+            "distribution": "dos-kernel",
             "workspace": str(cfg.paths.root),
             "git": (cfg.paths.root / ".git").exists(),
             "paths": {
@@ -6624,6 +6711,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"environment print   {ep.digest}  (kernel v{ep.kernel_version} @ {sha}; "
               f"py {ep.python}; {ep.platform})")
         print(f"  declared tools    {tools}")
+        # The distribution-name reminder (docs/TROUBLESHOOTING.md): the import name
+        # is `dos` but the PyPI distribution is `dos-kernel`. If `dos` resolves to
+        # something unexpected, a bare `pip install dos` may have landed the
+        # name-squatter instead. Informational — we never probe-import to "detect"
+        # it (the import name is ours); we just state the fact at the report.
+        print("  distribution      dos-kernel on PyPI (the bare `dos` is an "
+              "unrelated squatter — see docs/TROUBLESHOOTING.md)")
     # The machine-local DOS_HOME + how many projects it has registered (read-only;
     # doctor reports, never writes — resolve the home WITHOUT creating it).
     h = _config.active_home()
@@ -9823,10 +9917,28 @@ def build_parser() -> argparse.ArgumentParser:
     # hand on `.dos/override/self-modify.toml`, never a verb an agent can call.
     pov = sub.add_parser(
         "override",
-        help="the operator's SELF_MODIFY override window: status / disarm "
-             "(arming is by hand — docs/296)")
+        help="the operator's SELF_MODIFY override window: arm (interactive only) "
+             "/ status / disarm (docs/296, 328)")
     _add_workspace_flags(pov)
     ovsub = pov.add_subparsers(dest="override_cmd", required=True)
+    # arm — the sudo-like TTY arm (docs/328 Phase 2). The ONE arm verb; it WRITES
+    # the arm file but only from an interactive operator at a controlling terminal
+    # (both streams ttys + an explicit y/N). Refuses headless — exactly an agent's
+    # shell — so the docs/296 asymmetry holds. Deliberately NO --yes/--force/env
+    # bypass (any of those would be the agent-reachable arm path).
+    parm = ovsub.add_parser(
+        "arm",
+        help="ARM the window — interactive operator at a TTY only; refuses "
+             "headless (docs/328). Anyone may disarm; only a human arms.")
+    parm.add_argument(
+        "paths", nargs="*",
+        help="optional scope paths for the window (absent = the whole T1 set)")
+    parm.add_argument(
+        "--reason", required=True,
+        help="why the supervised kernel edit is sanctioned — lands in the audit note")
+    parm.add_argument(
+        "--minutes", type=int, default=30,
+        help="window length in minutes (default 30; docs/296 recommends <=30)")
     ovsub.add_parser(
         "status",
         help="report the armed window (exit 0 armed / 1 disarmed-or-expired)")
