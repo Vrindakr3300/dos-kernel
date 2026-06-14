@@ -179,3 +179,51 @@ def test_real_corpus_recall_matches_paper_ceiling():
     tot_rec = sum(t.recoverable for t in res.tiers)
     overall = tot_rec / tot_fail
     assert 0.02 < overall < 0.12, f"overall real recall {overall:.1%} off the paper ceiling"
+
+
+# ---------------------------------------------------------------------------
+# The on-device tool-caller ladder (docs/341 §3a) — REAL Qwen2.5 runs, committed as
+# fixtures so the rising edge of the inverted-U reproduces at $0 (no model needed).
+# ---------------------------------------------------------------------------
+_REC = os.path.join(_BENCH, "smartphone_tier", "_recordings")
+_HAS_LADDER = os.path.isdir(os.path.join(_REC, "q05")) and os.path.isdir(os.path.join(_REC, "q15"))
+_needs_ladder = pytest.mark.skipif(not _HAS_LADDER, reason="committed on-device fixtures not present")
+
+
+@_needs_ladder
+def test_ondevice_ladder_recoverability_RISES_with_competence():
+    """The corrected finding (docs/341 §3a): among REAL small tool-calling models, the
+    DOS-recoverable fraction RISES with size/competence — the OPPOSITE of the naive
+    'weaker = more recoverable' guess. A bigger tool-tuned model reads-before-it-writes,
+    so when it mints a fake id the detector has a corpus to refute it against; the 0.5B
+    model skips the reads and mints into an empty corpus (uncatchable)."""
+    from smartphone_tier.harness import run_recordings
+    q05 = run_recordings(os.path.join(_REC, "q05")).tiers[0]
+    q15 = run_recordings(os.path.join(_REC, "q15")).tiers[0]
+    # 0.5B is in the detector blind spot; 1.5B is catchable — recoverability RISES.
+    assert q05.recoverable_fraction < q15.recoverable_fraction
+    assert q05.recoverable_fraction == 0.0   # skips reads -> empty corpus -> MINT abstains
+    assert q15.recoverable_fraction >= 0.5   # reads first -> minted id refuted -> MINT fires
+    # the catch is the MINT detector (a hallucinated id on a real mutating call).
+    assert q15.fail_fire["mint"] > 0
+
+
+@_needs_ladder
+def test_ondevice_mint_is_the_real_failure_shape():
+    """The 1.5B catch is a genuine minted-FK: a user_id arg that appears in NO env blob,
+    on a real mutating call, after the model did the reads. This is the arg_provenance
+    target produced by a real on-device tool-caller — folded by the live kernel."""
+    import json
+    from dos.arg_provenance import (
+        CorpusSource, EnvBlob, PriorResults, ToolArg, ToolCall, classify_call,
+    )
+    rec = json.load(open(os.path.join(_REC, "q15", "assign-incident_0.json"), encoding="utf-8"))
+    assert rec["mutating_call"] is not None and rec["env_blobs"], "fixture lost its mint surface"
+    tool, args = rec["mutating_call"]
+    call = ToolCall(tool_name=tool,
+                    args=tuple(ToolArg(name=k, value=v) for k, v in args.items()),
+                    is_mutating=True)
+    prior = PriorResults(blobs=tuple(EnvBlob(text=b, source=CorpusSource.TOOL_RESULT)
+                                     for b in rec["env_blobs"]))
+    # the kernel itself says: do not believe this call (an id was minted from nowhere).
+    assert classify_call(call, prior).believe is False

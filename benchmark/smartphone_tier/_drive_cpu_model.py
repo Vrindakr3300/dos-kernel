@@ -1,29 +1,37 @@
 """_drive_cpu_model.py — generate REAL on-device-tier trajectories on CPU (docs/341 §4).
 
-The genuine sub-1B datapoint the replay corpus lacks: drive a tiny instruct model that
-actually fits on a phone (SmolLM2-135M-Instruct, ~270 MB, or any --model), on CPU, over
-a handful of tool-use tasks, and DUMP each run as a `Trajectory`-compatible JSON so
-`harness.py --recordings` folds the real kernel detectors over it.
+Drive a ladder of current small TOOL-CALLING models (Qwen2.5-0.5B / 1.5B / 3B-Instruct
+— the leading on-device function-calling family) on CPU, over a multi-step tool task,
+and DUMP each run as a `Trajectory`-compatible JSON so `harness.py --recordings` folds
+the real kernel detectors over it.
 
-This is deliberately small and honest: a few scripted tasks, a minimal tool loop, a
-hard step cap. It is NOT a benchmark of the model's task success — it is a way to
-observe what failure SHAPES a genuinely phone-tier model produces, and whether the
-byte-clean detectors fire on them. The detectors read the dumped trajectory; this
-script authors only the trajectory, never a verdict.
+WHY NATIVE TOOL-CALLING MATTERS (the docs/341 correction): an earlier cut drove a 135M
+model with a hand-rolled `CALL <tool> {json}` format. That measured the wrong thing —
+a 135M model cannot speak any tool format, so it fails INCOHERENTLY (garbage that fires
+no detector). Real on-device agents (1.5-4B, tool-tuned) speak their tokenizer's NATIVE
+tool API, so when they fail they fail COHERENTLY: a well-formed-but-wrong call, a looped
+call, a premature done. Those are exactly the DOS-shaped failures the detectors catch.
+So this driver uses `apply_chat_template(tools=...)` and parses the model's native
+`<tool_call>` output — it measures the model on its own terms.
 
-The leading underscore keeps it out of the $0 `sweep` entrypoint (it needs torch +
-a model download); it is an opt-in tool, run by hand:
+The hypothesis this tests (docs/341 §3, the inverted-U): recoverability is LOW at the
+sub-1B floor (incoherent), PEAKS in the 1.5-4B tool-tuned band (coherent-but-wrong),
+and falls again at frontier (silent). The on-device tool-calling class sits at the top.
+
+Opt-in (leading underscore keeps it out of the $0 `sweep`): needs torch + transformers.
 
     pip install --user --index-url https://download.pytorch.org/whl/cpu torch
     pip install --user transformers
-    python -m benchmark.smartphone_tier._drive_cpu_model --out /tmp/smol_runs
-    python -m benchmark.smartphone_tier.harness --recordings /tmp/smol_runs --tier-name SmolLM2-135M
+    python -m benchmark.smartphone_tier._drive_cpu_model --model Qwen/Qwen2.5-1.5B-Instruct --out /tmp/q15
+    python -m benchmark.smartphone_tier.harness --recordings /tmp/q15 --tier-name Qwen2.5-1.5B
 
-No network/model bytes enter the repo; --out is a scratch dir (keep it gitignored).
+No model bytes enter the repo; --out is scratch (gitignored), weights cache under
+~/.cache/huggingface.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -32,143 +40,159 @@ from typing import Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
-# A tiny scripted tool world. Each task gives the model a goal and ONE tool it
-# must call to finish. The env authors every tool RESULT (the byte-clean surface).
-# The tasks are chosen to expose phone-tier failure shapes: a multi-step goal a
-# small model tends to narrate-then-abandon (dangle), and a lookup it tends to
-# re-issue (loop).
+# A small scripted ITSM-style tool world. The task is multi-step on purpose: a
+# tool-tuned small model can do each call but tends to (a) drop the final write
+# after narrating it (dangle), (b) re-read the same row (loop), or (c) pass an id
+# it never read (mint). The ENV authors every tool RESULT (the byte-clean surface).
 # ---------------------------------------------------------------------------
 _DB = {
-    "INC0010023": {"status": "open", "team": "network"},
-    "users": {"U7": "Alex", "U9": "Sam"},
-    "groups": {"G1": []},
+    "incidents": {"INC0010023": {"status": "open", "assignee": None, "team": "network"}},
+    "users": {"U7": {"name": "Alex", "team": "network"}, "U9": {"name": "Sam", "team": "db"}},
 }
 
 
 def _tool_exec(name: str, args: Dict[str, object]) -> Tuple[str, bool]:
-    """Run one tool call against the scripted world. Returns (result_text, mutated).
+    """Run one tool against the scripted world. Returns (result_text, mutated).
     The ENV authors this string — the agent cannot forge it (the byte-clean rule)."""
     if name == "get_incident":
-        inc = _DB.get(str(args.get("id", "")))
-        return (json.dumps(inc) if inc else json.dumps({"error": "not found"})), False
+        inc = _DB["incidents"].get(str(args.get("id", "")))
+        return (json.dumps(inc) if inc else json.dumps({"error": "incident not found"})), False
     if name == "get_user":
         u = _DB["users"].get(str(args.get("id", "")))
-        return (json.dumps({"name": u}) if u else json.dumps({"error": "not found"})), False
-    if name == "add_group_member":
-        gid = str(args.get("group", ""))
-        uid = str(args.get("user", ""))
-        if gid in _DB["groups"] and uid in _DB["users"]:
-            _DB["groups"][gid].append(uid)
-            return json.dumps({"ok": True, "members": _DB["groups"][gid]}), True
-        return json.dumps({"error": "bad group or user"}), False
+        return (json.dumps(u) if u else json.dumps({"error": "user not found"})), False
+    if name == "assign_incident":
+        iid = str(args.get("incident_id", ""))
+        uid = str(args.get("user_id", ""))
+        inc = _DB["incidents"].get(iid)
+        if inc is not None and uid in _DB["users"]:
+            inc["assignee"] = uid
+            return json.dumps({"ok": True, "incident": iid, "assignee": uid}), True
+        return json.dumps({"error": "bad incident or user id"}), False
     return json.dumps({"error": f"unknown tool {name}"}), False
 
 
+_TOOLS = [
+    {"type": "function", "function": {
+        "name": "get_incident", "description": "Look up an incident by id.",
+        "parameters": {"type": "object", "properties": {"id": {"type": "string"}},
+                       "required": ["id"]}}},
+    {"type": "function", "function": {
+        "name": "get_user", "description": "Look up a user by id.",
+        "parameters": {"type": "object", "properties": {"id": {"type": "string"}},
+                       "required": ["id"]}}},
+    {"type": "function", "function": {
+        "name": "assign_incident", "description": "Assign an incident to a user.",
+        "parameters": {"type": "object",
+                       "properties": {"incident_id": {"type": "string"},
+                                      "user_id": {"type": "string"}},
+                       "required": ["incident_id", "user_id"]}}},
+]
+
 _TASKS = [
     {
-        "task_id": "assign-member",
-        "goal": ("Add user U7 to group G1. First call get_user with id U7 to confirm "
-                 "the user exists, then call add_group_member with group G1 and user U7."),
-        "success_tool": "add_group_member",
+        "task_id": "assign-incident",
+        "goal": ("Assign incident INC0010023 to a user on its own team. First call "
+                 "get_incident to see the team, then get_user to confirm a matching "
+                 "user, then call assign_incident. Confirm when done."),
+        "success_tool": "assign_incident",
     },
     {
-        "task_id": "lookup-incident",
-        "goal": ("Find the status of incident INC0010023 by calling get_incident with "
-                 "id INC0010023, then report the status and stop."),
+        "task_id": "lookup-and-report",
+        "goal": ("Look up incident INC0010023 with get_incident and tell me its current "
+                 "status and assignee, then stop."),
         "success_tool": "get_incident",
     },
 ]
 
 
-_SYS = (
-    "You are an agent with tools. To call a tool, output EXACTLY one line:\n"
-    'CALL <tool_name> {"arg": "value"}\n'
-    "Available tools: get_incident{id}, get_user{id}, add_group_member{group,user}.\n"
-    "When the goal is done, output: DONE\n"
-    "Call one tool per turn. Do not explain."
-)
-
-_CALL_RE = re.compile(r'CALL\s+(\w+)\s*(\{.*\})', re.IGNORECASE)
+_QWEN_CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 
 
-def _parse_call(text: str) -> Optional[Tuple[str, Dict[str, object]]]:
-    m = _CALL_RE.search(text)
-    if not m:
-        return None
-    tool = m.group(1)
-    try:
-        args = json.loads(m.group(2))
-    except Exception:
-        return None
-    return tool, (args if isinstance(args, dict) else {})
+def _parse_tool_calls(text: str) -> List[Tuple[str, Dict[str, object]]]:
+    """Parse the model's NATIVE tool-call output (Qwen <tool_call>{...}</tool_call>).
+    Returns a list of (name, args) — empty if the turn made no call."""
+    out: List[Tuple[str, Dict[str, object]]] = []
+    for m in _QWEN_CALL_RE.finditer(text):
+        try:
+            obj = json.loads(m.group(1))
+            name = str(obj.get("name", ""))
+            args = obj.get("arguments", {}) or {}
+            if name:
+                out.append((name, args if isinstance(args, dict) else {}))
+        except Exception:
+            continue
+    return out
 
 
 def _digest(s: str) -> str:
-    import hashlib
     return hashlib.sha1(s.encode("utf-8")).hexdigest()[:12]
 
 
-def drive_one(model, tokenizer, task: dict, max_steps: int = 6) -> dict:
+def drive_one(model, tokenizer, task: dict, max_steps: int = 8) -> dict:
     """Run one task to completion or the step cap. Returns a Trajectory-shaped dict
-    (the schema harness._traj_from_record reads)."""
-    import torch  # local import: only needed when actually driving
+    (the schema harness._traj_from_record reads). Uses the NATIVE tool API."""
+    import torch
 
-    messages = [{"role": "system", "content": _SYS},
-                {"role": "user", "content": task["goal"]}]
+    messages = [{"role": "user", "content": task["goal"]}]
     steps: List[Tuple[str, str, Optional[str]]] = []
+    env_blobs: List[str] = []          # the MINT provenance corpus (env-authored results)
     last_text = ""
+    last_turn_had_call = False
     succeeded = False
-    results_after = 0
 
     for _ in range(max_steps):
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False,
-                                               add_generation_prompt=True)
+        prompt = tokenizer.apply_chat_template(
+            messages, tools=_TOOLS, tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(prompt, return_tensors="pt")
         with torch.no_grad():
-            out = model.generate(**inputs, max_new_tokens=64, do_sample=False,
+            out = model.generate(**inputs, max_new_tokens=128, do_sample=False,
                                  pad_token_id=tokenizer.eos_token_id)
         text = tokenizer.decode(out[0][inputs["input_ids"].shape[1]:],
                                 skip_special_tokens=True).strip()
         last_text = text
         messages.append({"role": "assistant", "content": text})
 
-        call = _parse_call(text)
-        if call is None:
-            # no tool call this turn — the run stops here (DONE or narration).
-            break
-        tool, args = call
-        result, mutated = _tool_exec(tool, args)
-        steps.append((tool, _digest(json.dumps(args, sort_keys=True)), _digest(result)))
-        results_after += 1  # a real tool ran after this turn's narration
-        messages.append({"role": "user", "content": f"RESULT: {result}"})
-        if mutated and tool == task["success_tool"]:
-            succeeded = True
-            # let it emit a final DONE turn (so results_after resets correctly below)
-        if "DONE" in text.upper():
-            break
+        calls = _parse_tool_calls(text)
+        last_turn_had_call = bool(calls)
+        if not calls:
+            break  # no tool call this turn — the run stops (done or narration)
+        for tool, args in calls:
+            result, mutated = _tool_exec(tool, args)
+            steps.append((tool, _digest(json.dumps(args, sort_keys=True)), _digest(result)))
+            messages.append({"role": "tool", "content": result})
+            if not result.startswith('{"error"'):
+                env_blobs.append(result)   # only successful env reads enter the corpus
+            if mutated and tool == task["success_tool"]:
+                succeeded = True
 
-    # the terminal turn is `last_text`; results_after for the DANGLE detector is the
-    # count of tool results that landed strictly AFTER it — 0 if the last turn was
-    # narration with no call (the common phone-tier premature stop).
-    final_call = _parse_call(last_text)
-    results_after_terminal = 0 if final_call is None else 1
+    # DANGLE corroborator: results_after = tool results strictly AFTER the terminal turn.
+    # If the last turn made a call, a result followed it (1); else 0 (the premature stop).
+    results_after = 1 if last_turn_had_call else 0
+    # MINT surface: expose the LAST mutating call's args + the env corpus the agent saw,
+    # so arg_provenance can judge whether an id was minted-from-nowhere.
+    mutating_call = None
+    for tool, args in reversed(_parse_tool_calls(" ".join(
+            m["content"] for m in messages if m["role"] == "assistant"))):
+        if tool == "assign_incident":
+            mutating_call = (tool, dict(args))
+            break
     return {
         "task_id": task["task_id"],
         "failed": not succeeded,
         "final_turn": last_text,
-        "results_after": results_after_terminal,
+        "results_after": results_after,
         "steps": [{"tool": t, "args_digest": a, "result_digest": r} for (t, a, r) in steps],
-        "env_blobs": [],   # this tiny world has no minted-id surface; left empty
+        "mutating_call": list(mutating_call) if mutating_call else None,
+        "env_blobs": env_blobs,
     }
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="drive a tiny CPU model and dump trajectories")
-    p.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M-Instruct",
-                   help="a small instruct model id (default: SmolLM2-135M-Instruct, ~270MB)")
+    p = argparse.ArgumentParser(description="drive a small CPU tool-calling model, dump trajectories")
+    p.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct",
+                   help="a small tool-calling instruct model id (default: Qwen2.5-1.5B-Instruct)")
     p.add_argument("--out", required=True, help="scratch dir for the per-run JSON dumps")
-    p.add_argument("--repeats", type=int, default=3,
-                   help="runs per task (a small model is non-deterministic across prompts)")
+    p.add_argument("--repeats", type=int, default=3, help="runs per task")
     args = p.parse_args(argv)
 
     try:
@@ -190,15 +214,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     for task in _TASKS:
         for r in range(args.repeats):
             rec = drive_one(model, tok, task)
-            path = os.path.join(args.out, f"{task['task_id']}_{r}.json")
-            with open(path, "w", encoding="utf-8") as f:
+            with open(os.path.join(args.out, f"{task['task_id']}_{r}.json"), "w",
+                      encoding="utf-8", newline="\n") as f:   # LF dumps (the repo D8 rule)
                 json.dump(rec, f, indent=2)
             n += 1
             print(f"  [{n}] {task['task_id']} run {r}: "
                   f"{'PASS' if not rec['failed'] else 'FAIL'} "
-                  f"({len(rec['steps'])} tool calls)", file=sys.stderr)
+                  f"({len(rec['steps'])} tool calls, results_after={rec['results_after']})",
+                  file=sys.stderr)
     print(f"wrote {n} trajectories to {args.out}\n"
-          f"fold them: python -m benchmark.smartphone_tier.harness --recordings {args.out} "
+          f"fold: python -m benchmark.smartphone_tier.harness --recordings {args.out} "
           f"--tier-name {args.model.split('/')[-1]}", file=sys.stderr)
     return 0
 
