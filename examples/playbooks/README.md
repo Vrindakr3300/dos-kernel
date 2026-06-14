@@ -64,6 +64,12 @@ Start with the onboarding quickstart, then jump to your archetype:
 
 ## Four cookbooks (recipes, not walkthroughs)
 
+- **[`cookbook-cursor.md`](cookbook-cursor.md)** — vibe-coding in **Cursor**?
+  One command — `dos init --hooks cursor` — wires the three DOS hooks into
+  Cursor's own `.cursor/hooks.json` (deny a refused call, re-surface a stalled
+  stream, refuse a stop on an unverified "done"), plus a copy-pasteable
+  `.cursor/rules/*.mdc` that tells the in-editor agent to run `dos verify`
+  before it claims a feature shipped. The Cursor on-ramp.
 - **[`cookbook-fleet-frameworks.md`](cookbook-fleet-frameworks.md)** — already
   running a fleet through **LangGraph, CrewAI, AutoGen, or the OpenAI / Claude
   Agents SDKs**? Each framework has a believe-the-agent point (a conditional
