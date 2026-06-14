@@ -1,0 +1,30 @@
+# Maintainer: Anthony Chaudhary <github.com/anthony-chaudhary>
+#
+# AUR recipe for dos-kernel (the DOS trust substrate). DOS is pure-Python, so this
+# is a textbook `arch=('any')` Python package built from the PyPI sdist. The AUR
+# has ZERO review gate — a maintainer pushes this dir (PKGBUILD + .SRCINFO) to
+# ssh://aur@aur.archlinux.org/dos-kernel.git and it is live; see README.md here for
+# the push + the on-bump checklist. pkgver/sha256 track the PyPI sdist and must be
+# bumped together on every release (the /release skill's "downstream pins" step).
+pkgname=dos-kernel
+pkgver=0.26.0
+pkgrel=1
+pkgdesc="The kernel that doesn't believe the agents — a deterministic trust substrate for AI agent fleets (verify what shipped from git, arbitrate file collisions, refuse with structured reasons)"
+arch=('any')
+url="https://github.com/anthony-chaudhary/dos-kernel"
+license=('MIT')
+depends=('python' 'python-yaml')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-hatchling')
+source=("https://files.pythonhosted.org/packages/source/d/dos-kernel/dos_kernel-$pkgver.tar.gz")
+sha256sums=('730ef2be66ede033dfaf15adf6c2cfcfbefd880d774c3787e6904d1bc26e7c08')
+
+build() {
+  cd "dos_kernel-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "dos_kernel-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

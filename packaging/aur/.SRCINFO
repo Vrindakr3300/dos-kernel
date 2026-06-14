@@ -1,0 +1,17 @@
+pkgbase = dos-kernel
+	pkgdesc = The kernel that doesn't believe the agents — a deterministic trust substrate for AI agent fleets (verify what shipped from git, arbitrate file collisions, refuse with structured reasons)
+	pkgver = 0.26.0
+	pkgrel = 1
+	url = https://github.com/anthony-chaudhary/dos-kernel
+	arch = any
+	license = MIT
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-hatchling
+	depends = python
+	depends = python-yaml
+	source = https://files.pythonhosted.org/packages/source/d/dos-kernel/dos_kernel-0.26.0.tar.gz
+	sha256sums = 730ef2be66ede033dfaf15adf6c2cfcfbefd880d774c3787e6904d1bc26e7c08
+
+pkgname = dos-kernel
