@@ -91,20 +91,43 @@ directional falsifier fires), but **the measured curve is the one to cite.**
 - **Placeholder (synthetic mode only):** the per-tier failure *counts* are a declared
   pre-registration. Captioned as such; the measurement supersedes it.
 
-## The next measurement — a true on-device model
+## A true on-device run (`_drive_cpu_model.py`) — and a surprise at the extreme low end
 
-The corpus is 22 cloud/open models replayed; none is a sub-1B GGUF actually running on
-a phone-class device. The cleanest remaining datapoint is one genuine on-device run
-(e.g. Qwen2.5-0.5B-Instruct on CPU via llama.cpp), folded through `--recordings`:
+The corpus above is 22 cloud/open models replayed; none is a sub-1B model actually
+running on a phone-class device. So we drove the smallest real instruct model we could
+— **SmolLM2-135M-Instruct, on CPU** (no GPU, no torch-CUDA, ~270 MB) — over two
+tool-use tasks and folded the SAME detectors through `--recordings`:
 
 ```bash
-PYTHONPATH=. python -m benchmark.smartphone_tier.harness \
-    --recordings path/to/qwen2.5-0.5b/runs --tier-name "Qwen2.5-0.5B"
+pip install --user --index-url https://download.pytorch.org/whl/cpu torch
+pip install --user transformers
+python -m benchmark.smartphone_tier._drive_cpu_model --out /tmp/smol_runs
+python -m benchmark.smartphone_tier.harness --recordings /tmp/smol_runs --tier-name "SmolLM2-135M"
 ```
 
-The prediction from the curve: a sub-1B model should land at or above the very-weak
-tier's ~14% recoverable — more DOS-shaped failures than any model in the current
-corpus. (See `_drive_cpu_model.py` / its README for the CPU harness, when present.)
+**Result: 6/6 runs FAILED, 0% DOS-recoverable.** The 135M model failed *below the
+detectors' reach* — and the reason is instructive, not a bug:
+
+- On the lookup task it emitted `DONE` immediately, with **no tool call and no
+  "I still need to…" cue** — a silent premature stop, so `dangling_intent` correctly
+  abstains (it is a DONE-claim, not an open-obligation admission).
+- On the assign task it hallucinated a tool literally named `U7` (it echoed the user
+  id as the tool name) — malformed garbage the env rejected, **not a minted id on a
+  real mutating tool**, so `arg_provenance` correctly abstains.
+
+This is the **recall ceiling turned the other way**: there is a capability floor below
+which a model is *too weak to fail in a DOS-shaped way*. It does not narrate abandoned
+plans (it just says DONE); it does not mint a plausible FK on a real tool (it emits
+nonsense). So the recoverable curve is **not monotone-rising all the way down** — it
+rises from frontier toward the weak tiers, then **falls again at the sub-0.5B extreme**
+where failures stop being structured. The byte-clean detectors need a model competent
+enough to fail *coherently*. That is a real, citable nuance the synthetic 80% hid
+entirely, and it sharpens the paper's silent-failure story: silence dominates at *both*
+ends of the capability axis, for opposite reasons (frontier = succeeds-or-fails-cleanly;
+sub-0.5B = fails-incoherently).
+
+(The dump dir is scratch — gitignored. SmolLM2 weights cache under `~/.cache/huggingface`,
+not in the repo.)
 
 ## Reading order
 
