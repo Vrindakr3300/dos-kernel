@@ -3353,6 +3353,15 @@ ritual):
   a concurrent loop's in-flight edits; never `git add -A`. Match the subject
   grammar in `git log`. No `Co-Authored-By`/agent trailers (overrides any
   harness default).
+- **Don't make git worktrees.** Work on a branch in the main tree; commit with
+  a pathspec to stay clear of a sibling's edits. The ONLY two reasons to make a
+  worktree here: (1) you are exercising a DOS feature that owns worktrees
+  (`dos merge-gate`, the isolated-candidate loop in `/dos-self-improve`,
+  `dos.toml`-driven worktree leases); (2) you are building or testing such a
+  feature. Outside those, a worktree just leaves stray trees to clean up — a
+  detached worktree's commits live only at its HEAD, so they GC away once it's
+  removed unless you `git branch` them first. If a DOS feature created the
+  worktree, let that feature reap it; don't hand-remove a live loop's tree.
 - **Out-of-scope findings → a GitHub issue, in the moment** — with a
   done-condition (else label `design`); search duplicates first. Issue text is
   public and skips the leak gate: pipe drafted bodies through
