@@ -184,11 +184,17 @@ def test_readme_embeds_the_self_badge():
 
 
 # ---------------------------------------------------------------------------
-# The rendered Pages links — a relative scoreboard link must resolve under
-# docs/scoreboard/, NEVER docs/incidents/. The page builder reuses the incident
-# link-rewriter, which once anchored every repo-relative path at docs/incidents/
-# regardless of which surface it served, so the scoreboard index shipped 7 dead
-# blob links (docs/incidents/<org>/<repo>.md → 404). This pins the anchor.
+# The rendered Pages links — a relative scoreboard link must resolve under the
+# scoreboard surface, NEVER docs/incidents/. The original builder reused the
+# incident link-rewriter, which anchored every repo-relative path at
+# docs/incidents/ regardless of which surface it served, so the scoreboard
+# index shipped 7 dead blob links (docs/incidents/<org>/<repo>.md → 404).
+#
+# The scoreboard builder now has its own scoreboard-aware rewriter (docs/
+# scoreboard reframe, 47e29b2): a per-repo page that HAS a built HTML twin
+# links to the LIVE /scoreboard/<org>/<repo>.html; a markdown sibling with no
+# HTML twin (methodology, the monthly report, the 311 plan) goes to a GitHub
+# blob URL. This pins both rungs and the no-incidents-leak invariant.
 # ---------------------------------------------------------------------------
 
 def _build_scoreboard_pages():
@@ -206,14 +212,19 @@ def test_scoreboard_links_resolve_under_scoreboard_not_incidents(tmp_path):
     bsp.render(_REPO_ROOT, tmp_path, "2026-06-14")
     index = (tmp_path / "scoreboard" / "index.html").read_text(encoding="utf-8")
     hrefs = re.findall(r'href="([^"]+)"', index)
+    # Per-repo pages have a built HTML twin → they link to the LIVE scoreboard
+    # HTML, never a blob URL (that was the dead-link symptom).
+    for org_repo in ("anthony-chaudhary/dos-kernel", "JuliusBrussee/caveman",
+                     "farion1231/cc-switch", "kenn-io/roborev",
+                     "unslothai/unsloth"):
+        want = f"/scoreboard/{org_repo}.html"
+        assert any(want in h for h in hrefs), f"missing live page link for {org_repo}"
+    # Markdown siblings with no HTML twin resolve to a GitHub blob URL under
+    # docs/scoreboard/ (methodology, the monthly report) — never docs/incidents/.
     blob = [h for h in hrefs if "/blob/master/docs/" in h]
-    # The relative markdown links became GitHub blob URLs — and the four per-repo
-    # pages + methodology + report must all land under docs/scoreboard/.
-    for needle in ("anthony-chaudhary/dos-kernel.md", "JuliusBrussee/caveman.md",
-                   "farion1231/cc-switch.md", "kenn-io/roborev.md",
-                   "unslothai/unsloth.md", "methodology.md", "report-2026-06.md"):
+    for needle in ("methodology.md", "report-2026-06.md"):
         want = f"/blob/master/docs/scoreboard/{needle}"
-        assert any(want in h for h in blob), f"missing correct link for {needle}"
+        assert any(want in h for h in blob), f"missing blob link for {needle}"
     # The regression itself: nothing under docs/incidents/ — that path is the bug.
     assert not any("/blob/master/docs/incidents/" in h for h in blob), \
         "scoreboard links must not resolve into docs/incidents/ (the shipped bug)"
