@@ -208,6 +208,7 @@ def _build_scoreboard_pages():
 
 def test_scoreboard_links_resolve_under_scoreboard_not_incidents(tmp_path):
     import re
+    pytest.importorskip("markdown", reason="page builder needs the dev-only `markdown` dep")
     bsp = _build_scoreboard_pages()
     bsp.render(_REPO_ROOT, tmp_path, "2026-06-14")
     index = (tmp_path / "scoreboard" / "index.html").read_text(encoding="utf-8")
